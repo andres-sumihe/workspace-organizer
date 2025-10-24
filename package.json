@@ -1,0 +1,41 @@
+{
+  "name": "workspace-organizer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Workspace for a file and folder organization dashboard.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+  "dev": "concurrently \"npm run dev --workspace @workspace/api\" \"npm run dev --workspace @workspace/web\"",
+  "dev:api": "npm run dev --workspace @workspace/api",
+  "dev:web": "npm run dev --workspace @workspace/web",
+  "build": "npm run build --workspace @workspace/api && npm run build --workspace @workspace/web",
+    "lint": "eslint .",
+    "format": "prettier --check .",
+    "typecheck": "tsc --project tsconfig.base.json"
+  },
+  "keywords": [
+    "dashboard",
+    "file-management",
+    "templates"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@typescript-eslint/eslint-plugin": "^8.8.0",
+    "@typescript-eslint/parser": "^8.8.0",
+  "concurrently": "^9.2.1",
+    "eslint": "^9.38.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.30.0",
+    "eslint-plugin-jsx-a11y": "^6.9.0",
+  "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "prettier": "^3.6.2",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.9.3"
+  }
+}

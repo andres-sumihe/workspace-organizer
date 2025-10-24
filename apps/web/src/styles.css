@@ -1,0 +1,49 @@
+:root {
+  color: #0f172a;
+  background-color: #f1f5f9;
+  font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+body,
+html,
+#root {
+  margin: 0;
+  height: 100%;
+}
+
+.app {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 2rem;
+  gap: 2rem;
+  box-sizing: border-box;
+}
+
+.app__header h1 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 3rem);
+}
+
+.app__subtitle {
+  margin: 0.5rem 0 0;
+  color: #475569;
+}
+
+.status {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  font-size: 1.1rem;
+  display: inline-flex;
+  gap: 0.5rem;
+}
+
+.status--up {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.status--down {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
