@@ -3,7 +3,12 @@
   "compilerOptions": {
     "composite": true,
     "module": "ESNext",
-    "moduleResolution": "Node"
+    "moduleResolution": "Node",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@workspace/shared/*": ["../../packages/shared/src/*"]
+    }
   },
   "include": ["vite.config.ts"]
 }

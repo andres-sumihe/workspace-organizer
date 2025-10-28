@@ -7,7 +7,12 @@
     "target": "ES2022",
     "allowJs": false,
     "types": ["vite/client"],
-    "outDir": "dist"
+    "outDir": "dist",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@workspace/shared/*": ["../../packages/shared/src/*"]
+    }
   },
   "include": ["src"],
   "references": [

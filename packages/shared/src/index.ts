@@ -1,3 +1,28 @@
+export interface PaginationMeta {
+  total: number;
+  page: number;
+  pageSize: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+export interface PaginatedData<T> {
+  items: T[];
+  meta: PaginationMeta;
+}
+
+export interface ErrorDetail {
+  field?: string;
+  code?: string;
+  message: string;
+}
+
+export interface ErrorPayload {
+  code: string;
+  message: string;
+  details?: ErrorDetail[];
+}
+
 export interface TemplateFolder {
   name: string;
   folders?: TemplateFolder[];
@@ -75,3 +100,101 @@ export interface NamingRule {
   description?: string;
   sample?: string;
 }
+
+export type WorkspaceStatus = 'healthy' | 'degraded' | 'offline';
+
+export interface WorkspaceSummary {
+  id: string;
+  name: string;
+  application: string;
+  team: string;
+  status: WorkspaceStatus;
+  projectCount: number;
+  templateCount: number;
+  lastIndexedAt: string;
+}
+
+export interface WorkspaceStatistics {
+  totalFolders: number;
+  totalFiles: number;
+  storageBytes: number;
+  lastScanAt: string;
+}
+
+export type WorkspaceActivityType =
+  | 'templateApplied'
+  | 'fileCreated'
+  | 'fileRenamed'
+  | 'fileDeleted'
+  | 'ruleViolation'
+  | 'custom';
+
+export interface WorkspaceActivityItem {
+  id: string;
+  type: WorkspaceActivityType;
+  occurredAt: string;
+  actor: string;
+  description: string;
+  metadata?: Record<string, string>;
+}
+
+export interface TemplateReference {
+  id: string;
+  label: string;
+  lastAppliedAt?: string;
+}
+
+export interface WorkspaceDetail extends WorkspaceSummary {
+  rootPath: string;
+  description?: string;
+  settings: WorkspaceSettings;
+  statistics: WorkspaceStatistics;
+  recentActivity: WorkspaceActivityItem[];
+  templates: TemplateReference[];
+}
+
+export type WorkspaceListResponse = PaginatedData<WorkspaceSummary>;
+
+export interface WorkspaceDetailResponse {
+  workspace: WorkspaceDetail;
+}
+
+export type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+
+export interface JobSummary {
+  id: string;
+  type: string;
+  status: JobStatus;
+  workspaceId?: string;
+  submittedAt: string;
+  completedAt?: string;
+  progressPercent?: number;
+  message?: string;
+}
+
+export interface JobLogEntry {
+  timestamp: string;
+  level: 'info' | 'warn' | 'error';
+  message: string;
+  context?: Record<string, unknown>;
+}
+
+export interface JobDetail extends JobSummary {
+  logs: JobLogEntry[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface TemplateRun {
+  id: string;
+  jobId: string;
+  templateId: string;
+  workspaceId: string;
+  initiatedBy: string;
+  status: JobStatus;
+  startedAt: string;
+  completedAt?: string;
+  tokenValues?: Record<string, string>;
+  outputPath?: string;
+}
+
+export type TemplateTokenMap = Record<string, string>;
