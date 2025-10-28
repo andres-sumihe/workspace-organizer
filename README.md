@@ -1,6 +1,6 @@
 # Workspace Organizer
 
-Monorepo scaffold for a general-purpose project file dashboard with an Express API and React frontend.
+Monorepo scaffold for a general-purpose project file dashboard with an Express API and React frontend. 100% Vibe coding with GPT-5-Codex.
 
 ## Getting Started
 
