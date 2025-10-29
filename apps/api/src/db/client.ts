@@ -10,10 +10,15 @@ import { runMigrations } from './migrations/index.js';
 let dbPromise: Promise<Database> | null = null;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const isTestEnvironment = process.env.NODE_ENV === 'test';
 const dataDir = path.resolve(__dirname, '../../data');
-const databasePath = path.join(dataDir, 'workspace-organizer.sqlite');
+const databasePath = isTestEnvironment ? ':memory:' : path.join(dataDir, 'workspace-organizer.sqlite');
 
 const ensureDataDirectory = async () => {
+  if (isTestEnvironment) {
+    return;
+  }
+
   await fs.mkdir(dataDir, { recursive: true });
 };
 
