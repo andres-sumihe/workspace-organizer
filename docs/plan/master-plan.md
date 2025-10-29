@@ -28,6 +28,8 @@
 
 ## Initiative 2 – API Foundations
 
+**Status: Completed – paginated workspace listing, migrations, middleware, and integration tests shipped.**
+
 ### Goals
 - Build a structured Express service aligned with `docs/standarts/api-standards.md`.
 - Deliver the first feature slice (`GET /api/v1/workspaces`).

@@ -129,6 +129,7 @@ export default [
           fixStyle: "inline-type-imports"
         }
       ],
+      "react/prop-types": "off",
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/no-misused-promises": [
         "error",
@@ -172,6 +173,14 @@ export default [
     rules: {
       "@typescript-eslint/no-unsafe-assignment": "off",
       "@typescript-eslint/no-unsafe-call": "off"
+    }
+  },
+  {
+    files: ["**/__tests__/**/*.{ts,tsx,js}", "**/*.test.{ts,tsx,js}", "**/*.spec.{ts,tsx,js}"],
+    rules: {
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-call": "off",
+      "@typescript-eslint/no-unsafe-member-access": "off"
     }
   },
   {

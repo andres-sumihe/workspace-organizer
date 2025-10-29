@@ -20,6 +20,7 @@
 - Keep resource paths plural (`/workspaces`, `/projects`, `/templates`).
 - Support filtering via query params (`GET /api/v1/workspaces?status=active&search=Finance`).
 - Use nested routes for resource membership (e.g., `/api/v1/workspaces/:workspaceId/projects`).
+- Surface pagination controls with `page` and `pageSize` query parameters. Reject non-numeric or out-of-range values with `400 Bad Request`.
 
 ## Request & Response Contracts
 - Validate all input at the boundary. Reject bad payloads with `400 Bad Request` and include a `details` array explaining violations.
@@ -84,6 +85,21 @@
     }
     ```
 
+
+### Workspace Collection Endpoint
+
+- **Route**: `GET /api/v1/workspaces`
+- **Purpose**: Return a paginated list of workspace summaries backed by SQLite.
+- **Query Parameters**:
+  - `page` *(optional, default: 1)* – 1-indexed page number. Must be ≥ 1.
+  - `pageSize` *(optional, default: 20)* – Items per page. Valid range: 1–100.
+- **Responses**:
+  - `200 OK` with a `WorkspaceListResponse` payload from `@workspace/shared`.
+  - `400 BAD_REQUEST` when pagination parameters fail validation.
+- **Notes**:
+  - Controller lives at `apps/api/src/controllers/workspaces.controller.ts` and delegates to the service/repository layer.
+  - Integration coverage resides in `apps/api/src/__tests__/workspaces.routes.test.ts` using Vitest + Supertest.
+
 ## Error Handling
 - Map common error types:
   - `ValidationError` → `400 Bad Request`
@@ -101,7 +117,7 @@
 ## Observability & Logging
 - Log structured JSON (at minimum `{ level, timestamp, event, metadata }`).
 - Include `requestId` and `workspaceId` (if available) in logs for traceability.
-- Expose a lightweight `/api/health` endpoint returning service status and build metadata (already implemented on the frontend).
+- Expose a lightweight `/api/health` endpoint returning service status, build metadata, and database connectivity (returns `503` when SQLite is unreachable).
 
 ## Testing & Tooling
 - Prefer integration-style tests using supertest against the Express app.

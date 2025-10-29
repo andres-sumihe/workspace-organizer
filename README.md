@@ -19,6 +19,7 @@ npm run dev:api
 npm run dev:web
 npm run build
 npm run lint
+npm run test:api
 ```
 
 ## Repository Layout
@@ -29,7 +30,7 @@ npm run lint
 
 ## Immediate Next Steps
 
-- Implement workspace + template persistence in SQLite and expose CRUD endpoints.
+- Wire additional workspace endpoints (detail, filters) and template persistence flows.
 - Add filesystem utilities for creating folder/file structures from templates.
 - Build frontend navigation: application/team tree, project list, file preview panel.
 - Introduce realtime updates via Server-Sent Events or WebSocket based on file watcher events.
