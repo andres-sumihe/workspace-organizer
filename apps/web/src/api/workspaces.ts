@@ -11,3 +11,10 @@ export const fetchWorkspaceList = (page = 1, pageSize = 6, signal?: AbortSignal)
     signal,
   });
 };
+
+export const createWorkspace = (payload: { name: string; application: string; team: string; rootPath: string; description?: string }) => {
+  return apiRequest<{ workspace: unknown }>('/api/v1/workspaces', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+};

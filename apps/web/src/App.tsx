@@ -6,6 +6,7 @@ import type { SidebarNavItem } from '@/components/layout/app-sidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AuthenticatedLayout } from '@/layouts/authenticated-layout';
 import { DashboardPage } from '@/pages/dashboard-page';
+import { WorkspacesPage } from '@/pages/workspaces-page';
 
 type AppPage = 'dashboard' | 'workspaces' | 'analytics' | 'system';
 
@@ -44,7 +45,22 @@ const renderPlaceholder = (page: AppPage) => {
 };
 
 export function App() {
-  const [activePage, setActivePage] = useState<AppPage>('dashboard');
+  // Persist the active page so a browser refresh preserves the last selection.
+  // Use a lazy initializer to read from localStorage when available.
+  const [activePage, setActivePage] = useState<AppPage>(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const stored = window.localStorage.getItem('wo:activePage');
+        if (stored === 'dashboard' || stored === 'workspaces' || stored === 'analytics' || stored === 'system') {
+          return stored as AppPage;
+        }
+      }
+    } catch (e) {
+      // ignore storage errors and fall back to default
+    }
+
+    return 'dashboard';
+  });
 
   const sidebarItems = useMemo<SidebarNavItem[]>(
     () => [
@@ -56,13 +72,30 @@ export function App() {
     []
   );
 
-  const pageContent = activePage === 'dashboard' ? <DashboardPage /> : renderPlaceholder(activePage);
+  const pageContent =
+    activePage === 'dashboard' ? (
+      <DashboardPage />
+    ) : activePage === 'workspaces' ? (
+      <WorkspacesPage />
+    ) : (
+      renderPlaceholder(activePage)
+    );
 
   return (
     <AuthenticatedLayout
       sidebarItems={sidebarItems}
       activeSidebarKey={activePage}
-      onNavigate={(key) => setActivePage(key as AppPage)}
+      onNavigate={(key) => {
+        const page = key as AppPage;
+        setActivePage(page);
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.setItem('wo:activePage', page);
+          }
+        } catch (e) {
+          // ignore localStorage failures
+        }
+      }}
       connectionLabel="Connected to workspace datastore"
     >
       {pageContent}
