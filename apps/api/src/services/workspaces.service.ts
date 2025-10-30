@@ -1,4 +1,5 @@
 import { countWorkspaces, listWorkspaces } from '../repositories/workspaces.repository.js';
+import { createWorkspace as createWorkspaceRepo } from '../repositories/workspaces.repository.js';
 
 import type { WorkspaceListResponse } from '@workspace/shared';
 
@@ -29,4 +30,9 @@ export const getWorkspaceList = async ({ page, pageSize }: WorkspaceListOptions)
       hasPreviousPage
     }
   };
+};
+
+export const createWorkspace = async (input: any) => {
+  // Basic service layer passthrough - repository handles persistence and mapping.
+  return createWorkspaceRepo(input);
 };
