@@ -198,3 +198,27 @@ export interface TemplateRun {
 }
 
 export type TemplateTokenMap = Record<string, string>;
+
+// Template manifest types for ZIP + manifest format
+export interface TemplateFileEntry {
+  path: string; // relative path inside template
+  content?: string; // textual content (tokenized)
+  binary?: boolean; // whether this is binary data
+  executable?: boolean; // hint (use with caution on Windows)
+}
+
+export interface TemplateFolderEntry {
+  path: string; // relative path
+}
+
+export interface TemplateManifest {
+  id: string;
+  name: string;
+  description?: string;
+  version?: string;
+  createdAt?: string;
+  folders?: TemplateFolderEntry[];
+  files?: TemplateFileEntry[];
+  tokens?: { key: string; label?: string; default?: string }[];
+}
+
