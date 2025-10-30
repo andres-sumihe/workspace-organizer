@@ -3,7 +3,15 @@ import { PageShell } from '@/components/layout/page-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
+import { useForm } from 'react-hook-form';
+import {
+  Form,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormMessage
+} from '@/components/ui/form';
 import { fetchWorkspaceList } from '@/api/workspaces';
 import type { WorkspaceSummary } from '@workspace/shared';
 import { Loader2, RefreshCw } from 'lucide-react';
@@ -26,14 +34,8 @@ export const WorkspacesPage = () => {
   const [page, setPage] = useState(1);
   const [pageSize] = useState(6);
   const [total, setTotal] = useState<number | null>(null);
-  const [showNew, setShowNew] = useState(false);
   const [openNew, setOpenNew] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newApplication, setNewApplication] = useState('');
-  const [newTeam, setNewTeam] = useState('');
-  const [newRootPath, setNewRootPath] = useState('');
-  const [newDescription, setNewDescription] = useState('');
 
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -65,6 +67,48 @@ export const WorkspacesPage = () => {
     return () => controller.abort();
   }, [load]);
 
+  type FormValues = {
+    name: string;
+    application: string;
+    rootPath: string;
+    description?: string;
+  };
+
+  const form = useForm<FormValues>({
+    defaultValues: {
+      name: '',
+      application: '',
+      rootPath: '',
+      description: '',
+    },
+  });
+
+  // Submission handler extracted so we can trigger it without a native <form> element.
+  const handleCreate = async (values: FormValues) => {
+    setCreating(true);
+    try {
+      const resp = await createWorkspace({
+        name: values.name,
+        application: values.application,
+        rootPath: values.rootPath,
+        description: values.description || undefined,
+      });
+
+      const created = (resp as any).workspace;
+      if (created) {
+        setItems((s) => [created as WorkspaceSummary, ...s]);
+        setTotal((t) => (t ?? 0) + 1);
+        form.reset();
+        setOpenNew(false);
+      }
+    } catch (err) {
+      console.error('Failed to create workspace', err);
+      setError((err as Error)?.message ?? 'Failed to create workspace');
+    } finally {
+      setCreating(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <PageShell
@@ -82,7 +126,7 @@ export const WorkspacesPage = () => {
               {loading ? <Loader2 className="animate-spin size-4" /> : <RefreshCw className="size-4" />}
               Refresh
             </Button>
-            <Dialog>
+            <Dialog open={openNew} onOpenChange={setOpenNew}>
               <DialogTrigger asChild>
                 <Button variant="secondary" size="sm">New Workspace</Button>
               </DialogTrigger>
@@ -91,76 +135,79 @@ export const WorkspacesPage = () => {
                   <DialogTitle>New workspace</DialogTitle>
                   <DialogDescription>Create a new workspace to be indexed by the system.</DialogDescription>
                 </DialogHeader>
-                {/* form will be rendered inside the dialog content */}
-                <form
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    setCreating(true);
-                    try {
-                      const resp = await createWorkspace({
-                        name: newName,
-                        application: newApplication,
-                        team: newTeam,
-                        rootPath: newRootPath,
-                        description: newDescription || undefined
-                      });
+                {/* form will be rendered inside the dialog content using react-hook-form + shadcn Form */}
+                <Form {...form}>
+                  <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Name</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Workspace name" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                      const created = (resp as any).workspace;
-                      if (created) {
-                        // prepend the new workspace to the list and update total
-                        setItems((s) => [created as WorkspaceSummary, ...s]);
-                        setTotal((t) => (t ?? 0) + 1);
-                        // reset form
-                        setNewName('');
-                        setNewApplication('');
-                        setNewTeam('');
-                        setNewRootPath('');
-                        setNewDescription('');
-                        setOpenNew(false);
-                      }
-                    } catch (err) {
-                      console.error('Failed to create workspace', err);
-                      setError((err as Error)?.message ?? 'Failed to create workspace');
-                    } finally {
-                      setCreating(false);
-                    }
-                  }}
-                  className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4"
-                >
-                  <div>
-                    <Label className="mb-1">Name</Label>
-                    <Input required value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Workspace name" />
+                    <FormField
+                      control={form.control}
+                      name="application"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Application</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Application" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Team field removed per schema — not persisted server-side */}
+
+                    <FormField
+                      control={form.control}
+                      name="rootPath"
+                      render={({ field }) => (
+                        <FormItem className="md:col-span-2">
+                          <FormLabel>Root path</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="/path/to/repo" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem className="md:col-span-2">
+                          <FormLabel>Description (optional)</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} placeholder="Short description" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    
+
                   </div>
-
-                  <div>
-                    <Label className="mb-1">Application</Label>
-                    <Input required value={newApplication} onChange={(e) => setNewApplication(e.target.value)} placeholder="Application" />
-                  </div>
-
-                  <div>
-                    <Label className="mb-1">Team</Label>
-                    <Input required value={newTeam} onChange={(e) => setNewTeam(e.target.value)} placeholder="Team" />
-                  </div>
-
-                  <div className="md:col-span-3">
-                    <Label className="mb-1">Root path</Label>
-                    <Input required value={newRootPath} onChange={(e) => setNewRootPath(e.target.value)} placeholder="/path/to/repo" />
-                  </div>
-
-                  <div className="md:col-span-3">
-                    <Label className="mb-1">Description (optional)</Label>
-                    <Textarea value={newDescription} onChange={(e) => setNewDescription(e.target.value)} placeholder="Short description" />
-                  </div>
-
-                  <DialogFooter>
-                    <div className="md:col-span-3 flex items-center gap-2">
-                      <Button type="submit" disabled={creating}>{creating ? 'Creating...' : 'Create'}</Button>
+                  <DialogFooter className="mt-4">
+                    <div className="flex items-center gap-2">
+                      <Button type="button" onClick={form.handleSubmit(handleCreate)} disabled={creating}>{creating ? 'Creating...' : 'Create'}</Button>
                       <DialogClose asChild>
                         <Button type="button" variant="ghost">Cancel</Button>
                       </DialogClose>
                     </div>
                   </DialogFooter>
-                </form>
+                </Form>
               </DialogContent>
             </Dialog>
           </div>
@@ -182,7 +229,7 @@ export const WorkspacesPage = () => {
                   <div className="flex items-center gap-4">
                     <div className="flex-1">
                       <div className="text-base font-semibold text-foreground">{ws.name}</div>
-                      <div className="text-xs text-muted-foreground mt-1">{ws.application} · {ws.team}</div>
+                      <div className="text-xs text-muted-foreground mt-1">{ws.application}</div>
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-medium text-foreground">{ws.projectCount} projects</div>

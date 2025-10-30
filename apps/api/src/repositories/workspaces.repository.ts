@@ -6,7 +6,6 @@ interface WorkspaceSummaryRow {
   id: string;
   name: string;
   application: string;
-  team: string;
   status: WorkspaceStatus;
   project_count: number;
   template_count: number;
@@ -46,7 +45,6 @@ const isWorkspaceSummaryRow = (value: unknown): value is WorkspaceSummaryRow => 
     typeof candidate.id === 'string' &&
     typeof candidate.name === 'string' &&
     typeof candidate.application === 'string' &&
-    typeof candidate.team === 'string' &&
     isWorkspaceStatus(candidate.status) &&
     typeof candidate.project_count === 'number' &&
     typeof candidate.template_count === 'number' &&
@@ -64,7 +62,6 @@ const mapRowToSummary = (row: WorkspaceSummaryRow): WorkspaceSummary => {
     id: row.id,
     name: row.name,
     application: row.application,
-    team: row.team,
     status: row.status,
     projectCount: row.project_count,
     templateCount: row.template_count,
@@ -147,7 +144,6 @@ export const findWorkspaceById = async (id: string): Promise<WorkspaceDetail | n
 export interface CreateWorkspaceInput {
   name: string;
   application: string;
-  team: string;
   rootPath: string;
   description?: string;
   settings?: unknown;
@@ -161,7 +157,6 @@ export const createWorkspace = async (input: CreateWorkspaceInput & { id: string
     id,
     name,
     application,
-    team,
     rootPath,
     description,
     status = 'offline',
@@ -174,14 +169,13 @@ export const createWorkspace = async (input: CreateWorkspaceInput & { id: string
 
   await db.run(
     `INSERT INTO workspaces (
-      id, name, application, team, status, project_count, template_count, last_indexed_at,
+      id, name, application, status, project_count, template_count, last_indexed_at,
       root_path, description, settings_json, statistics_json, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       name,
       application,
-      team,
       status,
       lastIndexedAt,
       rootPath,
