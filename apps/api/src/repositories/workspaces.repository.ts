@@ -143,3 +143,61 @@ export const findWorkspaceById = async (id: string): Promise<WorkspaceDetail | n
 
   return mapRowToDetail(row);
 };
+
+export interface CreateWorkspaceInput {
+  name: string;
+  application: string;
+  team: string;
+  rootPath: string;
+  description?: string;
+  settings?: unknown;
+  statistics?: unknown;
+}
+
+export const createWorkspace = async (input: CreateWorkspaceInput & { id: string; status?: string; createdAt: string; updatedAt: string; lastIndexedAt?: string; }): Promise<WorkspaceDetail> => {
+  const db = await getDb();
+
+  const {
+    id,
+    name,
+    application,
+    team,
+    rootPath,
+    description,
+    status = 'offline',
+    settings = {},
+    statistics = {},
+    createdAt,
+    updatedAt,
+    lastIndexedAt = createdAt
+  } = input as any;
+
+  await db.run(
+    `INSERT INTO workspaces (
+      id, name, application, team, status, project_count, template_count, last_indexed_at,
+      root_path, description, settings_json, statistics_json, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      name,
+      application,
+      team,
+      status,
+      lastIndexedAt,
+      rootPath,
+      description ?? null,
+      JSON.stringify(settings),
+      JSON.stringify(statistics),
+      createdAt,
+      updatedAt
+    ]
+  );
+
+  const created = await findWorkspaceById(id);
+
+  if (!created) {
+    throw new Error('Failed to create workspace');
+  }
+
+  return created;
+};
