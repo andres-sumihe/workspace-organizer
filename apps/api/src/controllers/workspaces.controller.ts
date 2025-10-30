@@ -18,10 +18,10 @@ export const listWorkspacesHandler: RequestHandler = async (req, res) => {
 export const createWorkspaceHandler: RequestHandler = async (req, res) => {
   const body = req.body ?? {};
 
-  const { name, application, team, rootPath, description, settings, statistics } = body;
+  const { name, application, rootPath, description, settings, statistics, status, lastIndexedAt } = body;
 
-  if (!name || !application || !team || !rootPath) {
-    return res.status(400).json({ code: 'INVALID_REQUEST', message: 'Missing required fields: name, application, team, rootPath' });
+  if (!name || !application || !rootPath) {
+    return res.status(400).json({ code: 'INVALID_REQUEST', message: 'Missing required fields: name, application, rootPath' });
   }
 
   const id = uuidv4();
@@ -31,11 +31,12 @@ export const createWorkspaceHandler: RequestHandler = async (req, res) => {
     id,
     name,
     application,
-    team,
     rootPath,
     description,
     settings,
     statistics,
+    status,
+    lastIndexedAt,
     createdAt: now,
     updatedAt: now
   } as any);
