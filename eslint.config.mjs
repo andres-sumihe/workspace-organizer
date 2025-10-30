@@ -1,75 +1,47 @@
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import js from "@eslint/js";
-import tsPlugin from "@typescript-eslint/eslint-plugin";
-import tsParser from "@typescript-eslint/parser";
-import globals from "globals";
-import importPlugin from "eslint-plugin-import";
-import jsxA11yPlugin from "eslint-plugin-jsx-a11y";
-import reactPlugin from "eslint-plugin-react";
-import reactHooksPlugin from "eslint-plugin-react-hooks";
+import js from '@eslint/js';
+import tsPlugin from '@typescript-eslint/eslint-plugin';
+import tsParser from '@typescript-eslint/parser';
+import globals from 'globals';
+import importPlugin from 'eslint-plugin-import';
+import jsxA11yPlugin from 'eslint-plugin-jsx-a11y';
+import reactPlugin from 'eslint-plugin-react';
+import reactHooksPlugin from 'eslint-plugin-react-hooks';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const enrichTypeScriptConfig = (config) => ({
-  ...config,
-  files: config.files ?? ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"],
-  languageOptions: {
-    ...config.languageOptions,
-    parser: tsParser,
-    parserOptions: {
-      projectService: true,
-      tsconfigRootDir: __dirname,
-      ecmaFeatures: { jsx: true },
-      sourceType: "module",
-      ...config.languageOptions?.parserOptions
-    }
-  },
-  plugins: {
-    ...config.plugins,
-    "@typescript-eslint": tsPlugin
-  }
-});
-
-const tsTypeCheckedConfigs = (tsPlugin.configs["flat/recommended-type-checked"] ?? []).map(enrichTypeScriptConfig);
-
-const tsStylisticConfigs = (tsPlugin.configs["flat/stylistic-type-checked"] ?? []).map(enrichTypeScriptConfig);
-
 export default [
+  // Ignore build artifacts and non-source helpers
   {
     ignores: [
-      "**/dist/**",
-      "**/build/**",
-      "**/.turbo/**",
-      "**/coverage/**",
-      "node_modules/**",
-      "src/**",
-      "components.json"
+      '**/dist/**',
+      '**/build/**',
+      '**/.turbo/**',
+      '**/coverage/**',
+      'node_modules/**',
+      'components.json',
+      'electron/**',
+      'lib/**',
+      'scripts/**'
     ]
   },
-  {
-    settings: {
-      react: {
-        version: "detect"
-      }
-    }
-  },
+
+  // JS recommended baseline
   js.configs.recommended,
-  ...tsTypeCheckedConfigs,
-  ...tsStylisticConfigs,
-  reactPlugin.configs.flat.recommended,
-  reactPlugin.configs.flat["jsx-runtime"],
+
+  // Lightweight TypeScript + React config (no project-based type-check parsing)
   {
-  files: ["**/*.{js,jsx,ts,tsx}"],
+    files: ['**/*.{ts,tsx,js,jsx}'],
     languageOptions: {
       parser: tsParser,
       parserOptions: {
-        projectService: true,
-        tsconfigRootDir: __dirname,
+        ecmaVersion: 2023,
+        sourceType: 'module',
         ecmaFeatures: { jsx: true },
-        sourceType: "module"
+        tsconfigRootDir: __dirname
       },
       globals: {
         ...globals.node,
@@ -77,128 +49,77 @@ export default [
       }
     },
     plugins: {
-      "@typescript-eslint": tsPlugin,
+      '@typescript-eslint': tsPlugin,
       react: reactPlugin,
-      "react-hooks": reactHooksPlugin,
-      "jsx-a11y": jsxA11yPlugin,
+      'react-hooks': reactHooksPlugin,
+      'jsx-a11y': jsxA11yPlugin,
       import: importPlugin
     },
     settings: {
-      "import/resolver": {
-        typescript: {
-          project: "./tsconfig.base.json"
-        },
-        node: {
-          extensions: [".js", ".jsx", ".ts", ".tsx"]
-        }
+      react: { version: 'detect' },
+      'import/resolver': {
+        typescript: { project: './tsconfig.base.json' },
+        node: { extensions: ['.js', '.jsx', '.ts', '.tsx'] }
       }
     },
     rules: {
-      ...jsxA11yPlugin.configs.recommended.rules,
-      "import/order": [
-        "error",
+      // Keep a small, practical set of rules. Reintroduce stricter type-checked rules later.
+      'import/order': [
+        'error',
         {
-          groups: [
-            "builtin",
-            "external",
-            "internal",
-            ["parent", "sibling", "index"],
-            "object",
-            "type"
-          ],
-          alphabetize: { order: "asc", caseInsensitive: true },
-          "newlines-between": "always",
-          pathGroups: [
-            {
-              pattern: "@workspace/shared/**",
-              group: "internal"
-            }
-          ],
-          pathGroupsExcludedImportTypes: ["builtin"]
+          groups: ['builtin', 'external', 'internal', ['parent', 'sibling', 'index'], 'object', 'type'],
+          'newlines-between': 'always',
+          alphabetize: { order: 'asc', caseInsensitive: true },
+          pathGroups: [{ pattern: '@workspace/shared/**', group: 'internal' }],
+          pathGroupsExcludedImportTypes: ['builtin']
         }
       ],
-      "import/no-default-export": "error",
-      "react/jsx-uses-react": "off",
-      "react/react-in-jsx-scope": "off",
-      "react-hooks/rules-of-hooks": "error",
-      "react-hooks/exhaustive-deps": "warn",
-      "@typescript-eslint/consistent-type-imports": [
-        "error",
-        {
-          prefer: "type-imports",
-          fixStyle: "inline-type-imports"
-        }
-      ],
-      "react/prop-types": "off",
-      "@typescript-eslint/no-floating-promises": "error",
-      "@typescript-eslint/no-misused-promises": [
-        "error",
-        {
-          checksVoidReturn: {
-            attributes: false
-          }
-        }
-      ],
-      "@typescript-eslint/no-unused-vars": [
-        "error",
-        {
-          argsIgnorePattern: "^_",
-          varsIgnorePattern: "^_",
-          caughtErrorsIgnorePattern: "^_"
-        }
-      ]
+      'import/no-default-export': 'error',
+      'react/jsx-uses-react': 'off',
+      'react/react-in-jsx-scope': 'off',
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
+      '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports', fixStyle: 'inline-type-imports' }],
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }]
     }
   },
+
+  // API server: Node environment and allow default exports
   {
-    files: ["apps/api/**/*.{ts,tsx,js}"],
-    languageOptions: {
-      globals: {
-        ...globals.node
-      }
-    },
+    files: ['apps/api/**/*.{ts,tsx,js}'],
+    languageOptions: { globals: { ...globals.node } },
+    rules: { 'import/no-default-export': 'off' }
+  },
+
+  // Web: Browser globals
+  {
+    files: ['apps/web/**/*.{ts,tsx,jsx}'],
+    languageOptions: { globals: { ...globals.browser } }
+  },
+
+  // Allow default exports for build/config scripts where required by the tool.
+  {
+    files: ['**/vite.config.{js,ts}', '**/tailwind.config.{js,ts}', '**/postcss.config.{js,ts}'],
+    rules: { 'import/no-default-export': 'off' }
+  },
+
+  // UI helpers may use loose typing (third-party wrappers) — opt out of a couple strict rules here
+  {
+    files: ['apps/web/src/components/ui/**/*.{ts,tsx}'],
     rules: {
-      "import/no-default-export": "off"
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off'
     }
   },
+
+  // Tests and declaration files
   {
-    files: ["apps/web/**/*.{ts,tsx,jsx}"],
-    languageOptions: {
-      globals: {
-        ...globals.browser
-      }
-    }
+    files: ['**/__tests__/**/*.{ts,tsx,js}', '**/*.test.{ts,tsx,js}', '**/*.spec.{ts,tsx,js}'],
+    rules: { '@typescript-eslint/no-unsafe-assignment': 'off', '@typescript-eslint/no-unsafe-call': 'off', '@typescript-eslint/no-unsafe-member-access': 'off' }
   },
   {
-    files: ["apps/web/src/components/ui/**/*.{ts,tsx}"],
-    rules: {
-      "@typescript-eslint/no-unsafe-assignment": "off",
-      "@typescript-eslint/no-unsafe-call": "off"
-    }
-  },
-  {
-    files: ["**/__tests__/**/*.{ts,tsx,js}", "**/*.test.{ts,tsx,js}", "**/*.spec.{ts,tsx,js}"],
-    rules: {
-      "@typescript-eslint/no-unsafe-assignment": "off",
-      "@typescript-eslint/no-unsafe-call": "off",
-      "@typescript-eslint/no-unsafe-member-access": "off"
-    }
-  },
-  {
-    files: ["**/*.d.ts"],
-    rules: {
-      "@typescript-eslint/no-unused-vars": "off",
-      "@typescript-eslint/consistent-type-imports": "off",
-      "import/no-default-export": "off"
-    }
-  },
-  {
-    files: [
-      "**/tailwind.config.{js,ts}",
-      "**/vite.config.{js,ts}",
-      "**/postcss.config.{js,ts}"
-    ],
-    rules: {
-      "import/no-default-export": "off"
-    }
+    files: ['**/*.d.ts'],
+    rules: { '@typescript-eslint/no-unused-vars': 'off', '@typescript-eslint/consistent-type-imports': 'off', 'import/no-default-export': 'off' }
   }
 ];

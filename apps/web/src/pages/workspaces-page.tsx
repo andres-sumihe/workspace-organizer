@@ -1,21 +1,14 @@
+ 
+import { Loader2, RefreshCw } from 'lucide-react';
 import { useEffect, useState, useCallback } from 'react';
+import { useForm } from 'react-hook-form';
+
+import type { WorkspaceSummary } from '@workspace/shared';
+
+import { fetchWorkspaceList } from '@/api/workspaces';
+import { createWorkspace } from '@/api/workspaces';
 import { PageShell } from '@/components/layout/page-shell';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { useForm } from 'react-hook-form';
-import {
-  Form,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-  FormMessage
-} from '@/components/ui/form';
-import { fetchWorkspaceList } from '@/api/workspaces';
-import type { WorkspaceSummary } from '@workspace/shared';
-import { Loader2, RefreshCw } from 'lucide-react';
-import { createWorkspace } from '@/api/workspaces';
 import {
   Dialog,
   DialogTrigger,
@@ -26,6 +19,18 @@ import {
   DialogDescription,
   DialogClose,
 } from '@/components/ui/dialog';
+import {
+  Form,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormMessage
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+
+
 
 export const WorkspacesPage = () => {
   const [items, setItems] = useState<WorkspaceSummary[]>([]);
@@ -47,7 +52,16 @@ export const WorkspacesPage = () => {
       setTotal(payload.meta.total);
     } catch (err: unknown) {
       // Ignore abort errors from AbortController (e.g. cleanup or StrictMode double-mount)
-      const isAbort = (err as any)?.name === 'AbortError' || (signal && signal.aborted) || /aborted/i.test(String((err as any)?.message ?? ''));
+      const e = err;
+      const name = typeof e === 'object' && e !== null && 'name' in e ? (e as { name?: unknown }).name : undefined;
+      let message = '';
+      if (typeof e === 'object' && e !== null && 'message' in e) {
+        const raw = (e as { message?: unknown }).message;
+        if (typeof raw === 'string') message = raw;
+      } else if (typeof e === 'string') {
+        message = e;
+      }
+      const isAbort = name === 'AbortError' ? true : signal?.aborted ? true : /aborted/i.test(message);
       if (isAbort) {
         // Do not surface aborts as user-facing errors; simply return and let a manual refresh retry.
         console.debug('Workspace load aborted, suppressing error display.');
@@ -55,7 +69,7 @@ export const WorkspacesPage = () => {
       }
 
       console.error('Failed to load workspaces', err);
-      setError((err as Error)?.message ?? 'Unknown error');
+      if (err instanceof Error) setError(err.message); else if (typeof err === 'string') setError(err); else setError('Unknown error');
     } finally {
       setLoading(false);
     }
@@ -67,12 +81,12 @@ export const WorkspacesPage = () => {
     return () => controller.abort();
   }, [load]);
 
-  type FormValues = {
+  interface FormValues {
     name: string;
     application: string;
     rootPath: string;
     description?: string;
-  };
+  }
 
   const form = useForm<FormValues>({
     defaultValues: {
@@ -91,19 +105,19 @@ export const WorkspacesPage = () => {
         name: values.name,
         application: values.application,
         rootPath: values.rootPath,
-        description: values.description || undefined,
+        description: values.description ?? undefined,
       });
 
-      const created = (resp as any).workspace;
+      const created = (resp as unknown as { workspace?: WorkspaceSummary }).workspace;
       if (created) {
-        setItems((s) => [created as WorkspaceSummary, ...s]);
+        setItems((s) => [created, ...s]);
         setTotal((t) => (t ?? 0) + 1);
         form.reset();
         setOpenNew(false);
       }
     } catch (err) {
       console.error('Failed to create workspace', err);
-      setError((err as Error)?.message ?? 'Failed to create workspace');
+      if (err instanceof Error) setError(err.message); else if (typeof err === 'string') setError(err); else setError('Failed to create workspace');
     } finally {
       setCreating(false);
     }

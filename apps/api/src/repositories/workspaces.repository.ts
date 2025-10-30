@@ -165,7 +165,7 @@ export const createWorkspace = async (input: CreateWorkspaceInput & { id: string
     createdAt,
     updatedAt,
     lastIndexedAt = createdAt
-  } = input as any;
+  } = input;
 
   await db.run(
     `INSERT INTO workspaces (

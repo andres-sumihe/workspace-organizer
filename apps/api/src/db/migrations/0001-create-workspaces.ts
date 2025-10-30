@@ -13,7 +13,7 @@ export const up = async (db: Database) => {
     )
   `);
 
-  -- Workspaces table with sensible defaults for timestamps
+  // Workspaces table with sensible defaults for timestamps
   await db.exec(`
     CREATE TABLE IF NOT EXISTS workspaces (
       id TEXT PRIMARY KEY,
