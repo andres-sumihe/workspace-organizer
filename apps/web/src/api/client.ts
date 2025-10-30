@@ -16,7 +16,7 @@ const resolveApiBaseUrl = () => {
 
 const API_BASE_URL = resolveApiBaseUrl();
 
-interface RequestOptions extends RequestInit {
+interface RequestOptions extends globalThis.RequestInit {
   query?: Record<string, string | number | boolean | undefined>;
 }
 

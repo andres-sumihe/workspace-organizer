@@ -1,8 +1,10 @@
+import { v4 as uuidv4 } from 'uuid';
+
 import { parsePaginationQuery } from '../schemas/pagination.js';
 import { getWorkspaceList, createWorkspace as createWorkspaceService } from '../services/workspaces.service.js';
 
+import type { CreateWorkspaceInput } from '../repositories/workspaces.repository.js';
 import type { RequestHandler } from 'express';
-import { v4 as uuidv4 } from 'uuid';
 
 export const listWorkspacesHandler: RequestHandler = async (req, res) => {
   const pagination = parsePaginationQuery(req.query);
@@ -16,9 +18,16 @@ export const listWorkspacesHandler: RequestHandler = async (req, res) => {
 };
 
 export const createWorkspaceHandler: RequestHandler = async (req, res) => {
-  const body = req.body ?? {};
+  const body = (req.body ?? {}) as Record<string, unknown>;
 
-  const { name, application, rootPath, description, settings, statistics, status, lastIndexedAt } = body;
+  const name = typeof body.name === 'string' ? body.name : undefined;
+  const application = typeof body.application === 'string' ? body.application : undefined;
+  const rootPath = typeof body.rootPath === 'string' ? body.rootPath : undefined;
+  const description = typeof body.description === 'string' ? body.description : undefined;
+  const settings = body.settings;
+  const statistics = body.statistics;
+  const status = typeof body.status === 'string' ? body.status : undefined;
+  const lastIndexedAt = typeof body.lastIndexedAt === 'string' ? body.lastIndexedAt : undefined;
 
   if (!name || !application || !rootPath) {
     return res.status(400).json({ code: 'INVALID_REQUEST', message: 'Missing required fields: name, application, rootPath' });
@@ -27,7 +36,7 @@ export const createWorkspaceHandler: RequestHandler = async (req, res) => {
   const id = uuidv4();
   const now = new Date().toISOString();
 
-  const workspace = await createWorkspaceService({
+  const input: CreateWorkspaceInput & { id: string; createdAt: string; updatedAt: string; status?: string; lastIndexedAt?: string } = {
     id,
     name,
     application,
@@ -39,7 +48,9 @@ export const createWorkspaceHandler: RequestHandler = async (req, res) => {
     lastIndexedAt,
     createdAt: now,
     updatedAt: now
-  } as any);
+  };
+
+  const workspace = await createWorkspaceService(input);
 
   res.status(201).json({ workspace });
 };

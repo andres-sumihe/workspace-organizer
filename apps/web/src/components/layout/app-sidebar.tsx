@@ -1,6 +1,6 @@
-import type { LucideIcon } from 'lucide-react';
 import { Database } from 'lucide-react';
-import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+
+import type { LucideIcon } from 'lucide-react';
 
 import {
   Sidebar,
@@ -17,6 +17,7 @@ import {
   SidebarRail,
   SidebarSeparator,
 } from '@/components/ui/sidebar';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 export interface SidebarNavItem {
   key: string;

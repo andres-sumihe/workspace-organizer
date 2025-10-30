@@ -55,7 +55,7 @@ export function App() {
           return stored as AppPage;
         }
       }
-    } catch (e) {
+    } catch (_e) {
       // ignore storage errors and fall back to default
     }
 
@@ -92,7 +92,7 @@ export function App() {
           if (typeof window !== 'undefined' && window.localStorage) {
             window.localStorage.setItem('wo:activePage', page);
           }
-        } catch (e) {
+        } catch (_e) {
           // ignore localStorage failures
         }
       }}
