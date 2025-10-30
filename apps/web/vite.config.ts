@@ -17,7 +17,12 @@ export default defineConfig({
       '/api': {
         target: API_PROXY_TARGET,
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
+        // Keep the original path when proxying so requests like
+        // /api/v1/workspaces are forwarded to the backend as
+        // http://localhost:4000/api/v1/workspaces (no path stripping).
+        // Removing the rewrite prevents the backend from receiving
+        // requests missing the /api prefix which previously caused 404s.
+        // (No rewrite function here intentionally.)
       }
     }
   },
