@@ -12,7 +12,7 @@ export const fetchWorkspaceList = (page = 1, pageSize = 6, signal?: AbortSignal)
   });
 };
 
-export const createWorkspace = (payload: { name: string; application: string; rootPath: string; description?: string }) => {
+export const createWorkspace = (payload: { name: string; rootPath: string; description?: string }) => {
   return apiRequest<{ workspace: unknown }>('/api/v1/workspaces', {
     method: 'POST',
     body: JSON.stringify(payload)
