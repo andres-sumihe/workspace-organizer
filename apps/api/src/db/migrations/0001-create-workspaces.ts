@@ -18,7 +18,6 @@ export const up = async (db: Database) => {
     CREATE TABLE IF NOT EXISTS workspaces (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
-      application TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'offline',
       project_count INTEGER NOT NULL DEFAULT 0,
       template_count INTEGER NOT NULL DEFAULT 0,
@@ -95,7 +94,6 @@ export const up = async (db: Database) => {
 
   // Indexes for common queries
   await db.exec(`CREATE INDEX IF NOT EXISTS idx_workspaces_name ON workspaces(name);`);
-  await db.exec(`CREATE INDEX IF NOT EXISTS idx_workspaces_application ON workspaces(application);`);
   await db.exec(`CREATE INDEX IF NOT EXISTS idx_projects_workspace ON projects(workspace_id);`);
   await db.exec(`CREATE INDEX IF NOT EXISTS idx_workspaces_status ON workspaces(status);`);
   await db.exec(`CREATE INDEX IF NOT EXISTS idx_workspaces_last_indexed_at ON workspaces(last_indexed_at);`);

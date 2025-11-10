@@ -5,7 +5,6 @@ import type { WorkspaceDetail, WorkspaceSummary, WorkspaceStatus } from '@worksp
 interface WorkspaceSummaryRow {
   id: string;
   name: string;
-  application: string;
   status: WorkspaceStatus;
   project_count: number;
   template_count: number;
@@ -44,7 +43,6 @@ const isWorkspaceSummaryRow = (value: unknown): value is WorkspaceSummaryRow => 
   return (
     typeof candidate.id === 'string' &&
     typeof candidate.name === 'string' &&
-    typeof candidate.application === 'string' &&
     isWorkspaceStatus(candidate.status) &&
     typeof candidate.project_count === 'number' &&
     typeof candidate.template_count === 'number' &&
@@ -61,7 +59,6 @@ const mapRowToSummary = (row: WorkspaceSummaryRow): WorkspaceSummary => {
   const summary = {
     id: row.id,
     name: row.name,
-    application: row.application,
     status: row.status,
     projectCount: row.project_count,
     templateCount: row.template_count,
@@ -143,7 +140,6 @@ export const findWorkspaceById = async (id: string): Promise<WorkspaceDetail | n
 
 export interface CreateWorkspaceInput {
   name: string;
-  application: string;
   rootPath: string;
   description?: string;
   settings?: unknown;
@@ -156,7 +152,6 @@ export const createWorkspace = async (input: CreateWorkspaceInput & { id: string
   const {
     id,
     name,
-    application,
     rootPath,
     description,
     status = 'offline',
@@ -175,7 +170,7 @@ export const createWorkspace = async (input: CreateWorkspaceInput & { id: string
     [
       id,
       name,
-      application,
+      '', /* compatibility: existing DBs may still require non-null application */
       status,
       lastIndexedAt,
       rootPath,
