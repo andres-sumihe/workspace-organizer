@@ -62,7 +62,8 @@ const mapRowToSummary = (row: WorkspaceSummaryRow): WorkspaceSummary => {
     status: row.status,
     projectCount: row.project_count,
     templateCount: row.template_count,
-    lastIndexedAt: row.last_indexed_at
+    lastIndexedAt: row.last_indexed_at,
+    rootPath: row.root_path
   } satisfies WorkspaceSummary;
 
   return summary;
@@ -164,13 +165,12 @@ export const createWorkspace = async (input: CreateWorkspaceInput & { id: string
 
   await db.run(
     `INSERT INTO workspaces (
-      id, name, application, status, project_count, template_count, last_indexed_at,
+      id, name, status, project_count, template_count, last_indexed_at,
       root_path, description, settings_json, statistics_json, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       name,
-      '', /* compatibility: existing DBs may still require non-null application */
       status,
       lastIndexedAt,
       rootPath,
@@ -189,4 +189,73 @@ export const createWorkspace = async (input: CreateWorkspaceInput & { id: string
   }
 
   return created;
+};
+
+export interface UpdateWorkspaceInput {
+  name?: string;
+  rootPath?: string;
+  description?: string;
+  status?: WorkspaceStatus;
+  settings?: unknown;
+  statistics?: unknown;
+  lastIndexedAt?: string;
+}
+
+export const updateWorkspace = async (id: string, updates: UpdateWorkspaceInput): Promise<WorkspaceDetail | null> => {
+  const db = await getDb();
+  const assignments: string[] = [];
+  const values: unknown[] = [];
+
+  if (updates.name !== undefined) {
+    assignments.push('name = ?');
+    values.push(updates.name);
+  }
+
+  if (updates.rootPath !== undefined) {
+    assignments.push('root_path = ?');
+    values.push(updates.rootPath);
+  }
+
+  if (updates.description !== undefined) {
+    assignments.push('description = ?');
+    values.push(updates.description ?? null);
+  }
+
+  if (updates.status !== undefined) {
+    assignments.push('status = ?');
+    values.push(updates.status);
+  }
+
+  if (updates.settings !== undefined) {
+    assignments.push('settings_json = ?');
+    values.push(JSON.stringify(updates.settings));
+  }
+
+  if (updates.statistics !== undefined) {
+    assignments.push('statistics_json = ?');
+    values.push(JSON.stringify(updates.statistics));
+  }
+
+  if (updates.lastIndexedAt !== undefined) {
+    assignments.push('last_indexed_at = ?');
+    values.push(updates.lastIndexedAt);
+  }
+
+  if (assignments.length === 0) {
+    return findWorkspaceById(id);
+  }
+
+  assignments.push('updated_at = ?');
+  values.push(new Date().toISOString());
+
+  values.push(id);
+
+  await db.run(`UPDATE workspaces SET ${assignments.join(', ')} WHERE id = ?`, values);
+
+  return findWorkspaceById(id);
+};
+
+export const incrementWorkspaceProjectCount = async (workspaceId: string, delta: number) => {
+  const db = await getDb();
+  await db.run('UPDATE workspaces SET project_count = MAX(project_count + ?, 0) WHERE id = ?', [delta, workspaceId]);
 };
