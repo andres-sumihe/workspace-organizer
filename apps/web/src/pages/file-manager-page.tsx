@@ -451,21 +451,23 @@ export const FileManagerPage = () => {
                 </Button>
               ) : null}
             </div>
-            {previewError ? (
-              <p className="mt-3 text-sm text-destructive">{previewError}</p>
-            ) : preview ? (
-              <div className="mt-3 space-y-2 text-sm">
-                <p className="font-mono text-xs text-muted-foreground">{preview.path}</p>
-                <div className="rounded-md border border-border bg-muted/40 p-3">
-                  <pre className="h-64 overflow-y-auto whitespace-pre-wrap text-xs text-foreground">{preview.content}</pre>
+            <div className="mt-3">
+              {previewError ? (
+                <p className="text-sm text-destructive">{previewError}</p>
+              ) : preview ? (
+                <div className="space-y-2 text-sm">
+                  <p className="font-mono text-xs text-muted-foreground break-all">{preview.path}</p>
+                  <div className="rounded-md border border-border bg-muted/40 p-3 h-64 overflow-auto max-w-full w-full">
+                    <pre className="whitespace-pre-wrap break-all text-xs text-foreground w-full">{preview.content}</pre>
+                  </div>
+                  {preview.truncated ? (
+                    <p className="text-xs text-muted-foreground">Preview truncated to 512KB.</p>
+                  ) : null}
                 </div>
-                {preview.truncated ? (
-                  <p className="text-xs text-muted-foreground">Preview truncated to 512KB.</p>
-                ) : null}
-              </div>
-            ) : (
-              <p className="mt-3 text-sm text-muted-foreground">Select a file to see its contents.</p>
-            )}
+              ) : (
+                <p className="text-sm text-muted-foreground">Select a file to see its contents.</p>
+              )}
+            </div>
           </div>
         </div>
       </PageShell>

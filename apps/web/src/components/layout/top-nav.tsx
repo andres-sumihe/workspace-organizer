@@ -45,7 +45,6 @@ export const TopNav = () => {
           </TooltipTrigger>
           <TooltipContent>Preferences</TooltipContent>
         </Tooltip>
-        <Button>New Report</Button>
       </div>
     </header>
   );
