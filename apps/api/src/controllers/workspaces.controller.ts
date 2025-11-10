@@ -21,7 +21,6 @@ export const createWorkspaceHandler: RequestHandler = async (req, res) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
 
   const name = typeof body.name === 'string' ? body.name : undefined;
-  const application = typeof body.application === 'string' ? body.application : undefined;
   const rootPath = typeof body.rootPath === 'string' ? body.rootPath : undefined;
   const description = typeof body.description === 'string' ? body.description : undefined;
   const settings = body.settings;
@@ -29,8 +28,8 @@ export const createWorkspaceHandler: RequestHandler = async (req, res) => {
   const status = typeof body.status === 'string' ? body.status : undefined;
   const lastIndexedAt = typeof body.lastIndexedAt === 'string' ? body.lastIndexedAt : undefined;
 
-  if (!name || !application || !rootPath) {
-    return res.status(400).json({ code: 'INVALID_REQUEST', message: 'Missing required fields: name, application, rootPath' });
+  if (!name || !rootPath) {
+    return res.status(400).json({ code: 'INVALID_REQUEST', message: 'Missing required fields: name, rootPath' });
   }
 
   const id = uuidv4();
@@ -39,7 +38,6 @@ export const createWorkspaceHandler: RequestHandler = async (req, res) => {
   const input: CreateWorkspaceInput & { id: string; createdAt: string; updatedAt: string; status?: string; lastIndexedAt?: string } = {
     id,
     name,
-    application,
     rootPath,
     description,
     settings,
