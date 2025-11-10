@@ -60,6 +60,16 @@ export interface ProjectMetadata {
   notes?: string;
 }
 
+export interface WorkspaceProject {
+  id: string;
+  workspaceId: string;
+  name: string;
+  relativePath: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ApplyTemplateRequest {
   templateId: string;
   projectName: string;
@@ -106,6 +116,7 @@ export interface WorkspaceSummary {
   projectCount: number;
   templateCount: number;
   lastIndexedAt: string;
+  rootPath: string;
 }
 
 export interface WorkspaceStatistics {
@@ -151,6 +162,14 @@ export type WorkspaceListResponse = PaginatedData<WorkspaceSummary>;
 
 export interface WorkspaceDetailResponse {
   workspace: WorkspaceDetail;
+}
+
+export interface WorkspaceProjectListResponse {
+  projects: WorkspaceProject[];
+}
+
+export interface WorkspaceProjectResponse {
+  project: WorkspaceProject;
 }
 
 export type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
@@ -216,3 +235,11 @@ export interface TemplateManifest {
   tokens?: { key: string; label?: string; default?: string }[];
 }
 
+export interface ProjectTemplateSummary {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+  folderCount?: number;
+  fileCount?: number;
+}
