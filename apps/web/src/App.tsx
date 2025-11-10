@@ -1,4 +1,4 @@
-import { FolderGit2, LayoutDashboard, LineChart, Settings } from 'lucide-react';
+import { FolderGit2, LayoutDashboard, LineChart, Settings, Split, Layers } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import type { SidebarNavItem } from '@/components/layout/app-sidebar';
@@ -7,8 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { AuthenticatedLayout } from '@/layouts/authenticated-layout';
 import { DashboardPage } from '@/pages/dashboard-page';
 import { WorkspacesPage } from '@/pages/workspaces-page';
+import { FileManagerPage } from '@/pages/file-manager-page';
+import { TemplatesPage } from '@/pages/templates-page';
 
-type AppPage = 'dashboard' | 'workspaces' | 'analytics' | 'system';
+type AppPage = 'dashboard' | 'workspaces' | 'files' | 'templates' | 'analytics' | 'system';
 
 const placeholderCopy: Record<AppPage, { title: string; description: string }> = {
   dashboard: {
@@ -22,6 +24,14 @@ const placeholderCopy: Record<AppPage, { title: string; description: string }> =
   analytics: {
     title: 'Analytics',
     description: 'Visualise adoption, usage trends, and automation coverage across workspaces.',
+  },
+  files: {
+    title: 'Files',
+    description: 'Inspect and operate on workspace files directly from the desktop shell.',
+  },
+  templates: {
+    title: 'Templates',
+    description: 'Capture folder structures once and reuse them for new projects.',
   },
   system: {
     title: 'System',
@@ -51,7 +61,14 @@ export function App() {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
         const stored = window.localStorage.getItem('wo:activePage');
-        if (stored === 'dashboard' || stored === 'workspaces' || stored === 'analytics' || stored === 'system') {
+        if (
+          stored === 'dashboard' ||
+          stored === 'workspaces' ||
+          stored === 'files' ||
+          stored === 'templates' ||
+          stored === 'analytics' ||
+          stored === 'system'
+        ) {
           return stored as AppPage;
         }
       }
@@ -66,6 +83,8 @@ export function App() {
     () => [
       { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { key: 'workspaces', label: 'Workspaces', icon: FolderGit2 },
+      { key: 'files', label: 'Files', icon: Split },
+      { key: 'templates', label: 'Templates', icon: Layers },
       { key: 'analytics', label: 'Analytics', icon: LineChart },
       { key: 'system', label: 'System', icon: Settings },
     ],
@@ -77,6 +96,10 @@ export function App() {
       <DashboardPage />
     ) : activePage === 'workspaces' ? (
       <WorkspacesPage />
+    ) : activePage === 'files' ? (
+      <FileManagerPage />
+    ) : activePage === 'templates' ? (
+      <TemplatesPage />
     ) : (
       renderPlaceholder(activePage)
     );
