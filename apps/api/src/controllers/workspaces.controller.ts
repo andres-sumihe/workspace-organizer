@@ -1,7 +1,12 @@
 import { v4 as uuidv4 } from 'uuid';
 
 import { parsePaginationQuery } from '../schemas/pagination.js';
-import { getWorkspaceList, createWorkspace as createWorkspaceService } from '../services/workspaces.service.js';
+import {
+  getWorkspaceList,
+  createWorkspace as createWorkspaceService,
+  getWorkspaceDetailById,
+  updateWorkspace as updateWorkspaceService
+} from '../services/workspaces.service.js';
 
 import type { CreateWorkspaceInput } from '../repositories/workspaces.repository.js';
 import type { RequestHandler } from 'express';
@@ -51,4 +56,31 @@ export const createWorkspaceHandler: RequestHandler = async (req, res) => {
   const workspace = await createWorkspaceService(input);
 
   res.status(201).json({ workspace });
+};
+
+export const getWorkspaceDetailHandler: RequestHandler = async (req, res) => {
+  const workspaceId = req.params.workspaceId;
+  if (!workspaceId) {
+    return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'workspaceId is required' } });
+  }
+
+  const workspace = await getWorkspaceDetailById(workspaceId);
+  res.json({ workspace });
+};
+
+export const updateWorkspaceHandler: RequestHandler = async (req, res) => {
+  const workspaceId = req.params.workspaceId;
+  if (!workspaceId) {
+    return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'workspaceId is required' } });
+  }
+
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const updates = {
+    name: typeof body.name === 'string' ? body.name : undefined,
+    rootPath: typeof body.rootPath === 'string' ? body.rootPath : undefined,
+    description: typeof body.description === 'string' ? body.description : undefined
+  };
+
+  const workspace = await updateWorkspaceService(workspaceId, updates);
+  res.json({ workspace });
 };
