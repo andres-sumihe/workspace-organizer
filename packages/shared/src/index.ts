@@ -54,7 +54,6 @@ export interface TemplateToken {
 export interface ProjectMetadata {
   id: string;
   name: string;
-  application: string;
   templateId: string;
   createdAt: string;
   location: string;
@@ -64,7 +63,6 @@ export interface ProjectMetadata {
 export interface ApplyTemplateRequest {
   templateId: string;
   projectName: string;
-  application: string;
   tokens?: Record<string, string>;
 }
 
@@ -104,7 +102,6 @@ export type WorkspaceStatus = 'healthy' | 'degraded' | 'offline';
 export interface WorkspaceSummary {
   id: string;
   name: string;
-  application: string;
   status: WorkspaceStatus;
   projectCount: number;
   templateCount: number;

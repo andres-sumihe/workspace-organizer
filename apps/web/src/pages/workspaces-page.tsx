@@ -83,7 +83,6 @@ export const WorkspacesPage = () => {
 
   interface FormValues {
     name: string;
-    application: string;
     rootPath: string;
     description?: string;
   }
@@ -91,7 +90,6 @@ export const WorkspacesPage = () => {
   const form = useForm<FormValues>({
     defaultValues: {
       name: '',
-      application: '',
       rootPath: '',
       description: '',
     },
@@ -103,7 +101,6 @@ export const WorkspacesPage = () => {
     try {
       const resp = await createWorkspace({
         name: values.name,
-        application: values.application,
         rootPath: values.rootPath,
         description: values.description ?? undefined,
       });
@@ -166,19 +163,7 @@ export const WorkspacesPage = () => {
                       )}
                     />
 
-                    <FormField
-                      control={form.control}
-                      name="application"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Application</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="Application" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    {/* application removed: applications are managed in their own table */}
 
                     {/* Team field removed per schema — not persisted server-side */}
 
@@ -243,7 +228,7 @@ export const WorkspacesPage = () => {
                   <div className="flex items-center gap-4">
                     <div className="flex-1">
                       <div className="text-base font-semibold text-foreground">{ws.name}</div>
-                      <div className="text-xs text-muted-foreground mt-1">{ws.application}</div>
+                      {/* application removed from workspace summary */}
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-medium text-foreground">{ws.projectCount} projects</div>
