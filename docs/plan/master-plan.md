@@ -1,150 +1,114 @@
-# Workspace Organizer Master Plan
+# Workspace Organizer Master Plan — Desktop-first (Electron) edition
 
-## Initiative 1 – Extend Shared Contracts
+This document replaces the prior, higher-level master plan with a pragmatic, Windows-first execution plan that aligns with the project goal: let users define folder/file templates and apply them to create *real* folders and files on disk, open files in their default applications, and track workspace folder contents.
 
-### Goals
-- Establish comprehensive TypeScript interfaces for upcoming features.
-- Keep API and web client in sync through the `@workspace/shared` package.
+TL;DR
+- Runtime: Electron + React + Node (recommended for fastest integration with the existing `apps/web` renderer). Tauri is an alternative if you prefer smaller binaries and you are comfortable with Rust.
+- Template format: ZIP + manifest (manifest.json inside ZIP). Tokenized files and filename placeholders supported. Templates import/exportable as zip bundles.
+- Apply semantics: full transactional apply with staging, backup, atomic replace, and rollback on failure.
 
-### Tasks
-1. **Inventory Current Contracts**
-   - Review `packages/shared/src/index.ts` to catalog existing entities.
-   - Identify gaps for workspace listing, template application, job status, and future domains.
-2. **Add/Update Interfaces**
-   - Introduce DTOs such as `WorkspaceSummary`, `WorkspaceDetail`, `WorkspaceListResponse`, `TemplateRun`, `JobStatus`.
-   - Annotate complex fields with inline comments for clarity.
-3. **Validate Consumers**
-   - Run `npm run lint` and `npm run typecheck` at the repo root to ensure both API and web compile.
-   - Resolve breaking changes or document them in commit notes.
-4. **Document Contracts**
-   - Update standards docs with sample payloads or additional guidance when necessary.
+Decisions you approved
+- Electron: keep `apps/web` as the renderer and add `electron/` (main + preload) to host native FS operations. This minimizes refactor and reuses existing UI work.
+- ZIP + Manifest: portable and user-friendly format for template sharing and import/export.
+- Full transactional rollback: template application must either complete fully or revert the filesystem to the pre-apply state.
 
-### Deliverables
-- Updated `packages/shared/src/index.ts` with new interfaces.
-- Passing lint/typecheck.
-- Standards docs revised if new conventions emerge.
+Quick project adaptation summary
+- Keep `apps/web` as the renderer. Add an `electron/` layer with `main.ts` and `preload.ts` that expose a small, safe IPC surface (`window.api.*`) to the renderer.
+- Implement native services under `lib/` (or `apps/desktop/lib/`): `template-zip.ts`, `template-engine.ts`, `fs-executor.ts`, `watcher-service.ts`.
+- Use `better-sqlite3` to keep a local metadata index (files table) and template registry; extend migrations under `apps/api` or add `db/migrations` under the desktop app if you want packaging isolated.
 
----
+Guiding principles
+1. Explicit user consent — user chooses workspace roots via native directory picker. No background scanning of drives without opt-in.
+2. Minimal but safe renderer API — disable nodeIntegration, use contextIsolation, expose limited, validated APIs via `preload.ts`.
+3. Dry-run before modify — always present a preview/diff and require user confirmation for destructive operations.
+4. Atomic / transactional applies — staging + backup + atomic move/rename; rollback on error.
+5. Keep templates editable on disk + registered in DB (hybrid storage). Store templates under a user templates folder and register metadata in SQLite.
 
-## Initiative 2 – API Foundations
+High-level milestones (what, why, acceptance criteria)
 
-**Status: Completed – paginated workspace listing, migrations, middleware, and integration tests shipped.**
+1) Scaffold Electron + renderer integration — small (1–2 days)
+- What: Add `electron/main.ts`, `electron/preload.ts`, dev scripts, and an electron-builder config.
+- Why: Rapidly convert the web UI into a desktop app without rewriting UI code.
+- Acceptance: `npm run dev:desktop` opens a desktop window that loads the dev server UI and `window.api` is available from renderer.
 
-### Goals
-- Build a structured Express service aligned with `docs/standarts/api-standards.md`.
-- Deliver the first feature slice (`GET /api/v1/workspaces`).
+2) Template ZIP + manifest import/export — small (1–2 days)
+- What: Implement import/export helpers (`lib/template-zip.ts`) and define `manifest.json` schema in `lib/template-format.md`.
+- Why: Portable format for template sharing and developer ergonomics.
+- Acceptance: App can import `.zip` and register templates; exported `.zip` re-imports successfully.
 
-### Tasks
-1. **Scaffold API Structure**
-   - Create folders: `routes`, `controllers`, `services`, `repositories`, `schemas`, `middleware`, `db`.
-   - Add `/api/v1` router aggregator.
-2. **Common Middleware**
-   - Implement request logging, validation pipeline, and centralized error handler.
-3. **Feature Slice Implementation**
-   - Create workspace service returning `WorkspaceSummary[]` (stub or repository-backed).
-   - Add controller + route to serve `/api/v1/workspaces` with pagination envelope.
-   - Write integration tests (supertest) verifying success/error paths.
-4. **Persistence Hookup**
-   - Define SQLite schema/migration for workspaces.
-   - Implement repository abstraction and wire service to database.
-5. **Documentation & Observability**
-   - Draft OpenAPI entry for the endpoint.
-   - Ensure `/api/health` reports database connectivity.
+3) Template engine & dry-run — medium (3–5 days)
+- What: `lib/template-engine.ts` that parses manifest, resolves tokens in filenames and file contents, and produces a dry-run plan (list of operations).
+- Why: Preview and safe validation before applying templates.
+- Acceptance: `dryRun(template, root, tokens)` returns full plan and detects conflicts without touching FS.
 
-### Deliverables
-- Working Express API with versioned router and health endpoint.
-- Tested `GET /api/v1/workspaces` route.
-- Migration scripts and repository layer for workspaces.
+4) Transactional apply engine & backups — medium (5–9 days)
+- What: `lib/fs-executor.ts` or main-process service implementing staging, backup, atomic move, and rollback.
+- Why: Ensure either full success or restore to pre-apply state.
+- Acceptance: Simulated failure tests restore original files; policy modes (overwrite/skip/makeCopy) work as expected.
 
----
+5) Watcher & indexer — medium (4–8 days)
+- What: `lib/watcher-service.ts` using `chokidar` + DB schema (files table); initial scan (`indexer`) and event-based updates.
+- Why: Track real filesystem changes and reflect them in UI.
+- Acceptance: Add workspace root -> initial scan populates DB; external edits are detected and UI updates after debounce.
 
-## Initiative 3 – Frontend Shell & Dashboard
+6) Packaging, tests, CI and docs — medium (5–8 days)
+- What: `electron-builder` configuration, Playwright E2E, Windows packaging CI job, README updates.
+- Why: Deliverable installers and reliable automated tests for the critical flows.
+- Acceptance: CI produces an installer; packaged smoke test runs (apply + open file) pass in Windows runner.
 
-### Goals
-- Build the desktop-first shell and initial dashboard cards following UI standards.
-- Consume the workspace API slice from Initiative 2.
+Concrete files & API surface to add (first cut)
+- electron/main.ts — create BrowserWindow, register IPC handlers that call into `lib` services.
+- electron/preload.ts — expose minimal, validated API via `contextBridge`:
+  - `listTemplates()`
+  - `importTemplateFromZip(zipPath)`
+  - `dryRunApply(templateId, rootPath, tokens)`
+  - `applyTemplate(templateId, rootPath, tokens, policy)`
+  - `registerWorkspace(rootPath)`
+  - `openPath(path)`
+- lib/template-zip.ts — unzip/import and zip-export helpers.
+- lib/template-engine.ts — parse manifest, token replacement, dry-run generator.
+- lib/fs-executor.ts — transactional apply + backup + rollback logic.
+- lib/watcher-service.ts — chokidar watcher + DB update logic.
+- packages/shared/src/index.ts — extend with `TemplateManifest`, `TemplateFileEntry`, `TemplateToken` types.
 
-### Tasks
-1. **Layout Scaffolding**
-   - Implement persistent sidebar, header, and content canvas respecting `desktop-ui-standards` spacing rules.
-2. **API Client & State Management**
-   - Create shared fetch client with error normalization; optionally integrate React Query.
-3. **Dashboard Components**
-   - Refine health card styling; add workspace summary card using shared types.
-   - Stub activity/alerts card to pave way for future features.
-4. **Interaction Polish**
-   - Ensure refresh actions have loading states and toasts on error.
-   - Add keyboard accessibility and focus management.
-5. **Testing & Stories**
-   - Add RTL tests for loading/success/error states.
-   - Capture Storybook entries (optional) for key components.
+Command snippets (for local setup)
+- Install Electron + helper libs (examples):
+```bash
+npm install --save-dev electron electron-builder concurrently wait-on
+npm install fs-extra chokidar better-sqlite3 extract-zip archiver mustache uuid
+```
+- Dev flow pattern (example):
+```bash
+# terminal 1: renderer dev
+npm run dev --workspace @workspace/web
+# terminal 2: wait for renderer and start electron
+npx wait-on http://localhost:5173 && npx electron ./electron/main.ts
+```
 
-### Deliverables
-- Shell and dashboard in `apps/web` using shadcn components.
-- API integration with live data submission.
-- Passing lint/tests for new components.
+Testing strategy (rollback-focused)
+- Unit tests: template parser, token replacement, filename token edge cases.
+- Integration: apply engine in temp directory; simulate partial failure and assert rollback.
+- E2E: Playwright runs packaged or dev app: import template, dry-run, apply, open file, simulate failure path and verify rollback.
 
----
+Risk & mitigations (short)
+- AV triggers on bulk writes — mitigate by showing dry-run and require explicit confirmation; optionally batch writes.
+- UAC/elevation — avoid writing to protected locations by default; prompt only when necessary.
+- Security in renderer — contextIsolation, no nodeIntegration, validate all IPC inputs.
 
-## Initiative 4 – Persistence & Integrations
+Mapping to current repo
+- Reuse `apps/web` as renderer (no rewrite). Add `electron/` and `lib/` at repo root. Extend `packages/shared` for template types and extend migrations (or add new migrations under a desktop-specific `db/`) for the files table.
 
-### Goals
-- Establish reliable SQLite persistence for core domains.
-- Provide reproducible migrations and seeds.
+Next concrete choices you already made
+1. Electron — will implement main/preload + native services.
+2. ZIP+manifest — manifest schema and zip import/export.
+3. Full transactional rollback — implement staging + backup + atomic replace + restore on error.
 
-### Tasks
-1. **Migration Tooling**
-   - Add migration runner script and instructions in README.
-   - Create initial migrations for workspaces/templates/jobs tables.
-2. **Repository Expansion**
-   - Implement repositories for templates, tokens, and jobs.
-   - Add transaction helper to guard multi-table operations (e.g., template application).
-3. **Integration Tests**
-   - Write tests hitting SQLite (memory DB) verifying CRUD workflows.
-   - Ensure cleanup between tests to avoid state leakage.
-4. **Monitoring Hooks**
-   - Log DB errors with structured metadata.
-   - Consider basic metrics (request count, latency) for future observability.
+What I will do next if you say “Yes, scaffold now”
+1. Create `electron/main.ts` and `electron/preload.ts` (minimal safe API). Run typecheck and adjust `apps/web` dev flow to open in Electron in dev mode.
+2. Add `lib/template-zip.ts` import helper and `packages/shared` template types.
+3. Add unit tests for `dryRun` behavior.
 
-### Deliverables
-- Migration scripts, seed data, and documentation.
-- Repository layer covering key entities.
-- Integration tests passing.
-
----
-
-## Initiative 5 – Iterative Feature Build-Out
-
-### Goals
-- Expand functionality in slices while keeping standards aligned.
-- Maintain tight coupling between shared types, API, and frontend.
-
-### Tasks
-1. **Workspace Explorer**
-   - API: detail endpoint, naming rule retrieval.
-   - UI: tree/table view with bulk actions and validation preview.
-2. **Template Management**
-   - API: CRUD + token metadata endpoints.
-   - UI: template library with filters, detail dialogs.
-3. **Template Application**
-   - API: `POST /templates/:id/apply` with job tracking.
-   - UI: wizard for project creation and live progress.
-4. **Job Monitoring**
-   - API: job status endpoints (polling now, potential SSE later).
-   - UI: job list, status badges, log drill-down.
-5. **Standards Upkeep**
-   - Update UI/API/shared docs after each feature set.
-   - Keep README current with new scripts and environment variables.
-
-### Deliverables
-- Feature slices shipped iteratively with updated documentation.
-- Consistent contracts across layers validated by lint/typecheck/tests.
+If you want me to save this as the repo master plan, it is now written here. If you want me to begin scaffolding (create the Electron files and scripts), say “Scaffold Electron and template engine” and I will implement the changes incrementally and run the checks/tests.
 
 ---
-
-## Execution Sequence
-1. Execute Initiative 1 Tasks 1–3 to prepare shared contracts.
-2. Parallelize Initiative 2 Tasks 1–3 for API base; once stable, proceed to Initiative 3.
-3. Loop through Initiatives 4 and 5 as new domains come online, ensuring each slice follows the established standards.
-
-Review progress after each initiative, adjust priorities based on feedback, and update this plan as requirements evolve.
+Last updated: 2025-10-30

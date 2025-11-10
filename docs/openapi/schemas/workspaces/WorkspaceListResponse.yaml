@@ -16,8 +16,6 @@ components:
       required:
         - id
         - name
-        - application
-        - team
         - status
         - projectCount
         - templateCount
@@ -26,10 +24,6 @@ components:
         id:
           type: string
         name:
-          type: string
-        application:
-          type: string
-        team:
           type: string
         status:
           type: string

@@ -17,4 +17,11 @@
 - **Persistence & future work**: SQLite packages (`sqlite`, `sqlite3`) are already dependencies for the API but not yet wired. When implementing storage or watchers, keep the main DB file outside of `apps/api/dist` and ensure migrations/scripts live under `apps/api/src/db` (create this folder if needed).
 - **General conventions**: Prefer small modules with explicit exports, avoid default exports unless matching existing patterns, and add succinct comments only for non-obvious logic. Maintain ASCII-only files unless extending existing Unicode content.
 
+during development, use:
+#console-ninja/* for check error
+#context7/* for full context of tech stack do you use
+#fetch for find best practices on the internet.
+
+NOTE: DO NOT HALUCINATE SO DON'T ADD UNNECESSARY THINGS
+
 If anything remains unclear or new conventions emerge, document them here after implementation to keep future agents aligned. Let me know which sections need refinement. 
