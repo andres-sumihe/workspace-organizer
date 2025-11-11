@@ -1,7 +1,13 @@
-import { FilePlus, FolderOpen, FolderPlus, Loader2, Pencil, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
+import type {
+  FileFormValues,
+  FolderFormValues,
+  FsDialogState,
+  ProjectFormValues,
+  WorkspaceFormValues
+} from '@/features/workspaces';
 import type { TemplateSummary } from '@/types/desktop';
 import type { WorkspaceDetail, WorkspaceProject, WorkspaceSummary } from '@workspace/shared';
 
@@ -14,86 +20,19 @@ import {
   updateWorkspace as updateWorkspaceApi
 } from '@/api/workspaces';
 import { PageShell } from '@/components/layout/page-shell';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger
-} from '@/components/ui/dialog';
-import {
-  Form,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-  FormMessage
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
-import { Textarea } from '@/components/ui/textarea';
-
-interface WorkspaceFormValues {
-  name: string;
-  rootPath: string;
-  description?: string;
-}
-
-interface ProjectFormValues {
-  name: string;
-  relativePath: string;
-  description?: string;
-}
-
-interface FolderFormValues {
-  folderName: string;
-}
-
-interface FileFormValues {
-  fileName: string;
-  content: string;
-}
-
-const sanitizeRelativeSegment = (value: string) => value.replace(/\\/g, '/').replace(/^\/+/, '').trim();
-
-const combineRelativePaths = (base: string, child: string) => {
-  const normalizedBase = sanitizeRelativeSegment(base);
-  const normalizedChild = sanitizeRelativeSegment(child);
-  if (!normalizedBase) return normalizedChild;
-  if (!normalizedChild) return normalizedBase;
-  return `${normalizedBase}/${normalizedChild}`;
-};
-
-const buildAbsolutePath = (rootPath: string, relativePath: string) => {
-  if (!relativePath) {
-    return rootPath;
-  }
-  const separator = rootPath.includes('\\') ? '\\' : '/';
-  const trimmedRoot = rootPath.replace(/[\\/]+$/, '');
-  const normalizedRelative = relativePath
-    .replace(/^[\\/]+/, '')
-    .replace(/[\\/]+/g, separator);
-  return `${trimmedRoot}${separator}${normalizedRelative}`;
-};
-
-const formatDate = (value?: string) => {
-  if (!value) return '—';
-  return new Date(value).toLocaleString();
-};
+  WorkspaceToolbar,
+  WorkspaceListPanel,
+  WorkspaceDetailPanel,
+  EditWorkspaceDialog,
+  ProjectDialog,
+  WorkspaceTemplatesDialog,
+  FsDialog,
+  combineRelativePaths,
+  buildAbsolutePath,
+  sanitizeRelativeSegment,
+  slugifyPath
+} from '@/features/workspaces';
 
 export const WorkspacesPage = () => {
   const [items, setItems] = useState<WorkspaceSummary[]>([]);
@@ -110,7 +49,7 @@ export const WorkspacesPage = () => {
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
   const [workspaceDetail, setWorkspaceDetail] = useState<WorkspaceDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState<string | null>(null);
+  const [updatingWorkspace, setUpdatingWorkspace] = useState(false);
 
   const [projects, setProjects] = useState<WorkspaceProject[]>([]);
   const [projectLoading, setProjectLoading] = useState(false);
@@ -120,7 +59,7 @@ export const WorkspacesPage = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [desktopAvailable, setDesktopAvailable] = useState(false);
-  const [fsDialog, setFsDialog] = useState<{ mode: 'folder' | 'file'; project: WorkspaceProject } | null>(null);
+  const [fsDialog, setFsDialog] = useState<FsDialogState | null>(null);
   const [fsError, setFsError] = useState<string | null>(null);
   const [fsSuccess, setFsSuccess] = useState<string | null>(null);
   const [allTemplates, setAllTemplates] = useState<TemplateSummary[]>([]);
@@ -146,10 +85,10 @@ export const WorkspacesPage = () => {
     defaultValues: { name: '', relativePath: '', description: '' }
   });
 
-  const [projectPathEdited, setProjectPathEdited] = useState(false);
-
   const folderForm = useForm<FolderFormValues>({ defaultValues: { folderName: '' } });
   const fileForm = useForm<FileFormValues>({ defaultValues: { fileName: '', content: '' } });
+
+  const [projectPathEdited, setProjectPathEdited] = useState(false);
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -249,9 +188,7 @@ export const WorkspacesPage = () => {
           prev && prev.id === workspace.id ? { ...prev, templateCount, status: templateCount > 0 ? 'healthy' : prev.status } : prev
         );
         setItems((prev) =>
-          prev.map((ws) =>
-            ws.id === workspace.id ? { ...ws, templateCount, status: templateCount > 0 ? 'healthy' : ws.status } : ws
-          )
+          prev.map((ws) => (ws.id === workspace.id ? { ...ws, templateCount, status: templateCount > 0 ? 'healthy' : ws.status } : ws))
         );
       } catch (err) {
         console.error('Failed to load workspace templates', err);
@@ -266,7 +203,6 @@ export const WorkspacesPage = () => {
     async (workspaceId: string) => {
       setDetailLoading(true);
       setProjectLoading(true);
-      setDetailError(null);
       setProjectError(null);
       try {
         const [detailResp, projectsResp] = await Promise.all([
@@ -283,7 +219,7 @@ export const WorkspacesPage = () => {
         await refreshWorkspaceTemplates(detailResp.workspace);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to load workspace detail';
-        setDetailError(message);
+        setError(message);
         setProjectError(message);
         setProjects([]);
       } finally {
@@ -391,6 +327,7 @@ export const WorkspacesPage = () => {
 
   const handleUpdateWorkspace = async (values: WorkspaceFormValues) => {
     if (!workspaceDetail) return;
+    setUpdatingWorkspace(true);
     try {
       const resp = await updateWorkspaceApi(workspaceDetail.id, {
         name: values.name?.trim(),
@@ -400,14 +337,14 @@ export const WorkspacesPage = () => {
       const updated = (resp as unknown as { workspace?: WorkspaceDetail }).workspace;
       if (updated) {
         setWorkspaceDetail(updated);
-        setItems((prev) =>
-          prev.map((item) => (item.id === updated.id ? { ...item, name: updated.name, rootPath: updated.rootPath } : item))
-        );
+        setItems((prev) => prev.map((item) => (item.id === updated.id ? { ...item, name: updated.name, rootPath: updated.rootPath } : item)));
         setEditDialogOpen(false);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to update workspace';
-      setDetailError(message);
+      setError(message);
+    } finally {
+      setUpdatingWorkspace(false);
     }
   };
 
@@ -431,11 +368,7 @@ export const WorkspacesPage = () => {
       const resp = await createWorkspaceProject(workspaceDetail.id, payload);
       const created = resp.project;
       setProjects((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
-      setItems((prev) =>
-        prev.map((item) =>
-          item.id === workspaceDetail.id ? { ...item, projectCount: item.projectCount + 1 } : item
-        )
-      );
+      setItems((prev) => prev.map((item) => (item.id === workspaceDetail.id ? { ...item, projectCount: item.projectCount + 1 } : item)));
       projectForm.reset({ name: '', relativePath: '', description: '' });
       setProjectDialogOpen(false);
       if (desktopAvailable && selectedTemplateId && window.api?.applyTemplateToProject) {
@@ -482,13 +415,9 @@ export const WorkspacesPage = () => {
       const selectedTemplates = resp.templates ?? allTemplates.filter((tpl) => templateIds.includes(tpl.id));
       setWorkspaceTemplates(selectedTemplates);
       const templateCount = templateIds.length;
-      setWorkspaceDetail((prev) =>
-        prev ? { ...prev, templateCount, status: templateCount > 0 ? 'healthy' : prev.status } : prev
-      );
+      setWorkspaceDetail((prev) => (prev ? { ...prev, templateCount, status: templateCount > 0 ? 'healthy' : prev.status } : prev));
       setItems((prev) =>
-        prev.map((ws) =>
-          ws.id === workspaceDetail.id ? { ...ws, templateCount, status: templateCount > 0 ? 'healthy' : ws.status } : ws
-        )
+        prev.map((ws) => (ws.id === workspaceDetail.id ? { ...ws, templateCount, status: templateCount > 0 ? 'healthy' : ws.status } : ws))
       );
       setWorkspaceTemplateDialogOpen(false);
     } catch (err) {
@@ -587,675 +516,128 @@ export const WorkspacesPage = () => {
     [items, selectedWorkspaceId]
   );
 
+  const handleTemplatesDialogChange = (open: boolean) => {
+    setWorkspaceTemplateDialogOpen(open);
+    if (open) {
+      setWorkspaceTemplateDraft(workspaceTemplateIds);
+    } else {
+      setWorkspaceTemplateError(null);
+    }
+  };
+
+  const handleToggleWorkspaceTemplate = (templateId: string, checked: boolean) => {
+    setWorkspaceTemplateDraft((draft) => (checked ? [...draft, templateId] : draft.filter((id) => id !== templateId)));
+  };
+
+  const handleFsDialogChange = (open: boolean) => {
+    if (!open) {
+      setFsDialog(null);
+      setFsError(null);
+    }
+  };
+
   return (
     <PageShell
       title="Workspaces"
       description="Inventory of indexed workspaces and their status."
       toolbar={
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void load()}
-            className="flex items-center gap-2"
-            disabled={loading}
-          >
-            {loading ? <Loader2 className="animate-spin size-4" /> : <RefreshCw className="size-4" />}
-            Refresh
-          </Button>
-          <Dialog open={openNew} onOpenChange={setOpenNew}>
-            <DialogTrigger asChild>
-              <Button variant="secondary" size="sm">
-                New Workspace
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>New workspace</DialogTitle>
-                <DialogDescription>Create a new workspace to be indexed by the system.</DialogDescription>
-              </DialogHeader>
-              <Form {...workspaceForm}>
-                <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={workspaceForm.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Name</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="Workspace name" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={workspaceForm.control}
-                    name="rootPath"
-                    render={({ field }) => (
-                      <FormItem className="md:col-span-2">
-                        <FormLabel>Root path</FormLabel>
-                        <FormControl>
-                          <div className="flex gap-2">
-                            <Input {...field} placeholder="/path/to/repo" />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={openProjectFolderPicker}
-                              disabled={!canSelectFolder || selectingFolder}
-                              className="whitespace-nowrap"
-                            >
-                              <FolderOpen className="size-4 mr-2" />
-                              {canSelectFolder ? (selectingFolder ? 'Selecting...' : 'Choose') : 'Desktop only'}
-                            </Button>
-                          </div>
-                        </FormControl>
-                        {!canSelectFolder ? (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Folder picker currently requires the desktop shell; enter the path manually when running in the
-                            browser.
-                          </p>
-                        ) : null}
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={workspaceForm.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem className="md:col-span-2">
-                        <FormLabel>Description (optional)</FormLabel>
-                        <FormControl>
-                          <Textarea {...field} placeholder="Short description" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <DialogFooter className="mt-4">
-                  <div className="flex items-center gap-2">
-                    <Button type="button" onClick={workspaceForm.handleSubmit(handleCreateWorkspace)} disabled={creating}>
-                      {creating ? 'Creating...' : 'Create'}
-                    </Button>
-                    <DialogClose asChild>
-                      <Button type="button" variant="ghost">
-                        Cancel
-                      </Button>
-                    </DialogClose>
-                  </div>
-                </DialogFooter>
-              </Form>
-            </DialogContent>
-          </Dialog>
-        </div>
+        <WorkspaceToolbar
+          loading={loading}
+          onRefresh={() => void load()}
+          createDialogOpen={openNew}
+          onCreateDialogChange={setOpenNew}
+          form={workspaceForm}
+          onSubmit={handleCreateWorkspace}
+          creating={creating}
+          canSelectFolder={canSelectFolder}
+          selectingFolder={selectingFolder}
+          onSelectFolder={openProjectFolderPicker}
+        />
       }
     >
-      {error ? <div className="text-sm text-destructive mb-4">Error: {error}</div> : null}
+      {error ? <div className="mb-4 text-sm text-destructive">Error: {error}</div> : null}
       <div className="grid gap-6 lg:grid-cols-[2fr,1.2fr]">
-        <div className="space-y-4">
-          {loading && items.length === 0 ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="animate-spin size-4" /> Loading workspaces...
-            </div>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {items.map((ws) => {
-                const templateCount = getWorkspaceTemplateCount(ws.id, ws.templateCount);
-                const status = getWorkspaceStatus(ws.id, ws.status);
-                return (
-                <button
-                  key={ws.id}
-                  type="button"
-                  onClick={() => setSelectedWorkspaceId(ws.id)}
-                  className={`rounded-md border p-4 text-left transition ${
-                    selectedWorkspaceId === ws.id ? 'border-primary shadow-sm' : 'border-border hover:border-muted-foreground'
-                  }`}
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-base font-semibold text-foreground">{ws.name}</p>
-                      <p className="text-xs text-muted-foreground break-all mt-1">{ws.rootPath}</p>
-                    </div>
-                    <Badge variant={status === 'healthy' ? 'default' : status === 'degraded' ? 'secondary' : 'outline'}>
-                      {status}
-                    </Badge>
-                  </div>
-                  <Separator className="my-3" />
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <div>
-                      Projects
-                      <span className="ml-1 font-semibold text-foreground">{ws.projectCount}</span>
-                    </div>
-                    <div>
-                      Templates
-                      <span className="ml-1 font-semibold text-foreground">{templateCount}</span>
-                    </div>
-                  </div>
-                </button>
-              )})}
-            </div>
-          )}
-
-          {total !== null && (
-            <div className="flex items-center justify-between text-sm text-muted-foreground">
-              <div>
-                {items.length} of {total} workspaces
-              </div>
-              <div className="flex items-center gap-2">
-                <Button size="sm" variant="ghost" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
-                  Prev
-                </Button>
-                <div className="text-xs">Page {page}</div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setPage((p) => p + 1)}
-                  disabled={total !== null && page * pageSize >= total}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="rounded-lg border border-border p-4">
-          {detailLoading ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="animate-spin size-4" /> Loading workspace detail...
-            </div>
-          ) : selectedWorkspace && workspaceDetail ? (
-            <div className="space-y-4">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-base font-semibold text-foreground">{workspaceDetail.name}</p>
-                  <p className="text-xs text-muted-foreground break-all">{workspaceDetail.rootPath}</p>
-                </div>
-                <Button size="sm" variant="ghost" className="flex items-center gap-2" onClick={() => setEditDialogOpen(true)}>
-                  <Pencil className="size-4" /> Edit
-                </Button>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {workspaceDetail.description || 'No description provided.'}
-              </p>
-              <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground">
-                <div>
-                  Last indexed
-                  <p className="text-sm text-foreground">{formatDate(workspaceDetail.lastIndexedAt)}</p>
-                </div>
-                <div>
-                  Created
-                  <p className="text-sm text-foreground">{formatDate(workspaceDetail.statistics.lastScanAt)}</p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Workspace templates</p>
-                    <p className="text-xs text-muted-foreground">Templates offered when creating projects.</p>
-                  </div>
-                  {desktopAvailable ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setWorkspaceTemplateDraft(workspaceTemplateIds);
-                        setWorkspaceTemplateDialogOpen(true);
-                      }}
-                    >
-                      Manage
-                    </Button>
-                  ) : null}
-                </div>
-                {workspaceTemplateError ? (
-                  <p className="text-xs text-destructive">{workspaceTemplateError}</p>
-                ) : null}
-                {workspaceTemplates.length ? (
-                  <div className="flex flex-wrap gap-2">
-                    {workspaceTemplates.map((tpl) => (
-                      <Badge key={tpl.id} variant="outline">
-                        {tpl.name}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    {desktopAvailable
-                      ? 'No templates assigned. Manage templates to curate the list shown when creating projects.'
-                      : 'Templates available when running the desktop shell.'}
-                  </p>
-                )}
-              </div>
-
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-foreground">Projects</p>
-                  <p className="text-xs text-muted-foreground">Track folders that belong to this workspace.</p>
-                </div>
-                <Button size="sm" variant="secondary" onClick={() => setProjectDialogOpen(true)}>
-                  Add project
-                </Button>
-              </div>
-              {projectError ? <p className="text-xs text-destructive">{projectError}</p> : null}
-              {templateApplyMessage ? <p className="text-xs text-emerald-600">{templateApplyMessage}</p> : null}
-              {projectLoading ? (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Loader2 className="size-4 animate-spin" />
-                  Loading projects...
-                </div>
-              ) : projects.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No projects registered yet.</p>
-              ) : (
-                <div className="space-y-3">
-                  {projects.map((project) => (
-                    <div key={project.id} className="rounded-md border border-border p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div>
-                          <p className="font-medium text-sm text-foreground">{project.name}</p>
-                          <p className="text-xs text-muted-foreground break-all">{project.relativePath}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => openProjectInExplorer(project)}
-                            className="flex items-center gap-1"
-                          >
-                            <FolderOpen className="size-4" /> Open
-                          </Button>
-                        </div>
-                      </div>
-                      {project.description ? (
-                        <p className="text-xs text-muted-foreground mt-2">{project.description}</p>
-                      ) : null}
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={!desktopAvailable}
-                          onClick={() => triggerFsDialog('folder', project)}
-                          className="flex items-center gap-1"
-                        >
-                          <FolderPlus className="size-4" /> New folder
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={!desktopAvailable}
-                          onClick={() => triggerFsDialog('file', project)}
-                          className="flex items-center gap-1"
-                        >
-                          <FilePlus className="size-4" /> New file
-                        </Button>
-                      </div>
-                      {!desktopAvailable ? (
-                        <p className="text-[11px] text-muted-foreground mt-2">
-                          Desktop shell required for file operations.
-                        </p>
-                      ) : null}
-                      <p className="text-[11px] text-muted-foreground mt-2">
-                        Added {formatDate(project.createdAt)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {detailError ? <p className="text-xs text-destructive">Error: {detailError}</p> : null}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">Select a workspace to see details and manage projects.</p>
-          )}
-        </div>
+        <WorkspaceListPanel
+          items={items}
+          loading={loading}
+          selectedWorkspaceId={selectedWorkspaceId}
+          onSelect={(id) => setSelectedWorkspaceId(id)}
+          getTemplateCount={getWorkspaceTemplateCount}
+          getWorkspaceStatus={getWorkspaceStatus}
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={setPage}
+        />
+        <WorkspaceDetailPanel
+          detailLoading={detailLoading}
+          selectedWorkspace={selectedWorkspace}
+          workspaceDetail={workspaceDetail}
+          desktopAvailable={desktopAvailable}
+          workspaceTemplates={workspaceTemplates}
+          workspaceTemplateError={workspaceTemplateError}
+          onManageTemplates={() => {
+            setWorkspaceTemplateDraft(workspaceTemplateIds);
+            setWorkspaceTemplateDialogOpen(true);
+          }}
+          projects={projects}
+          projectLoading={projectLoading}
+          projectError={projectError}
+          templateApplyMessage={templateApplyMessage}
+          onOpenProjectDialog={() => setProjectDialogOpen(true)}
+          onEditWorkspace={() => setEditDialogOpen(true)}
+          onOpenProjectInExplorer={openProjectInExplorer}
+          onTriggerFsDialog={triggerFsDialog}
+        />
       </div>
 
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit workspace</DialogTitle>
-          </DialogHeader>
-          <Form {...editWorkspaceForm}>
-            <div className="space-y-4">
-              <FormField
-                control={editWorkspaceForm.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editWorkspaceForm.control}
-                name="rootPath"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Root path</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editWorkspaceForm.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <DialogFooter className="mt-4">
-              <Button type="button" onClick={editWorkspaceForm.handleSubmit(handleUpdateWorkspace)}>
-                Save changes
-              </Button>
-              <DialogClose asChild>
-                <Button type="button" variant="ghost">
-                  Cancel
-                </Button>
-              </DialogClose>
-            </DialogFooter>
-          </Form>
-        </DialogContent>
-      </Dialog>
+      <EditWorkspaceDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        form={editWorkspaceForm}
+        onSubmit={handleUpdateWorkspace}
+        saving={updatingWorkspace}
+      />
 
-      <Dialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>New project</DialogTitle>
-            <DialogDescription>Link a subfolder to manage as a project.</DialogDescription>
-          </DialogHeader>
-          <Form {...projectForm}>
-            <div className="space-y-4">
-              <FormField
-                control={projectForm.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="Docs, API, etc." />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-                <FormField
-                  control={projectForm.control}
-                  name="relativePath"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Folder path</FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          placeholder="apps/docs"
-                          onChange={(event) => {
-                            setProjectPathEdited(true);
-                            field.onChange(event);
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-              />
-              <FormField
-                control={projectForm.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea {...field} placeholder="Optional details" />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-              {desktopAvailable ? (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-foreground">Template (optional)</p>
-                  <Select
-                    value={selectedTemplateId}
-                    onValueChange={setSelectedTemplateId}
-                    disabled={templateLoading || availableTemplates.length === 0}
-                  >
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={
-                          availableTemplates.length
-                            ? 'Choose template'
-                            : templateLoading
-                              ? 'Loading templates...'
-                              : 'No templates available'
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectLabel>Templates</SelectLabel>
-                        {availableTemplates.map((tpl) => (
-                          <SelectItem key={tpl.id} value={tpl.id}>
-                            {tpl.name}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                  {templateError ? <p className="text-xs text-destructive">{templateError}</p> : null}
-                  {!availableTemplates.length && !templateLoading ? (
-                    <p className="text-xs text-muted-foreground">
-                      Capture templates in the Templates tab and assign them to this workspace.
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-            <DialogFooter className="mt-4">
-              <Button type="button" onClick={projectForm.handleSubmit(handleCreateProject)}>
-                Add project
-              </Button>
-              <DialogClose asChild>
-                <Button type="button" variant="ghost">
-                  Cancel
-                </Button>
-              </DialogClose>
-            </DialogFooter>
-          </Form>
-        </DialogContent>
-      </Dialog>
+      <ProjectDialog
+        open={projectDialogOpen}
+        onOpenChange={setProjectDialogOpen}
+        form={projectForm}
+        onSubmit={handleCreateProject}
+        desktopAvailable={desktopAvailable}
+        availableTemplates={availableTemplates}
+        templateLoading={templateLoading}
+        templateError={templateError}
+        selectedTemplateId={selectedTemplateId}
+        onTemplateChange={setSelectedTemplateId}
+        onPathManualEdit={() => setProjectPathEdited(true)}
+      />
 
-      <Dialog
+      <WorkspaceTemplatesDialog
         open={workspaceTemplateDialogOpen}
-        onOpenChange={(open) => {
-          setWorkspaceTemplateDialogOpen(open);
-          if (!open) {
-            setWorkspaceTemplateError(null);
-          } else {
-            setWorkspaceTemplateDraft(workspaceTemplateIds);
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Workspace templates</DialogTitle>
-            <DialogDescription>Select global templates that should be offered when creating new projects in this workspace.</DialogDescription>
-          </DialogHeader>
-          {templateLoading ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" /> Loading templates...
-            </div>
-          ) : allTemplates.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No templates available yet. Capture or create one in the Templates tab first.
-            </p>
-          ) : (
-            <div className="max-h-64 overflow-y-auto space-y-2">
-              {allTemplates.map((tpl) => {
-                const checked = workspaceTemplateDraft.includes(tpl.id);
-                return (
-                  <label key={tpl.id} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={(event) => {
-                        setWorkspaceTemplateDraft((draft) =>
-                          event.target.checked ? [...draft, tpl.id] : draft.filter((id) => id !== tpl.id)
-                        );
-                      }}
-                    />
-                    <span>{tpl.name}</span>
-                  </label>
-                );
-              })}
-            </div>
-          )}
-          {workspaceTemplateError ? <p className="text-xs text-destructive">{workspaceTemplateError}</p> : null}
-          <DialogFooter>
-            <Button
-              type="button"
-              onClick={handleSaveWorkspaceTemplates}
-              disabled={workspaceTemplateSaving || allTemplates.length === 0}
-            >
-              {workspaceTemplateSaving ? 'Saving...' : 'Save'}
-            </Button>
-            <DialogClose asChild>
-              <Button type="button" variant="ghost">
-                Cancel
-              </Button>
-            </DialogClose>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onOpenChange={handleTemplatesDialogChange}
+        templates={allTemplates}
+        loading={templateLoading}
+        draft={workspaceTemplateDraft}
+        onToggleTemplate={handleToggleWorkspaceTemplate}
+        onSave={handleSaveWorkspaceTemplates}
+        saving={workspaceTemplateSaving}
+        error={workspaceTemplateError}
+      />
 
-      <Dialog
+      <FsDialog
+        state={fsDialog}
         open={fsDialog !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setFsDialog(null);
-            setFsError(null);
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {fsDialog?.mode === 'folder'
-                ? `Create folder in ${fsDialog?.project.name}`
-                : `Create file in ${fsDialog?.project.name}`}
-            </DialogTitle>
-            {!desktopAvailable ? (
-              <DialogDescription>Desktop shell required for filesystem operations.</DialogDescription>
-            ) : null}
-          </DialogHeader>
-          {fsError ? <p className="text-xs text-destructive">{fsError}</p> : null}
-          {fsDialog?.mode === 'folder' ? (
-            <Form {...folderForm}>
-              <form
-                className="space-y-4"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void folderForm.handleSubmit(handleCreateFolder)(event);
-                }}
-              >
-                <FormField
-                  control={folderForm.control}
-                  name="folderName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Folder name</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="documentation" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <DialogFooter>
-                  <Button type="submit" disabled={!desktopAvailable}>
-                    Create folder
-                  </Button>
-                  <DialogClose asChild>
-                    <Button type="button" variant="ghost">
-                      Cancel
-                    </Button>
-                  </DialogClose>
-                </DialogFooter>
-              </form>
-            </Form>
-          ) : fsDialog?.mode === 'file' ? (
-            <Form {...fileForm}>
-              <form
-                className="space-y-4"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void fileForm.handleSubmit(handleCreateFile)(event);
-                }}
-              >
-                <FormField
-                  control={fileForm.control}
-                  name="fileName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>File name</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="README.md" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={fileForm.control}
-                  name="content"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Initial content</FormLabel>
-                      <FormControl>
-                        <Textarea rows={6} {...field} placeholder="# Notes" />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <DialogFooter>
-                  <Button type="submit" disabled={!desktopAvailable}>
-                    Create file
-                  </Button>
-                  <DialogClose asChild>
-                    <Button type="button" variant="ghost">
-                      Cancel
-                    </Button>
-                  </DialogClose>
-                </DialogFooter>
-              </form>
-            </Form>
-          ) : null}
-        </DialogContent>
-      </Dialog>
+        onOpenChange={handleFsDialogChange}
+        folderForm={folderForm}
+        fileForm={fileForm}
+        onCreateFolder={handleCreateFolder}
+        onCreateFile={handleCreateFile}
+        desktopAvailable={desktopAvailable}
+        error={fsError}
+      />
 
       {fsSuccess ? <p className="mt-4 text-sm text-emerald-600">{fsSuccess}</p> : null}
     </PageShell>
   );
-};
-const slugifyPath = (value: string) => {
-  const sanitized = sanitizeRelativeSegment(value ?? '');
-  if (!sanitized) return '';
-  return sanitized
-    .replace(/[^\w/-]+/g, '-')
-    .replace(/-{2,}/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .toLowerCase();
 };
