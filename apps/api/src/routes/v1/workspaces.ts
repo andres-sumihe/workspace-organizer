@@ -1,15 +1,15 @@
 import { Router } from 'express';
 
 import {
+  listWorkspaceProjectsHandler,
+  createWorkspaceProjectHandler
+} from '../../controllers/workspace-projects.controller.js';
+import {
   listWorkspacesHandler,
   createWorkspaceHandler,
   getWorkspaceDetailHandler,
   updateWorkspaceHandler
 } from '../../controllers/workspaces.controller.js';
-import {
-  listWorkspaceProjectsHandler,
-  createWorkspaceProjectHandler
-} from '../../controllers/workspace-projects.controller.js';
 import { asyncHandler } from '../../utils/async-handler.js';
 
 export const workspacesRouter = Router();
