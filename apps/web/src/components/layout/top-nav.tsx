@@ -16,7 +16,6 @@ export const TopNav = () => {
 
         {/* Desktop trigger positioned to the left of the header search */}
         <SidebarTrigger className="hidden md:inline-flex" />
-
         <div className="relative hidden w-64 md:block">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="pl-10" placeholder="Search anything..." />
