@@ -1,35 +1,30 @@
-import {
-  FilePlus,
-  FolderOpen,
-  FolderPlus,
-  Loader2,
-  Pencil,
-  RefreshCw
-} from 'lucide-react';
+import { FilePlus, FolderOpen, FolderPlus, Loader2, Pencil, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
+import type { TemplateSummary } from '@/types/desktop';
 import type { WorkspaceDetail, WorkspaceProject, WorkspaceSummary } from '@workspace/shared';
 
 import {
-  fetchWorkspaceList,
   createWorkspace,
+  createWorkspaceProject,
   fetchWorkspaceDetail,
-  updateWorkspace as updateWorkspaceApi,
+  fetchWorkspaceList,
   fetchWorkspaceProjects,
-  createWorkspaceProject
+  updateWorkspace as updateWorkspaceApi
 } from '@/api/workspaces';
 import { PageShell } from '@/components/layout/page-shell';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
-  DialogTrigger,
+  DialogClose,
   DialogContent,
-  DialogHeader,
-  DialogFooter,
-  DialogTitle,
   DialogDescription,
-  DialogClose
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
 } from '@/components/ui/dialog';
 import {
   Form,
@@ -40,9 +35,6 @@ import {
   FormMessage
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import {
   Select,
   SelectContent,
@@ -52,6 +44,8 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 
 interface WorkspaceFormValues {
   name: string;
