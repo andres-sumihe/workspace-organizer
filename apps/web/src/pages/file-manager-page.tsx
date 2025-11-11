@@ -1,59 +1,25 @@
+import { AlertCircle } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
 
-import { AlertCircle, ChevronRight, FileText, Folder, GitMerge, ListTree, RefreshCw, SplitSquareHorizontal } from 'lucide-react';
+import type { WorkspaceBreadcrumb, WorkspaceDirectoryEntry, WorkspaceFilePreview } from '@/types/desktop';
+import type { CheckedState } from '@radix-ui/react-checkbox';
+import type { WorkspaceSummary } from '@workspace/shared';
 
 import { fetchWorkspaceList } from '@/api/workspaces';
 import { PageShell } from '@/components/layout/page-shell';
-import { Button } from '@/components/ui/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle
-} from '@/components/ui/dialog';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
-
-import type { WorkspaceSummary } from '@workspace/shared';
-import { useForm } from 'react-hook-form';
-
-interface MergeFormValues {
-  destination: string;
-  separator: string;
-  includeHeaders: boolean;
-  overwrite: boolean;
-}
-
-interface SplitFormValues {
-  separator: string;
-  prefix: string;
-  extension: string;
-  overwrite: boolean;
-  preserveOriginal: boolean;
-}
-
-const relativeJoin = (base: string, segment: string) => {
-  const normalizedBase = base.replace(/\\/g, '/').replace(/\/$/, '');
-  const normalizedSegment = segment.replace(/\\/g, '/').replace(/^\//, '');
-  if (!normalizedBase) {
-    return normalizedSegment;
-  }
-  return normalizedSegment ? `${normalizedBase}/${normalizedSegment}` : normalizedBase;
-};
+  DirectoryBrowser,
+  FileManagerToolbar,
+  MergeDialog,
+  PreviewPanel,
+  SplitDialog,
+  isLikelyBinary,
+  relativeJoin,
+  type MergeFormValues,
+  type PreviewMode,
+  type SplitFormValues
+} from '@/features/file-manager';
 
 const DesktopOnlyBanner = () => (
   <div className="flex items-start gap-2 rounded-md border border-dashed border-amber-500 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -79,6 +45,11 @@ export const FileManagerPage = () => {
 
   const [preview, setPreview] = useState<WorkspaceFilePreview | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewMode, setPreviewMode] = useState<PreviewMode>('text');
+  const [editMode, setEditMode] = useState(false);
+  const [editBuffer, setEditBuffer] = useState('');
+  const [binaryPreview, setBinaryPreview] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
 
@@ -169,11 +140,15 @@ export const FileManagerPage = () => {
     [activeWorkspace?.rootPath, desktopAvailable]
   );
 
+  const handleRefresh = useCallback(() => {
+    void loadDirectory(currentPath);
+  }, [currentPath, loadDirectory]);
+
   useEffect(() => {
     if (activeWorkspace && desktopAvailable) {
       loadDirectory('');
     }
-  }, [activeWorkspace?.id, desktopAvailable, loadDirectory]);
+  }, [activeWorkspace, desktopAvailable, loadDirectory]);
 
   const handleEntryClick = async (entry: WorkspaceDirectoryEntry) => {
     if (entry.type === 'directory') {
@@ -202,10 +177,24 @@ export const FileManagerPage = () => {
         truncated: Boolean(response.truncated),
         size: response.size ?? 0
       });
+      setPreviewMode('text');
+      setEditMode(false);
+      setEditBuffer(response.content);
+      setBinaryPreview(isLikelyBinary(response.content));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to preview file';
       setPreviewError(message);
     }
+  };
+
+  const handleToggleEditMode = () => {
+    setEditMode((mode) => {
+      const next = !mode;
+      if (next && preview) {
+        setEditBuffer(preview.content);
+      }
+      return next;
+    });
   };
 
   const toggleSelection = (entry: WorkspaceDirectoryEntry) => {
@@ -220,6 +209,43 @@ export const FileManagerPage = () => {
       }
       return next;
     });
+  };
+
+  const handleToggleAllSelections = (checked: CheckedState) => {
+    setSelectedFiles((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        entries.forEach((entry) => {
+          if (entry.type === 'file') next.add(entry.path);
+        });
+      } else {
+        entries.forEach((entry) => {
+          if (entry.type === 'file') next.delete(entry.path);
+        });
+      }
+      return next;
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editMode || !preview || !activeWorkspace?.rootPath || !window.api?.writeTextFile) return;
+    setSaving(true);
+    try {
+      const resp = await window.api.writeTextFile({
+        rootPath: activeWorkspace.rootPath,
+        relativePath: preview.path,
+        content: editBuffer
+      });
+      if (!resp.ok) {
+        throw new Error(resp.error || 'Failed to save file');
+      }
+      setPreview((prev) => (prev ? { ...prev, content: editBuffer } : prev));
+      setEditMode(false);
+    } catch (err) {
+      setPreviewError(err instanceof Error ? err.message : 'Failed to save file');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const openMergeDialog = () => {
@@ -310,6 +336,9 @@ export const FileManagerPage = () => {
     }
   };
 
+  const canMerge = selectedFiles.size >= 2 && desktopAvailable;
+  const refreshDisabled = directoryLoading || !desktopAvailable;
+
   return (
     <div className="space-y-4">
       {!desktopAvailable ? <DesktopOnlyBanner /> : null}
@@ -317,48 +346,17 @@ export const FileManagerPage = () => {
         title="Workspace Files"
         description="Inspect workspace folders, preview files, and run merge/split workflows."
         toolbar={
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              <ListTree className="size-4 text-muted-foreground" />
-              <Select value={selectedWorkspaceId} onValueChange={setSelectedWorkspaceId} disabled={workspaceLoading}>
-                <SelectTrigger className="w-64">
-                  <SelectValue placeholder="Select workspace" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>Workspaces</SelectLabel>
-                    {workspaces.map((ws) => (
-                      <SelectItem key={ws.id} value={ws.id}>
-                        {ws.name}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2"
-              onClick={() => loadDirectory(currentPath)}
-              disabled={directoryLoading || !desktopAvailable}
-            >
-              <RefreshCw className={directoryLoading ? 'size-4 animate-spin' : 'size-4'} />
-              Refresh
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              disabled={selectedFiles.size < 2 || !desktopAvailable}
-              onClick={openMergeDialog}
-              className="flex items-center gap-2"
-            >
-              <GitMerge className="size-4" />
-              Merge selected
-            </Button>
-          </div>
+          <FileManagerToolbar
+            workspaces={workspaces}
+            selectedWorkspaceId={selectedWorkspaceId}
+            onWorkspaceChange={setSelectedWorkspaceId}
+            workspaceLoading={workspaceLoading}
+            onRefresh={handleRefresh}
+            refreshDisabled={refreshDisabled}
+            isRefreshing={directoryLoading}
+            canMerge={canMerge}
+            onMerge={openMergeDialog}
+          />
         }
       >
         {workspaceError ? (
@@ -369,282 +367,41 @@ export const FileManagerPage = () => {
         {operationError ? <div className="text-sm text-destructive">{operationError}</div> : null}
 
         <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
-          <div className="rounded-lg border border-border">
-            <div className="border-b border-border px-4 py-3">
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                {breadcrumbs.map((crumb, index) => (
-                  <button
-                    key={crumb.path || 'root'}
-                    type="button"
-                    className="flex items-center gap-1 hover:text-foreground"
-                    onClick={() => loadDirectory(crumb.path)}
-                    disabled={directoryLoading}
-                  >
-                    <span>{crumb.label || 'Root'}</span>
-                    {index < breadcrumbs.length - 1 ? <ChevronRight className="size-3.5" /> : null}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <ScrollArea className="h-[480px]">
-              <table className="min-w-full divide-y divide-border text-sm">
-                <thead className="bg-muted/40">
-                  <tr>
-                    <th className="px-4 py-2 text-left font-medium text-muted-foreground">Name</th>
-                    <th className="px-4 py-2 text-left font-medium text-muted-foreground">Size</th>
-                    <th className="px-4 py-2 text-left font-medium text-muted-foreground">Modified</th>
-                    <th className="px-4 py-2 text-right font-medium text-muted-foreground">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {entries.map((entry) => (
-                    <tr key={entry.path} className="hover:bg-muted/30">
-                      <td className="px-4 py-2">
-                        <button
-                          type="button"
-                          className="flex items-center gap-2 text-left text-foreground"
-                          onClick={() => handleEntryClick(entry)}
-                          disabled={directoryLoading}
-                        >
-                          {entry.type === 'directory' ? <Folder className="size-4" /> : <FileText className="size-4" />}
-                          <span>{entry.name}</span>
-                        </button>
-                      </td>
-                      <td className="px-4 py-2 text-muted-foreground">
-                        {entry.size !== null ? `${(entry.size / 1024).toFixed(1)} KB` : '—'}
-                      </td>
-                      <td className="px-4 py-2 text-muted-foreground">
-                        {new Date(entry.modifiedAt).toLocaleString()}
-                      </td>
-                      <td className="px-4 py-2">
-                        {entry.type === 'file' ? (
-                          <label className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
-                            <Checkbox
-                              checked={selectedFiles.has(entry.path)}
-                              onCheckedChange={() => toggleSelection(entry)}
-                            />
-                            Select
-                          </label>
-                        ) : null}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </ScrollArea>
-          </div>
+          <DirectoryBrowser
+            breadcrumbs={breadcrumbs}
+            entries={entries}
+            selectedFiles={selectedFiles}
+            onNavigate={(path) => {
+              void loadDirectory(path);
+            }}
+            onEntryClick={(entry) => {
+              void handleEntryClick(entry);
+            }}
+            onToggleEntrySelection={toggleSelection}
+            onToggleAllSelections={handleToggleAllSelections}
+            loading={directoryLoading}
+          />
 
-          <div className="rounded-lg border border-border p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-foreground">Preview</p>
-              {preview?.path ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="flex items-center gap-2"
-                  onClick={openSplitDialog}
-                  disabled={!desktopAvailable}
-                >
-                  <SplitSquareHorizontal className="size-4" />
-                  Split file
-                </Button>
-              ) : null}
-            </div>
-            <div className="mt-3">
-              {previewError ? (
-                <p className="text-sm text-destructive">{previewError}</p>
-              ) : preview ? (
-                <div className="space-y-2 text-sm">
-                  <p className="font-mono text-xs text-muted-foreground break-all">{preview.path}</p>
-                  <div className="rounded-md border border-border bg-muted/40 p-3 h-64 overflow-auto max-w-full w-full">
-                    <pre className="whitespace-pre-wrap break-all text-xs text-foreground w-full">{preview.content}</pre>
-                  </div>
-                  {preview.truncated ? (
-                    <p className="text-xs text-muted-foreground">Preview truncated to 512KB.</p>
-                  ) : null}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">Select a file to see its contents.</p>
-              )}
-            </div>
-          </div>
+          <PreviewPanel
+            preview={preview}
+            previewError={previewError}
+            previewMode={previewMode}
+            onModeChange={setPreviewMode}
+            editMode={editMode}
+            onToggleEditMode={handleToggleEditMode}
+            editBuffer={editBuffer}
+            onEditBufferChange={setEditBuffer}
+            onSave={handleSaveEdit}
+            saving={saving}
+            binaryPreview={binaryPreview}
+            desktopAvailable={desktopAvailable}
+            onOpenSplitDialog={openSplitDialog}
+          />
         </div>
       </PageShell>
 
-      <Dialog open={mergeDialogOpen} onOpenChange={setMergeDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Merge selected files</DialogTitle>
-            <DialogDescription>Combine the selected files into a single text document.</DialogDescription>
-          </DialogHeader>
-          <Form {...mergeForm}>
-            <form
-              className="space-y-4"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void mergeForm.handleSubmit((values) => handleMerge(values))(event);
-              }}
-            >
-              <FormField
-                control={mergeForm.control}
-                name="destination"
-                rules={{ required: true }}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Destination path</FormLabel>
-                    <FormControl>
-                      <Input placeholder="folder/merged-output.txt" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={mergeForm.control}
-                name="separator"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Separator</FormLabel>
-                    <FormControl>
-                      <Textarea rows={3} {...field} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-              <div className="flex items-center justify-between">
-                <FormField
-                  control={mergeForm.control}
-                  name="includeHeaders"
-                  render={({ field }) => (
-                    <FormItem className="flex items-center gap-2">
-                      <FormControl>
-                        <Switch checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                      <FormLabel className="m-0">Add filename headers</FormLabel>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={mergeForm.control}
-                  name="overwrite"
-                  render={({ field }) => (
-                    <FormItem className="flex items-center gap-2">
-                      <FormControl>
-                        <Switch checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                      <FormLabel className="m-0">Allow overwrite</FormLabel>
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="ghost" onClick={() => setMergeDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" className="flex items-center gap-2">
-                  <GitMerge className="size-4" />
-                  Merge
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={splitDialogOpen} onOpenChange={setSplitDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Split file</DialogTitle>
-            <DialogDescription>Break the current file into smaller files by separator.</DialogDescription>
-          </DialogHeader>
-          <Form {...splitForm}>
-            <form
-              className="space-y-4"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void splitForm.handleSubmit((values) => handleSplit(values))(event);
-              }}
-            >
-              <FormField
-                control={splitForm.control}
-                name="separator"
-                rules={{ required: true }}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Separator</FormLabel>
-                    <FormControl>
-                      <Textarea rows={3} {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="grid gap-4 sm:grid-cols-2">
-                <FormField
-                  control={splitForm.control}
-                  name="prefix"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Filename prefix</FormLabel>
-                      <FormControl>
-                        <Input placeholder="notes-part" {...field} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={splitForm.control}
-                  name="extension"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Extension</FormLabel>
-                      <FormControl>
-                        <Input placeholder=".txt" {...field} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <FormField
-                  control={splitForm.control}
-                  name="overwrite"
-                  render={({ field }) => (
-                    <FormItem className="flex items-center gap-2">
-                      <FormControl>
-                        <Switch checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                      <FormLabel className="m-0">Allow overwrite</FormLabel>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={splitForm.control}
-                  name="preserveOriginal"
-                  render={({ field }) => (
-                    <FormItem className="flex items-center gap-2">
-                      <FormControl>
-                        <Switch checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                      <FormLabel className="m-0">Keep original file</FormLabel>
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="ghost" onClick={() => setSplitDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" className="flex items-center gap-2">
-                  <SplitSquareHorizontal className="size-4" />
-                  Split
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
+      <MergeDialog form={mergeForm} open={mergeDialogOpen} onOpenChange={setMergeDialogOpen} onSubmit={handleMerge} />
+      <SplitDialog form={splitForm} open={splitDialogOpen} onOpenChange={setSplitDialogOpen} onSubmit={handleSplit} />
     </div>
   );
 };

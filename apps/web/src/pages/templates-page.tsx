@@ -1,6 +1,10 @@
+import { FileArchive, FolderOpen, Loader2, PenSquare, PlusCircle, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
+import type { TemplateManifest, TemplateSummary, TemplateTokenEntry } from '@/types/desktop';
+
+import { PageShell } from '@/components/layout/page-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,10 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { PageShell } from '@/components/layout/page-shell';
 import { Textarea } from '@/components/ui/textarea';
-
-import { FileArchive, FolderOpen, Loader2, PenSquare, PlusCircle, Trash2 } from 'lucide-react';
 
 interface CaptureFormValues {
   name: string;

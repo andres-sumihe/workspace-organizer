@@ -6,9 +6,9 @@ import type { SidebarNavItem } from '@/components/layout/app-sidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AuthenticatedLayout } from '@/layouts/authenticated-layout';
 import { DashboardPage } from '@/pages/dashboard-page';
-import { WorkspacesPage } from '@/pages/workspaces-page';
 import { FileManagerPage } from '@/pages/file-manager-page';
 import { TemplatesPage } from '@/pages/templates-page';
+import { WorkspacesPage } from '@/pages/workspaces-page';
 
 type AppPage = 'dashboard' | 'workspaces' | 'files' | 'templates' | 'analytics' | 'system';
 
