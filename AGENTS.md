@@ -15,6 +15,9 @@ Runtime code lives in `apps`, shared libraries in `packages`. `apps/api` hosts t
 ## Coding Style & Naming Conventions
 Use TypeScript everywhere with strict settings from `tsconfig.base.json`. Follow Prettier defaults (2 spaces, double quotes, trailing commas). React components, providers, and hooks use PascalCase filenames (`WorkspaceList.tsx`, `useWorkspaceFilters.ts`); utility modules and Express routes stay camelCase. Keep imports path-based via the shared tsconfig paths and avoid relative climbs beyond `../..`. Run ESLint to enforce hook rules, a11y checks, and import ordering before pushing.
 
+## Design Principles
+Apply the Single Responsibility Principle aggressively: each module/component should focus on one concern (data fetching, presentation, state orchestration, etc.). Prefer extracting table renderers, preview utilities, and workspace-specific hooks into their own functions or files instead of growing monolithic pages. When a file starts managing unrelated concerns, break it apart before adding new functionality. For web code, group shared logic per feature under `apps/web/src/features/<feature-name>` and keep pages as thin orchestrators that delegate tables, dialogs, and preview panes to dedicated components.
+
 ## Testing Guidelines
 Vitest + Supertest cover the API; place specs under `apps/api/src/__tests__` mirroring the route or service (`workspaces.routes.test.ts`). Arrange cases by behavior (happy path, validation errors, edge cases) and reuse shared payload types to prevent contract drift. Favor integration tests around filesystem and SQLite flows; mock chokidar/file IO only when the suite becomes flaky. Block merges until `npm run test:api` passes locally and capture reproducible seeds inside `apps/api/data`.
 
