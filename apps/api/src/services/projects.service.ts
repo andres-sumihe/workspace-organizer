@@ -1,13 +1,13 @@
+import { v4 as uuidv4 } from 'uuid';
+
+import { bumpWorkspaceProjectCount } from './workspaces.service.js';
 import { AppError } from '../errors/app-error.js';
-import { findWorkspaceById } from '../repositories/workspaces.repository.js';
 import {
   createProject,
   listProjectsByWorkspace,
   findProjectByWorkspaceAndPath
 } from '../repositories/projects.repository.js';
-import { bumpWorkspaceProjectCount } from './workspaces.service.js';
-
-import { v4 as uuidv4 } from 'uuid';
+import { findWorkspaceById } from '../repositories/workspaces.repository.js';
 
 import type { WorkspaceProject } from '@workspace/shared';
 
