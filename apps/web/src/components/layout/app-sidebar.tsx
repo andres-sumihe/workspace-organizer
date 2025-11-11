@@ -2,6 +2,7 @@ import { Database } from 'lucide-react';
 
 import type { LucideIcon } from 'lucide-react';
 
+import LogoMark from '@/assets/wo-logo.svg';
 import {
   Sidebar,
   SidebarContent,
@@ -38,8 +39,8 @@ export const AppSidebar = ({ items, activeKey, onNavigate, connectionLabel }: Ap
     <Sidebar collapsible="icon">
       <SidebarHeader className="gap-3">
         <div className="flex h-12 items-center gap-2 rounded-lg bg-sidebar-accent px-3 text-sm font-semibold group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
-          <div className="grid h-9 w-9 place-items-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10">
-            <span className="font-semibold text-base leading-none uppercase tracking-wide px-0.5">WO</span>
+          <div className="grid h-9 w-9 place-items-center rounded-mdtext-sidebar-primary-foreground group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10">
+            <img src={LogoMark} alt="Workspace Organizer" className="h-9 w-9" />
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
             <span className="text-xs text-muted-foreground">Workspace</span>
