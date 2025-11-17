@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import type { SidebarNavItem } from '@/components/layout/app-sidebar';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { WorkspaceProvider } from '@/contexts/workspace-context';
 import { AuthenticatedLayout } from '@/layouts/authenticated-layout';
 import { DashboardPage } from '@/pages/dashboard-page';
 import { FileManagerPage } from '@/pages/file-manager-page';
@@ -105,23 +106,25 @@ export function App() {
     );
 
   return (
-    <AuthenticatedLayout
-      sidebarItems={sidebarItems}
-      activeSidebarKey={activePage}
-      onNavigate={(key) => {
-        const page = key as AppPage;
-        setActivePage(page);
-        try {
-          if (typeof window !== 'undefined' && window.localStorage) {
-            window.localStorage.setItem('wo:activePage', page);
+    <WorkspaceProvider>
+      <AuthenticatedLayout
+        sidebarItems={sidebarItems}
+        activeSidebarKey={activePage}
+        onNavigate={(key) => {
+          const page = key as AppPage;
+          setActivePage(page);
+          try {
+            if (typeof window !== 'undefined' && window.localStorage) {
+              window.localStorage.setItem('wo:activePage', page);
+            }
+          } catch (_e) {
+            // ignore localStorage failures
           }
-        } catch (_e) {
-          // ignore localStorage failures
-        }
-      }}
-      connectionLabel="Connected to workspace datastore"
-    >
-      {pageContent}
-    </AuthenticatedLayout>
+        }}
+        connectionLabel="Connected to workspace datastore"
+      >
+        {pageContent}
+      </AuthenticatedLayout>
+    </WorkspaceProvider>
   );
 }
