@@ -4,10 +4,9 @@ import { useForm } from 'react-hook-form';
 
 import type { WorkspaceBreadcrumb, WorkspaceDirectoryEntry, WorkspaceFilePreview } from '@/types/desktop';
 import type { CheckedState } from '@radix-ui/react-checkbox';
-import type { WorkspaceSummary } from '@workspace/shared';
 
-import { fetchWorkspaceList } from '@/api/workspaces';
 import { PageShell } from '@/components/layout/page-shell';
+import { useWorkspaceContext } from '@/contexts/workspace-context';
 import {
   DirectoryBrowser,
   FileManagerToolbar,
@@ -32,10 +31,16 @@ const DesktopOnlyBanner = () => (
 );
 
 export const FileManagerPage = () => {
-  const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
-  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
-  const [workspaceLoading, setWorkspaceLoading] = useState(false);
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>('');
+  const {
+    workspaces,
+    activeWorkspaceId,
+    setActiveWorkspaceId,
+    loading: workspaceLoading,
+    error: workspaceError
+  } = useWorkspaceContext();
+
+  const selectedWorkspaceId = activeWorkspaceId ?? '';
+  const setSelectedWorkspaceId = (id: string) => setActiveWorkspaceId(id || null);
 
   const [entries, setEntries] = useState<WorkspaceDirectoryEntry[]>([]);
   const [breadcrumbs, setBreadcrumbs] = useState<WorkspaceBreadcrumb[]>([{ label: 'Root', path: '' }]);
@@ -86,26 +91,6 @@ export const FileManagerPage = () => {
     () => workspaces.find((ws) => ws.id === selectedWorkspaceId),
     [selectedWorkspaceId, workspaces]
   );
-
-  useEffect(() => {
-    const load = async () => {
-      setWorkspaceLoading(true);
-      setWorkspaceError(null);
-      try {
-        const payload = await fetchWorkspaceList(1, 50);
-        setWorkspaces(payload.items);
-        if (payload.items.length > 0) {
-          setSelectedWorkspaceId((current) => current || payload.items[0].id);
-        }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to load workspaces';
-        setWorkspaceError(message);
-      } finally {
-        setWorkspaceLoading(false);
-      }
-    };
-    load();
-  }, []);
 
   const loadDirectory = useCallback(
     async (targetPath: string) => {

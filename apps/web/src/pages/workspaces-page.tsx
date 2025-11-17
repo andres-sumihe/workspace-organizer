@@ -15,11 +15,11 @@ import {
   createWorkspace,
   createWorkspaceProject,
   fetchWorkspaceDetail,
-  fetchWorkspaceList,
   fetchWorkspaceProjects,
   updateWorkspace as updateWorkspaceApi
 } from '@/api/workspaces';
 import { PageShell } from '@/components/layout/page-shell';
+import { useWorkspaceContext } from '@/contexts/workspace-context';
 import {
   WorkspaceToolbar,
   WorkspaceListPanel,
@@ -35,18 +35,22 @@ import {
 } from '@/features/workspaces';
 
 export const WorkspacesPage = () => {
-  const [items, setItems] = useState<WorkspaceSummary[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    workspaces: items,
+    activeWorkspaceId: selectedWorkspaceId,
+    setActiveWorkspaceId: setSelectedWorkspaceId,
+    refreshWorkspaces,
+    loading: contextLoading,
+    error: contextError
+  } = useWorkspaceContext();
+
+  const [localError, setLocalError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(6);
-  const [total, setTotal] = useState<number | null>(null);
   const [openNew, setOpenNew] = useState(false);
   const [creating, setCreating] = useState(false);
   const [selectingFolder, setSelectingFolder] = useState(false);
   const [canSelectFolder, setCanSelectFolder] = useState(false);
-
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
   const [workspaceDetail, setWorkspaceDetail] = useState<WorkspaceDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [updatingWorkspace, setUpdatingWorkspace] = useState(false);
@@ -90,35 +94,14 @@ export const WorkspacesPage = () => {
 
   const [projectPathEdited, setProjectPathEdited] = useState(false);
 
-  const load = useCallback(
-    async (signal?: AbortSignal) => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const payload = await fetchWorkspaceList(page, pageSize, signal);
-        setItems(payload.items);
-        setTotal(payload.meta.total);
-
-        if (!selectedWorkspaceId && payload.items.length > 0) {
-          setSelectedWorkspaceId(payload.items[0].id);
-        }
-      } catch (err: unknown) {
-        if (signal?.aborted) return;
-        const message = err instanceof Error ? err.message : 'Unknown error';
-        setError(message);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [page, pageSize, selectedWorkspaceId]
-  );
-
-  useEffect(() => {
-    const controller = new AbortController();
-    void load(controller.signal);
-    return () => controller.abort();
-  }, [load]);
+  // Derive pagination values from context workspaces
+  const loading = contextLoading;
+  const error = contextError || localError;
+  const total = items.length;
+  const paginatedItems = useMemo(() => {
+    const startIdx = (page - 1) * pageSize;
+    return items.slice(startIdx, startIdx + pageSize);
+  }, [items, page, pageSize]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && typeof window.api?.selectDirectory === 'function') {
@@ -187,16 +170,14 @@ export const WorkspacesPage = () => {
         setWorkspaceDetail((prev) =>
           prev && prev.id === workspace.id ? { ...prev, templateCount, status: templateCount > 0 ? 'healthy' : prev.status } : prev
         );
-        setItems((prev) =>
-          prev.map((ws) => (ws.id === workspace.id ? { ...ws, templateCount, status: templateCount > 0 ? 'healthy' : ws.status } : ws))
-        );
+        await refreshWorkspaces();
       } catch (err) {
         console.error('Failed to load workspace templates', err);
         setWorkspaceTemplates([]);
         setWorkspaceTemplateIds([]);
       }
     },
-    [desktopAvailable]
+    [desktopAvailable, refreshWorkspaces]
   );
 
   const loadDetailAndProjects = useCallback(
@@ -219,7 +200,7 @@ export const WorkspacesPage = () => {
         await refreshWorkspaceTemplates(detailResp.workspace);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to load workspace detail';
-        setError(message);
+        setLocalError(message);
         setProjectError(message);
         setProjects([]);
       } finally {
@@ -311,15 +292,14 @@ export const WorkspacesPage = () => {
       const resp = await createWorkspace(payload);
       const created = (resp as unknown as { workspace?: WorkspaceSummary }).workspace;
       if (created) {
-        setItems((prev) => [created, ...prev]);
-        setTotal((t) => (t ?? 0) + 1);
+        await refreshWorkspaces();
         setSelectedWorkspaceId(created.id);
         workspaceForm.reset();
         setOpenNew(false);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to create workspace';
-      setError(message);
+      setLocalError(message);
     } finally {
       setCreating(false);
     }
@@ -337,12 +317,12 @@ export const WorkspacesPage = () => {
       const updated = (resp as unknown as { workspace?: WorkspaceDetail }).workspace;
       if (updated) {
         setWorkspaceDetail(updated);
-        setItems((prev) => prev.map((item) => (item.id === updated.id ? { ...item, name: updated.name, rootPath: updated.rootPath } : item)));
+        await refreshWorkspaces();
         setEditDialogOpen(false);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to update workspace';
-      setError(message);
+      setLocalError(message);
     } finally {
       setUpdatingWorkspace(false);
     }
@@ -368,7 +348,7 @@ export const WorkspacesPage = () => {
       const resp = await createWorkspaceProject(workspaceDetail.id, payload);
       const created = resp.project;
       setProjects((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
-      setItems((prev) => prev.map((item) => (item.id === workspaceDetail.id ? { ...item, projectCount: item.projectCount + 1 } : item)));
+      await refreshWorkspaces();
       projectForm.reset({ name: '', relativePath: '', description: '' });
       setProjectDialogOpen(false);
       if (desktopAvailable && selectedTemplateId && window.api?.applyTemplateToProject) {
@@ -416,9 +396,7 @@ export const WorkspacesPage = () => {
       setWorkspaceTemplates(selectedTemplates);
       const templateCount = templateIds.length;
       setWorkspaceDetail((prev) => (prev ? { ...prev, templateCount, status: templateCount > 0 ? 'healthy' : prev.status } : prev));
-      setItems((prev) =>
-        prev.map((ws) => (ws.id === workspaceDetail.id ? { ...ws, templateCount, status: templateCount > 0 ? 'healthy' : ws.status } : ws))
-      );
+      await refreshWorkspaces();
       setWorkspaceTemplateDialogOpen(false);
     } catch (err) {
       setWorkspaceTemplateError(err instanceof Error ? err.message : 'Failed to save workspace templates');
@@ -543,7 +521,7 @@ export const WorkspacesPage = () => {
       toolbar={
         <WorkspaceToolbar
           loading={loading}
-          onRefresh={() => void load()}
+          onRefresh={() => void refreshWorkspaces()}
           createDialogOpen={openNew}
           onCreateDialogChange={setOpenNew}
           form={workspaceForm}
@@ -558,7 +536,7 @@ export const WorkspacesPage = () => {
       {error ? <div className="mb-4 text-sm text-destructive">Error: {error}</div> : null}
       <div className="grid gap-6 lg:grid-cols-[2fr,1.2fr]">
         <WorkspaceListPanel
-          items={items}
+          items={paginatedItems}
           loading={loading}
           selectedWorkspaceId={selectedWorkspaceId}
           onSelect={(id) => setSelectedWorkspaceId(id)}
