@@ -1,4 +1,5 @@
 import { FolderOpen, Loader2, RefreshCw } from 'lucide-react';
+import { useState } from 'react';
 
 import type { WorkspaceFormValues } from '../types';
 import type { UseFormReturn } from 'react-hook-form';
@@ -43,16 +44,24 @@ export const WorkspaceToolbar = ({
   onSelectFolder,
   onSubmit
 }: WorkspaceToolbarProps) => {
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  const handleRefresh = () => {
+    setIsAnimating(true);
+    onRefresh();
+    setTimeout(() => setIsAnimating(false), 600);
+  };
+
   return (
     <div className="flex items-center gap-2">
       <Button
         variant="outline"
         size="sm"
-        onClick={onRefresh}
+        onClick={handleRefresh}
         className="flex items-center gap-2"
         disabled={loading}
       >
-        {loading ? <Loader2 className="animate-spin size-4" /> : <RefreshCw className="size-4" />}
+        <RefreshCw className={`size-4 transition-transform duration-500 ${isAnimating ? 'rotate-360' : ''}`} />
         Refresh
       </Button>
       <Dialog open={createDialogOpen} onOpenChange={onCreateDialogChange}>
