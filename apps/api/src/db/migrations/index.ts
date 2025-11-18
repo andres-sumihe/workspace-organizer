@@ -1,5 +1,6 @@
 import * as migration0001 from './0001-create-workspaces.js';
 import * as migration0002 from './0002-add-project-relative-path.js';
+import * as migration0003 from './0003-create-scripts.js';
 
 import type { Database } from 'sqlite';
 
@@ -10,7 +11,8 @@ interface Migration {
 
 const migrations: Migration[] = [
   { id: migration0001.id, up: migration0001.up },
-  { id: migration0002.id, up: migration0002.up }
+  { id: migration0002.id, up: migration0002.up },
+  { id: migration0003.id, up: migration0003.up }
 ];
 
 export const runMigrations = async (db: Database) => {

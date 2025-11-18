@@ -243,3 +243,120 @@ export interface ProjectTemplateSummary {
   folderCount?: number;
   fileCount?: number;
 }
+
+// Batch Script Tracking Types
+export type ScriptType = 'batch' | 'powershell' | 'shell' | 'other';
+
+export interface BatchScript {
+  id: string;
+  name: string;
+  description?: string;
+  filePath: string;
+  content: string;
+  type: ScriptType;
+  isActive: boolean;
+  hasCredentials: boolean;
+  executionCount: number;
+  lastExecutedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DriveMapping {
+  id: string;
+  scriptId: string;
+  driveLetter: string;
+  networkPath: string;
+  serverName?: string;
+  shareName?: string;
+  hasCredentials: boolean;
+  username?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ScriptTag {
+  id: string;
+  name: string;
+  color?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ScriptDependency {
+  dependentScriptId: string;
+  dependencyScriptId: string;
+  createdAt: string;
+}
+
+export interface ScriptCreateRequest {
+  name: string;
+  description?: string;
+  filePath: string;
+  content: string;
+  type?: ScriptType;
+  isActive?: boolean;
+  tagIds?: string[];
+}
+
+export interface ScriptUpdateRequest {
+  name?: string;
+  description?: string;
+  content?: string;
+  type?: ScriptType;
+  isActive?: boolean;
+  tagIds?: string[];
+}
+
+export interface ScriptScanRequest {
+  directoryPath: string;
+  recursive?: boolean;
+  filePattern?: string;
+}
+
+export interface DriveConflict {
+  driveLetter: string;
+  scripts: Array<{
+    scriptId: string;
+    scriptName: string;
+    networkPath: string;
+  }>;
+}
+
+export interface DriveAnalysis {
+  totalScripts: number;
+  totalMappings: number;
+  usedDrives: string[];
+  availableDrives: string[];
+  conflicts: DriveConflict[];
+}
+
+export interface ScriptStats {
+  totalScripts: number;
+  activeScripts: number;
+  scriptsWithCredentials: number;
+  totalExecutions: number;
+  scriptsByType: Record<ScriptType, number>;
+  recentlyUpdated: BatchScript[];
+}
+
+export interface BatchScriptDetail extends BatchScript {
+  driveMappings: DriveMapping[];
+  tags: ScriptTag[];
+  dependencies: BatchScript[];
+  dependents: BatchScript[];
+}
+
+export type ScriptListResponse = PaginatedData<BatchScript>;
+
+export interface ScriptDetailResponse {
+  script: BatchScriptDetail;
+}
+
+export interface ScriptStatsResponse {
+  stats: ScriptStats;
+}
+
+export interface DriveAnalysisResponse {
+  analysis: DriveAnalysis;
+}
