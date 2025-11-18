@@ -1,4 +1,4 @@
-import { FolderGit2, LayoutDashboard, LineChart, Settings, Split, Layers } from 'lucide-react';
+import { FolderGit2, LayoutDashboard, LineChart, Settings, Split, Layers, FileCode } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import type { SidebarNavItem } from '@/components/layout/app-sidebar';
@@ -8,10 +8,11 @@ import { WorkspaceProvider } from '@/contexts/workspace-context';
 import { AuthenticatedLayout } from '@/layouts/authenticated-layout';
 import { DashboardPage } from '@/pages/dashboard-page';
 import { FileManagerPage } from '@/pages/file-manager-page';
+import { ScriptsPage } from '@/pages/scripts-page';
 import { TemplatesPage } from '@/pages/templates-page';
 import { WorkspacesPage } from '@/pages/workspaces-page';
 
-type AppPage = 'dashboard' | 'workspaces' | 'files' | 'templates' | 'analytics' | 'system';
+type AppPage = 'dashboard' | 'workspaces' | 'files' | 'scripts' | 'templates' | 'analytics' | 'system';
 
 const placeholderCopy: Record<AppPage, { title: string; description: string }> = {
   dashboard: {
@@ -29,6 +30,10 @@ const placeholderCopy: Record<AppPage, { title: string; description: string }> =
   files: {
     title: 'Files',
     description: 'Inspect and operate on workspace files directly from the desktop shell.',
+  },
+  scripts: {
+    title: 'Batch Scripts',
+    description: 'Track and manage batch scripts with drive mapping conflict detection.',
   },
   templates: {
     title: 'Templates',
@@ -66,6 +71,7 @@ export function App() {
           stored === 'dashboard' ||
           stored === 'workspaces' ||
           stored === 'files' ||
+          stored === 'scripts' ||
           stored === 'templates' ||
           stored === 'analytics' ||
           stored === 'system'
@@ -85,6 +91,7 @@ export function App() {
       { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { key: 'workspaces', label: 'Workspaces', icon: FolderGit2 },
       { key: 'files', label: 'Files', icon: Split },
+      { key: 'scripts', label: 'Scripts', icon: FileCode },
       { key: 'templates', label: 'Templates', icon: Layers },
       { key: 'analytics', label: 'Analytics', icon: LineChart },
       { key: 'system', label: 'System', icon: Settings },
@@ -99,6 +106,8 @@ export function App() {
       <WorkspacesPage />
     ) : activePage === 'files' ? (
       <FileManagerPage />
+    ) : activePage === 'scripts' ? (
+      <ScriptsPage />
     ) : activePage === 'templates' ? (
       <TemplatesPage />
     ) : (
