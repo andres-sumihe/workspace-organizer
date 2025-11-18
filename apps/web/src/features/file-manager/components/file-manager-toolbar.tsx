@@ -1,4 +1,5 @@
 import { GitMerge, ListTree, RefreshCw } from 'lucide-react';
+import { useState } from 'react';
 
 import type { WorkspaceSummary } from '@workspace/shared';
 
@@ -36,6 +37,14 @@ export const FileManagerToolbar = ({
   canMerge,
   onMerge
 }: FileManagerToolbarProps) => {
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  const handleRefresh = () => {
+    setIsAnimating(true);
+    onRefresh();
+    setTimeout(() => setIsAnimating(false), 600);
+  };
+
   return (
     <div className="flex flex-wrap items-center gap-3">
       <div className="flex items-center gap-2">
@@ -61,10 +70,10 @@ export const FileManagerToolbar = ({
         variant="outline"
         size="sm"
         className="flex items-center gap-2"
-        onClick={onRefresh}
+        onClick={handleRefresh}
         disabled={refreshDisabled}
       >
-        <RefreshCw className={isRefreshing ? 'size-4 animate-spin' : 'size-4'} />
+        <RefreshCw className={`size-4 transition-transform duration-500 ${isAnimating ? 'rotate-360' : ''}`} />
         Refresh
       </Button>
       <Button
