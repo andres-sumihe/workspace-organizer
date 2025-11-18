@@ -35,9 +35,12 @@ export const WorkspaceProvider = ({ children }: WorkspaceProviderProps) => {
       setWorkspaces(payload.items);
 
       // Auto-select first workspace if none selected and list is non-empty
-      if (!activeWorkspaceId && payload.items.length > 0) {
-        setActiveWorkspaceId(payload.items[0].id);
-      }
+      setActiveWorkspaceId((currentId) => {
+        if (!currentId && payload.items.length > 0) {
+          return payload.items[0].id;
+        }
+        return currentId;
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load workspaces';
       setError(message);
@@ -45,7 +48,7 @@ export const WorkspaceProvider = ({ children }: WorkspaceProviderProps) => {
     } finally {
       setLoading(false);
     }
-  }, [activeWorkspaceId]);
+  }, []);
 
   useEffect(() => {
     void refreshWorkspaces();

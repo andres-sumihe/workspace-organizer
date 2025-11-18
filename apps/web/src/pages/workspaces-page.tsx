@@ -170,14 +170,13 @@ export const WorkspacesPage = () => {
         setWorkspaceDetail((prev) =>
           prev && prev.id === workspace.id ? { ...prev, templateCount, status: templateCount > 0 ? 'healthy' : prev.status } : prev
         );
-        await refreshWorkspaces();
       } catch (err) {
         console.error('Failed to load workspace templates', err);
         setWorkspaceTemplates([]);
         setWorkspaceTemplateIds([]);
       }
     },
-    [desktopAvailable, refreshWorkspaces]
+    [desktopAvailable]
   );
 
   const loadDetailAndProjects = useCallback(
@@ -224,7 +223,8 @@ export const WorkspacesPage = () => {
     if (desktopAvailable && workspaceDetail) {
       void refreshWorkspaceTemplates(workspaceDetail);
     }
-  }, [desktopAvailable, workspaceDetail, refreshWorkspaceTemplates]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [desktopAvailable, workspaceDetail]);
 
   const projectNameValue = projectForm.watch('name');
   const availableTemplates = useMemo(
