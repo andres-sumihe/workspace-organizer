@@ -196,6 +196,7 @@ export const ScriptsPage = () => {
         onClose={() => setDialogOpen(false)}
         mode={dialogMode}
         scriptId={dialogMode === 'edit' ? selectedScriptId ?? undefined : undefined}
+        onSuccess={() => void loadScripts()}
       />
       <ScanDirectoryDialog
         open={scanDialogOpen}
