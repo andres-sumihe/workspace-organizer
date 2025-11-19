@@ -23,6 +23,7 @@ export const listScriptsHandler: RequestHandler = async (req, res) => {
     req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined;
   const driveLetter = typeof req.query.driveLetter === 'string' ? req.query.driveLetter : undefined;
   const tagId = typeof req.query.tagId === 'string' ? req.query.tagId : undefined;
+  const searchQuery = typeof req.query.searchQuery === 'string' ? req.query.searchQuery : undefined;
 
   const response = await getScriptList({
     page: pagination.page,
@@ -30,7 +31,8 @@ export const listScriptsHandler: RequestHandler = async (req, res) => {
     type,
     isActive,
     driveLetter,
-    tagId
+    tagId,
+    searchQuery
   });
 
   res.json(response);
@@ -116,12 +118,14 @@ export const scanScriptsHandler: RequestHandler = async (req, res) => {
 
   const directoryPath = typeof body.directoryPath === 'string' ? body.directoryPath : undefined;
   const recursive = typeof body.recursive === 'boolean' ? body.recursive : false;
+  const filePattern = typeof body.filePattern === 'string' ? body.filePattern : '*.bat';
+  const replaceExisting = typeof body.replaceExisting === 'boolean' ? body.replaceExisting : false;
 
   if (!directoryPath) {
     return res.status(400).json({ code: 'INVALID_REQUEST', message: 'Missing required field: directoryPath' });
   }
 
-  const scripts = await scanDirectory(directoryPath, recursive);
+  const scripts = await scanDirectory(directoryPath, recursive, filePattern, replaceExisting);
   res.json({ scripts, count: scripts.length });
 };
 

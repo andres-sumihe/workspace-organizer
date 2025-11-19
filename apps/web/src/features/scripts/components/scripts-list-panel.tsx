@@ -69,9 +69,9 @@ export const ScriptsListPanel = ({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col h-full">
       {/* Filters */}
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 mb-4">
         <Input
           placeholder="Search scripts..."
           value={filters.searchQuery || ''}
@@ -105,18 +105,22 @@ export const ScriptsListPanel = ({
         </Select>
       </div>
 
-      {/* Script List */}
-      {loading && items.length === 0 ? (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" /> Loading scripts...
-        </div>
-      ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <FileText className="mb-4 h-12 w-12 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">No scripts found</p>
-        </div>
-      ) : (
-        <div className="space-y-2">
+      {/* Script List - Scrollable */}
+      <div className="flex-1 overflow-y-auto mb-4">
+        {loading && items.length === 0 ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" /> Loading scripts...
+          </div>
+        ) : items.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="rounded-full bg-muted/30 p-6 mb-4">
+              <FileText className="h-10 w-10 text-muted-foreground" />
+            </div>
+            <h3 className="text-base font-semibold text-foreground mb-1">No Scripts Found</h3>
+            <p className="text-sm text-muted-foreground max-w-xs">Try adjusting your filters or add a new script to get started</p>
+          </div>
+        ) : (
+          <div className="space-y-2 pr-2">
           {items.map((script) => {
             const isActive = selectedScriptId === script.id;
             return (
@@ -124,29 +128,31 @@ export const ScriptsListPanel = ({
                 key={script.id}
                 type="button"
                 onClick={() => onSelect(script.id)}
-                className={`w-full rounded-md border p-3 text-left transition ${
-                  isActive ? 'border-primary bg-primary/5 shadow-sm' : 'border-border hover:border-muted-foreground'
+                className={`w-full rounded-lg border p-3 text-left transition-all duration-200 ${
+                  isActive 
+                    ? 'border-primary bg-primary/10 shadow-md ring-2 ring-primary/20' 
+                    : 'border-border hover:border-primary/50 hover:bg-accent/50 hover:shadow-sm'
                 }`}
               >
-                <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-semibold text-foreground truncate">{script.name}</p>
                       {script.isActive ? (
-                        <CheckCircle className="h-3.5 w-3.5 flex-shrink-0 text-green-600" />
+                        <CheckCircle className="h-3.5 w-3.5 shrink-0 text-green-600" />
                       ) : (
-                        <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
+                        <AlertCircle className="h-3.5 w-3.5 shrink-0 text-gray-400" />
                       )}
                     </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground truncate">{script.filePath}</p>
+                    <p className="mt-1 text-xs text-muted-foreground truncate" title={script.filePath}>{script.filePath}</p>
                   </div>
-                  <div className="ml-2 flex flex-shrink-0 flex-col items-end gap-1">
-                    <Badge variant="secondary" className="text-xs">
+                  <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    <Badge variant="secondary" className="text-xs uppercase">
                       {script.type}
                     </Badge>
                     {script.hasCredentials && (
-                      <Badge variant="outline" className="text-xs text-orange-600">
-                        Creds
+                      <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">
+                        🔐 Creds
                       </Badge>
                     )}
                   </div>
@@ -154,18 +160,19 @@ export const ScriptsListPanel = ({
                 {script.description && (
                   <>
                     <Separator className="my-2" />
-                    <p className="text-xs text-muted-foreground line-clamp-2">{script.description}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{script.description}</p>
                   </>
                 )}
               </button>
             );
           })}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
 
-      {/* Pagination */}
+      {/* Pagination - Sticky at bottom */}
       {total !== null ? (
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <div className="flex items-center justify-between border-t bg-white pt-3 text-sm text-muted-foreground">
           <div>
             {items.length} of {total} scripts
           </div>
