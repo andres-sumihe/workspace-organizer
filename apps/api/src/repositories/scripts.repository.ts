@@ -141,11 +141,12 @@ export interface ListScriptsParams {
   isActive?: boolean;
   driveLetter?: string;
   tagId?: string;
+  searchQuery?: string;
 }
 
 export const listScripts = async (params: ListScriptsParams): Promise<BatchScript[]> => {
   const db = await getDb();
-  const { limit, offset, type, isActive, driveLetter, tagId } = params;
+  const { limit, offset, type, isActive, driveLetter, tagId, searchQuery } = params;
 
   const conditions: string[] = [];
   const values: unknown[] = [];
@@ -168,6 +169,12 @@ export const listScripts = async (params: ListScriptsParams): Promise<BatchScrip
   if (tagId !== undefined) {
     conditions.push('EXISTS (SELECT 1 FROM script_tags st WHERE st.script_id = s.id AND st.tag_id = ?)');
     values.push(tagId);
+  }
+
+  if (searchQuery !== undefined && searchQuery.trim() !== '') {
+    conditions.push('(s.name LIKE ? OR s.file_path LIKE ? OR s.description LIKE ?)');
+    const searchPattern = `%${searchQuery}%`;
+    values.push(searchPattern, searchPattern, searchPattern);
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -194,7 +201,7 @@ export const listScripts = async (params: ListScriptsParams): Promise<BatchScrip
 
 export const countScripts = async (params: Omit<ListScriptsParams, 'limit' | 'offset'>): Promise<number> => {
   const db = await getDb();
-  const { type, isActive, driveLetter, tagId } = params;
+  const { type, isActive, driveLetter, tagId, searchQuery } = params;
 
   const conditions: string[] = [];
   const values: unknown[] = [];
@@ -217,6 +224,12 @@ export const countScripts = async (params: Omit<ListScriptsParams, 'limit' | 'of
   if (tagId !== undefined) {
     conditions.push('EXISTS (SELECT 1 FROM script_tags st WHERE st.script_id = s.id AND st.tag_id = ?)');
     values.push(tagId);
+  }
+
+  if (searchQuery !== undefined && searchQuery.trim() !== '') {
+    conditions.push('(s.name LIKE ? OR s.file_path LIKE ? OR s.description LIKE ?)');
+    const searchPattern = `%${searchQuery}%`;
+    values.push(searchPattern, searchPattern, searchPattern);
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';

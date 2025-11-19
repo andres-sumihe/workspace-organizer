@@ -1,6 +1,6 @@
 import { Loader2, FileCode, MapPin, Tag, Link2, AlertTriangle, Trash2, Edit } from 'lucide-react';
 
-import type { BatchScriptDetail } from '@workspace/shared';
+import type { BatchScriptDetail, DriveConflict } from '@workspace/shared';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,15 +13,17 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table';
+import { DriveConflictAlert } from './drive-conflict-alert';
 
 interface ScriptDetailPanelProps {
   script: BatchScriptDetail | null;
   loading: boolean;
   onEdit: () => void;
   onDelete: () => void;
+  conflicts: DriveConflict[];
 }
 
-export const ScriptDetailPanel = ({ script, loading, onEdit, onDelete }: ScriptDetailPanelProps) => {
+export const ScriptDetailPanel = ({ script, loading, onEdit, onDelete, conflicts }: ScriptDetailPanelProps) => {
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -32,12 +34,20 @@ export const ScriptDetailPanel = ({ script, loading, onEdit, onDelete }: ScriptD
 
   if (!script) {
     return (
-      <div className="flex h-full flex-col items-center justify-center text-center">
-        <FileCode className="mb-4 h-16 w-16 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">Select a script to view details</p>
+      <div className="flex h-full flex-col items-center justify-center text-center px-4">
+        <div className="rounded-full bg-muted/30 p-6 mb-4">
+          <FileCode className="h-12 w-12 text-muted-foreground" />
+        </div>
+        <h3 className="text-lg font-semibold text-foreground mb-2">No Script Selected</h3>
+        <p className="text-sm text-muted-foreground max-w-sm">Select a script from the list to view its details, drive mappings, and dependencies</p>
       </div>
     );
   }
+
+  // Find conflicts related to this script
+  const scriptConflicts = conflicts.filter(conflict =>
+    conflict.scripts.some(s => s.scriptName === script.name)
+  );
 
   return (
     <div className="h-full overflow-y-auto p-6">
@@ -49,11 +59,11 @@ export const ScriptDetailPanel = ({ script, loading, onEdit, onDelete }: ScriptD
         </div>
         <div className="ml-4 flex gap-2">
           <Button variant="outline" size="sm" onClick={onEdit}>
-            <Edit className="h-4 w-4" />
+            <Edit className="mr-2 h-4 w-4" />
             Edit
           </Button>
-          <Button variant="outline" size="sm" onClick={onDelete} className="text-destructive hover:text-destructive">
-            <Trash2 className="h-4 w-4" />
+          <Button variant="outline" size="sm" onClick={onDelete} className="text-destructive hover:text-destructive hover:bg-destructive/10">
+            <Trash2 className="mr-2 h-4 w-4" />
             Delete
           </Button>
         </div>
@@ -77,6 +87,13 @@ export const ScriptDetailPanel = ({ script, loading, onEdit, onDelete }: ScriptD
           Executed {script.executionCount} times
         </Badge>
       </div>
+
+      {/* Drive Conflicts for this script */}
+      {scriptConflicts.length > 0 && (
+        <div className="mb-6">
+          <DriveConflictAlert conflicts={scriptConflicts} />
+        </div>
+      )}
 
       {/* Description */}
       {script.description && (
@@ -198,8 +215,8 @@ export const ScriptDetailPanel = ({ script, loading, onEdit, onDelete }: ScriptD
           <FileCode className="h-4 w-4 text-muted-foreground" />
           <h3 className="text-sm font-semibold text-foreground">Script Content</h3>
         </div>
-        <div className="overflow-x-auto rounded border border-border bg-muted/30 p-4">
-          <pre className="text-xs font-mono text-foreground whitespace-pre-wrap break-words">{script.content}</pre>
+        <div className="max-h-96 overflow-auto rounded-lg border border-border bg-slate-50 p-4 shadow-sm">
+          <pre className="text-xs font-mono text-slate-800 whitespace-pre-wrap wrap-break-word leading-relaxed">{script.content}</pre>
         </div>
       </div>
 

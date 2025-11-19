@@ -21,6 +21,7 @@ export const fetchScriptList = (
     isActive?: boolean;
     driveLetter?: string;
     tagId?: string;
+    searchQuery?: string;
   },
   signal?: AbortSignal
 ) => {

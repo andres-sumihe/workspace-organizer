@@ -312,6 +312,7 @@ export interface ScriptScanRequest {
   directoryPath: string;
   recursive?: boolean;
   filePattern?: string;
+  replaceExisting?: boolean;
 }
 
 export interface DriveConflict {

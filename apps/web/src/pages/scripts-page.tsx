@@ -1,15 +1,16 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 
 import type { ScriptFilters } from '@/features/scripts/types';
 import type { BatchScript, BatchScriptDetail, DriveConflict } from '@workspace/shared';
 
-import { fetchScriptList, fetchScriptDetail, fetchConflicts } from '@/api/scripts';
+import { fetchScriptList, fetchScriptDetail, fetchConflicts, scanScripts } from '@/api/scripts';
 import {
   ScriptsToolbar,
   ScriptsListPanel,
   ScriptDetailPanel,
   ScriptDialog,
-  DriveConflictAlert
+  ScanDirectoryDialog
 } from '@/features/scripts';
 
 
@@ -30,6 +31,8 @@ export const ScriptsPage = () => {
   
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
+  const [scanDialogOpen, setScanDialogOpen] = useState(false);
+  const [canSelectFolder, setCanSelectFolder] = useState(false);
 
   // Fetch scripts list
   const loadScripts = useCallback(async () => {
@@ -39,7 +42,8 @@ export const ScriptsPage = () => {
         type: filters.type,
         isActive: filters.isActive,
         driveLetter: filters.driveLetter,
-        tagId: filters.tagId
+        tagId: filters.tagId,
+        searchQuery: filters.searchQuery
       });
       setScripts(response.items);
       setTotal(response.meta.total);
@@ -73,6 +77,11 @@ export const ScriptsPage = () => {
     }
   }, []);
 
+  // Check desktop capabilities
+  useEffect(() => {
+    setCanSelectFolder(typeof window !== 'undefined' && typeof window.api?.selectDirectory === 'function');
+  }, []);
+
   // Initial load
   useEffect(() => {
     loadScripts();
@@ -87,18 +96,6 @@ export const ScriptsPage = () => {
       setSelectedScript(null);
     }
   }, [selectedScriptId, loadScriptDetail]);
-
-  // Filter scripts locally by search query
-  const filteredScripts = useMemo(() => {
-    if (!filters.searchQuery) return scripts;
-    const query = filters.searchQuery.toLowerCase();
-    return scripts.filter(
-      (script) =>
-        script.name.toLowerCase().includes(query) ||
-        script.filePath.toLowerCase().includes(query) ||
-        script.description?.toLowerCase().includes(query)
-    );
-  }, [scripts, filters.searchQuery]);
 
   const handleRefresh = () => {
     loadScripts();
@@ -124,8 +121,19 @@ export const ScriptsPage = () => {
   };
 
   const handleScanDirectory = () => {
-    // Implement directory scan dialog
-    console.log('Scan directory');
+    setScanDialogOpen(true);
+  };
+
+  const handleScan = async (values: { directoryPath: string; recursive: boolean; filePattern: string; replaceExisting: boolean }) => {
+    const result = await scanScripts({
+      directoryPath: values.directoryPath,
+      recursive: values.recursive,
+      filePattern: values.filePattern,
+      replaceExisting: values.replaceExisting
+    });
+    await loadScripts();
+    await loadConflicts();
+    return { count: result.count };
   };
 
   const handlePageChange = (newPage: number) => {
@@ -139,52 +147,61 @@ export const ScriptsPage = () => {
   };
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="absolute inset-0 flex flex-col bg-background">
       <ScriptsToolbar
         onRefresh={handleRefresh}
         onNewScript={handleNewScript}
         onScanDirectory={handleScanDirectory}
       />
 
-      <div className="flex flex-1 overflow-hidden">
+      <PanelGroup direction="horizontal" className="flex-1">
         {/* Left Panel - Scripts List */}
-        <div className="w-1/3 border-r bg-white p-4 overflow-y-auto">
-          {conflicts.length > 0 && (
-            <div className="mb-4">
-              <DriveConflictAlert conflicts={conflicts} />
-            </div>
-          )}
-          <ScriptsListPanel
-            items={filteredScripts}
-            loading={loading}
-            selectedScriptId={selectedScriptId}
-            onSelect={setSelectedScriptId}
-            page={page}
-            pageSize={pageSize}
-            total={total}
-            onPageChange={handlePageChange}
-            filters={filters}
-            onFilterChange={handleFilterChange}
-          />
-        </div>
+        <Panel defaultSize={35} minSize={20} maxSize={60}>
+          <div className="h-full border-r bg-white overflow-hidden flex flex-col p-4">
+            <ScriptsListPanel
+              items={scripts}
+              loading={loading}
+              selectedScriptId={selectedScriptId}
+              onSelect={setSelectedScriptId}
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              onPageChange={handlePageChange}
+              filters={filters}
+              onFilterChange={handleFilterChange}
+            />
+          </div>
+        </Panel>
+
+        {/* Resize Handle */}
+        <PanelResizeHandle className="w-1 bg-border hover:bg-primary/50 transition-colors cursor-col-resize" />
 
         {/* Right Panel - Script Detail */}
-        <div className="flex-1 bg-gray-50">
-          <ScriptDetailPanel
-            script={selectedScript}
-            loading={detailLoading}
-            onEdit={handleEditScript}
-            onDelete={handleDeleteScript}
-          />
-        </div>
-      </div>
+        <Panel defaultSize={65} minSize={40}>
+          <div className="h-full bg-linear-to-br from-gray-50 to-gray-100">
+            <ScriptDetailPanel
+              script={selectedScript}
+              loading={detailLoading}
+              onEdit={handleEditScript}
+              onDelete={handleDeleteScript}
+              conflicts={conflicts}
+            />
+          </div>
+        </Panel>
+      </PanelGroup>
 
-      {/* Dialog */}
+      {/* Dialogs */}
       <ScriptDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
         mode={dialogMode}
         scriptId={dialogMode === 'edit' ? selectedScriptId ?? undefined : undefined}
+      />
+      <ScanDirectoryDialog
+        open={scanDialogOpen}
+        onOpenChange={setScanDialogOpen}
+        onScan={handleScan}
+        canSelectFolder={canSelectFolder}
       />
     </div>
   );

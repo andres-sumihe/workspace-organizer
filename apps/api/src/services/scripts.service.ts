@@ -37,10 +37,11 @@ interface ScriptListOptions {
   isActive?: boolean;
   driveLetter?: string;
   tagId?: string;
+  searchQuery?: string;
 }
 
 export const getScriptList = async (options: ScriptListOptions): Promise<ScriptListResponse> => {
-  const { page, pageSize, type, isActive, driveLetter, tagId } = options;
+  const { page, pageSize, type, isActive, driveLetter, tagId, searchQuery } = options;
 
   const limit = pageSize;
   const offset = (page - 1) * pageSize;
@@ -51,7 +52,8 @@ export const getScriptList = async (options: ScriptListOptions): Promise<ScriptL
     type,
     isActive,
     driveLetter,
-    tagId
+    tagId,
+    searchQuery
   };
 
   const [items, total] = await Promise.all([listScripts(params), countScripts(params)]);
@@ -257,8 +259,96 @@ export const getAllTags = async () => {
   return listAllTags();
 };
 
-export const scanDirectory = async (_directoryPath: string, _recursive = false): Promise<BatchScript[]> => {
-  // Placeholder for directory scanning functionality
-  // This would integrate with Electron IPC to scan the file system
-  throw new AppError('Directory scanning not yet implemented.', 501, 'NOT_IMPLEMENTED');
+export const scanDirectory = async (directoryPath: string, recursive = false, filePattern = '*.bat', replaceExisting = false): Promise<BatchScript[]> => {
+  const fs = await import('fs/promises');
+  const path = await import('path');
+  const { minimatch } = await import('minimatch');
+
+  const discoveredScripts: BatchScript[] = [];
+  const patterns = filePattern.split(',').map(p => p.trim());
+
+  const scanDir = async (currentPath: string): Promise<void> => {
+    try {
+      const entries = await fs.readdir(currentPath, { withFileTypes: true });
+
+      for (const entry of entries) {
+        const fullPath = path.join(currentPath, entry.name);
+
+        if (entry.isDirectory() && recursive) {
+          await scanDir(fullPath);
+        } else if (entry.isFile()) {
+          const matchesPattern = patterns.some(pattern => minimatch(entry.name, pattern, { nocase: true }));
+          
+          if (matchesPattern) {
+            try {
+              const content = await fs.readFile(fullPath, 'utf-8');
+              
+              // Detect script type from extension
+              let scriptType: 'batch' | 'powershell' | 'shell' | 'other' = 'other';
+              const ext = path.extname(entry.name).toLowerCase();
+              if (ext === '.bat' || ext === '.cmd') {
+                scriptType = 'batch';
+              } else if (ext === '.ps1') {
+                scriptType = 'powershell';
+              } else if (ext === '.sh') {
+                scriptType = 'shell';
+              }
+
+              // Parse the script to extract drive mappings
+              const parsedData = scriptParserService.parseScriptContent(content);
+
+              // Create tag for credentials if needed
+              let tagIds: string[] | undefined;
+              if (parsedData.hasCredentials) {
+                const credTag = await findOrCreateTag('credentials', randomUUID(), '#f97316');
+                tagIds = [credTag.id];
+              }
+
+              // Check if script with same file path exists
+              let existingScript: BatchScript | null = null;
+              if (replaceExisting) {
+                const allScripts = await listScripts({ limit: 10000, offset: 0 });
+                existingScript = allScripts.find((s) => s.filePath === fullPath) || null;
+              }
+
+              let resultScript: BatchScript;
+              if (existingScript && replaceExisting) {
+                // Update existing script
+                resultScript = await updateScript(existingScript.id, {
+                  name: entry.name.replace(path.extname(entry.name), ''),
+                  type: scriptType,
+                  description: `Updated from directory scan on ${new Date().toISOString()}`,
+                  isActive: true,
+                  content,
+                  tagIds
+                });
+              } else {
+                // Create new script
+                resultScript = await createScript({
+                  name: entry.name.replace(path.extname(entry.name), ''),
+                  filePath: fullPath,
+                  type: scriptType,
+                  description: `Imported from directory scan on ${new Date().toISOString()}`,
+                  isActive: true,
+                  content,
+                  tagIds
+                });
+              }
+
+              discoveredScripts.push(resultScript);
+            } catch (err) {
+              console.error(`Failed to process script ${fullPath}:`, err);
+              // Continue scanning other files
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error(`Failed to scan directory ${currentPath}:`, err);
+      throw new AppError(`Failed to scan directory: ${err instanceof Error ? err.message : 'Unknown error'}`, 500, 'SCAN_ERROR');
+    }
+  };
+
+  await scanDir(directoryPath);
+  return discoveredScripts;
 };
