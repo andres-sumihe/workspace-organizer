@@ -64,7 +64,9 @@ export const FileManagerPage = () => {
       destination: '',
       separator: '\n\n',
       includeHeaders: true,
-      overwrite: false
+      overwrite: false,
+      mode: 'simple',
+      copyToClipboard: false
     }
   });
 
@@ -75,7 +77,9 @@ export const FileManagerPage = () => {
       prefix: '',
       extension: '.txt',
       overwrite: false,
-      preserveOriginal: true
+      preserveOriginal: true,
+      mode: 'simple',
+      sourceMode: 'file'
     }
   });
 
@@ -237,31 +241,51 @@ export const FileManagerPage = () => {
 
   const openMergeDialog = () => {
     const defaultDestination = relativeJoin(currentPath, `merged-${new Date().toISOString().replace(/[:.]/g, '-')}.txt`);
+    const currentMode = mergeForm.getValues('mode') || 'simple';
     mergeForm.reset({
       destination: defaultDestination,
       separator: '\n\n',
-      includeHeaders: true,
-      overwrite: false
+      includeHeaders: currentMode === 'simple' ? true : false,
+      overwrite: false,
+      mode: currentMode, // Preserve the user's mode selection
+      copyToClipboard: currentMode === 'boundary' ? true : false
     });
     setMergeDialogOpen(true);
   };
 
-  const openSplitDialog = () => {
-    if (!preview?.path) return;
-    const segments = preview.path.split(/[\\/]/);
-    const filename = segments[segments.length - 1] ?? 'file';
-    const base = filename.replace(/\.[^.]+$/, '');
-    splitForm.reset({
-      separator: '\n\n',
-      prefix: `${base}-part`,
-      extension: filename.includes('.') ? `.${filename.split('.').pop()}` : '.txt',
-      overwrite: false,
-      preserveOriginal: true
-    });
+  const openSplitDialog = (fromClipboard = false) => {
+    if (!fromClipboard && !preview?.path) return;
+    
+    if (fromClipboard) {
+      splitForm.reset({
+        separator: '\n\n',
+        prefix: 'extracted',
+        extension: '.txt',
+        overwrite: false,
+        preserveOriginal: true,
+        mode: 'boundary',
+        sourceMode: 'clipboard'
+      });
+    } else if (preview) {
+      const segments = preview.path.split(/[\\/]/);
+      const filename = segments[segments.length - 1] ?? 'file';
+      const base = filename.replace(/\.[^.]+$/, '');
+      splitForm.reset({
+        separator: '\n\n',
+        prefix: `${base}-part`,
+        extension: filename.includes('.') ? `.${filename.split('.').pop()}` : '.txt',
+        overwrite: false,
+        preserveOriginal: true,
+        mode: 'boundary',
+        sourceMode: 'file'
+      });
+    }
     setSplitDialogOpen(true);
   };
 
   const handleMerge = async (values: MergeFormValues) => {
+    console.log('🔍 handleMerge called with values:', JSON.stringify(values, null, 2));
+    
     if (!activeWorkspace?.rootPath || !window.api?.mergeTextFiles) {
       setOperationError('Desktop bridge unavailable.');
       return;
@@ -280,12 +304,19 @@ export const FileManagerPage = () => {
         destination: values.destination,
         separator: values.separator,
         includeHeaders: values.includeHeaders,
-        overwrite: values.overwrite
+        overwrite: values.overwrite,
+        mode: values.mode,
+        copyToClipboard: values.copyToClipboard
       });
       if (!response.ok || !response.destination) {
         throw new Error(response.error || 'Merge failed');
       }
-      setOperationMessage(`Merged into ${response.destination}`);
+      
+      let message = `Merged into ${response.destination}`;
+      if (values.copyToClipboard) {
+        message += ' (content copied to clipboard)';
+      }
+      setOperationMessage(message);
       setSelectedFiles(new Set());
       setMergeDialogOpen(false);
       await loadDirectory(currentPath);
@@ -296,25 +327,63 @@ export const FileManagerPage = () => {
   };
 
   const handleSplit = async (values: SplitFormValues) => {
-    if (!activeWorkspace?.rootPath || !window.api?.splitTextFile || !preview?.path) {
+    if (!activeWorkspace?.rootPath || !window.api?.splitTextFile) {
       setOperationError('Desktop bridge unavailable.');
       return;
     }
 
     try {
+      let clipboardContent: string | undefined;
+      
+      // Get clipboard content if in clipboard mode
+      if (values.sourceMode === 'clipboard') {
+        try {
+          clipboardContent = await navigator.clipboard.readText();
+          if (!clipboardContent || !clipboardContent.trim()) {
+            throw new Error('Clipboard is empty');
+          }
+          
+          // Validate clipboard contains boundary format when mode is boundary
+          if (values.mode === 'boundary') {
+            if (!clipboardContent.includes('---FILE-BOUNDARY---|')) {
+              throw new Error(
+                'Clipboard does not contain boundary-formatted content. ' +
+                'Please merge files with "Boundary" mode first and copy the result.'
+              );
+            }
+          }
+        } catch (err) {
+          if (err instanceof Error) {
+            throw err;
+          }
+          throw new Error('Failed to read clipboard. Please ensure clipboard permissions are granted.');
+        }
+      } else if (!preview?.path) {
+        setOperationError('No file selected for splitting.');
+        return;
+      }
+
       const response = await window.api.splitTextFile({
         rootPath: activeWorkspace.rootPath,
-        source: preview.path,
+        source: values.sourceMode === 'file' ? preview?.path : undefined,
+        clipboardContent: values.sourceMode === 'clipboard' ? clipboardContent : undefined,
         separator: values.separator,
         prefix: values.prefix,
         extension: values.extension,
         overwrite: values.overwrite,
-        preserveOriginal: values.preserveOriginal
+        preserveOriginal: values.preserveOriginal,
+        mode: values.mode,
+        outputDir: currentPath
       });
+      
       if (!response.ok || !response.created) {
         throw new Error(response.error || 'Split failed');
       }
-      setOperationMessage(`Created ${response.created.length} files`);
+      
+      const message = values.sourceMode === 'clipboard' 
+        ? `Extracted ${response.created.length} files from clipboard`
+        : `Created ${response.created.length} files`;
+      setOperationMessage(message);
       setSplitDialogOpen(false);
       await loadDirectory(currentPath);
     } catch (err) {
@@ -375,6 +444,8 @@ export const FileManagerPage = () => {
             isRefreshing={directoryLoading}
             canMerge={canMerge}
             onMerge={openMergeDialog}
+            onSplitFromClipboard={() => openSplitDialog(true)}
+            desktopAvailable={desktopAvailable}
           />
         }
       >
@@ -415,7 +486,7 @@ export const FileManagerPage = () => {
             saving={saving}
             binaryPreview={binaryPreview}
             desktopAvailable={desktopAvailable}
-            onOpenSplitDialog={openSplitDialog}
+            onOpenSplitDialog={() => openSplitDialog(false)}
           />
         </div>
       </PageShell>

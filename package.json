@@ -20,7 +20,10 @@
     "typecheck:shared": "tsc --project packages/shared/tsconfig.json",
     "typecheck:api": "tsc --project apps/api/tsconfig.json",
     "typecheck:web": "tsc --project apps/web/tsconfig.json",
-    "test:api": "npm run test --workspace @workspace/api"
+    "test": "npm run test:api && npm run test:fs",
+    "test:api": "npm run test --workspace @workspace/api",
+    "test:fs": "node lib/workspace-fs.test.js",
+    "test:fs:integration": "node lib/workspace-fs-integration.test.js"
   },
   "keywords": [
     "dashboard",
