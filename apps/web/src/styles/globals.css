@@ -163,4 +163,21 @@
   .dark * {
     scrollbar-color: oklch(0.35 0 0) transparent;
   }
+
+  /* CodeMirror search selection highlighting */
+  .cm-selectionBackground {
+    background-color: rgba(100, 150, 255, 0.35) !important;
+  }
+
+  .dark .cm-selectionBackground {
+    background-color: rgba(120, 200, 255, 0.5) !important;
+  }
+
+  .cm-focused .cm-selectionBackground {
+    background-color: rgba(100, 180, 255, 0.45) !important;
+  }
+
+  .dark .cm-focused .cm-selectionBackground {
+    background-color: rgba(130, 210, 255, 0.6) !important;
+  }
 }
