@@ -6,8 +6,11 @@ import { html } from '@codemirror/lang-html';
 import { css } from '@codemirror/lang-css';
 import { python } from '@codemirror/lang-python';
 import { sql } from '@codemirror/lang-sql';
-import { Save, SplitSquareHorizontal } from 'lucide-react';
-import { useMemo } from 'react';
+import { highlightSelectionMatches } from '@codemirror/search';
+import { Save, Search, SplitSquareHorizontal, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { useMemo, useRef, useEffect, useState } from 'react';
+import { EditorView } from '@codemirror/view';
+import { EditorSelection } from '@codemirror/state';
 
 import { toHex } from '../utils';
 
@@ -85,11 +88,109 @@ export const PreviewPanel = ({
     [preview?.path]
   );
   
+  const editorViewRef = useRef<EditorView | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [caseSensitive, setCaseSensitive] = useState(false);
+  const [currentMatch, setCurrentMatch] = useState(0);
+  const [totalMatches, setTotalMatches] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  
   const extensions = useMemo(() => {
-    const exts = [];
+    const exts = [highlightSelectionMatches()];
     if (languageExtension) exts.push(languageExtension);
     return exts;
   }, [languageExtension]);
+
+  const matchesRef = useRef<number[]>([]);
+
+  const performSearch = () => {
+    if (!searchQuery || !editorViewRef.current) {
+      setTotalMatches(0);
+      setCurrentMatch(0);
+      matchesRef.current = [];
+      return;
+    }
+
+    const view = editorViewRef.current;
+    const text = view.state.doc.toString();
+    const searchText = caseSensitive ? text : text.toLowerCase();
+    const query = caseSensitive ? searchQuery : searchQuery.toLowerCase();
+    
+    const matches: number[] = [];
+    let index = 0;
+    while ((index = searchText.indexOf(query, index)) !== -1) {
+      matches.push(index);
+      index += query.length;
+    }
+    
+    matchesRef.current = matches;
+    setTotalMatches(matches.length);
+    
+    if (matches.length > 0) {
+      setCurrentMatch(0);
+      const pos = matches[0];
+      view.dispatch({
+        selection: EditorSelection.create([EditorSelection.range(pos, pos + searchQuery.length)]),
+        scrollIntoView: true
+      });
+    } else {
+      setCurrentMatch(0);
+    }
+  };
+
+  useEffect(() => {
+    performSearch();
+  }, [searchQuery, caseSensitive]);
+
+  const handleNext = () => {
+    if (matchesRef.current.length === 0 || !editorViewRef.current) return;
+    const next = (currentMatch + 1) % matchesRef.current.length;
+    setCurrentMatch(next);
+    const pos = matchesRef.current[next];
+    editorViewRef.current.dispatch({
+      selection: EditorSelection.create([EditorSelection.range(pos, pos + searchQuery.length)]),
+      scrollIntoView: true
+    });
+  };
+
+  const handlePrevious = () => {
+    if (matchesRef.current.length === 0 || !editorViewRef.current) return;
+    const prev = currentMatch === 0 ? matchesRef.current.length - 1 : currentMatch - 1;
+    setCurrentMatch(prev);
+    const pos = matchesRef.current[prev];
+    editorViewRef.current.dispatch({
+      selection: EditorSelection.create([EditorSelection.range(pos, pos + searchQuery.length)]),
+      scrollIntoView: true
+    });
+  };
+
+  const handleSearchToggle = () => {
+    setSearchOpen(!searchOpen);
+    if (!searchOpen) {
+      setTimeout(() => searchInputRef.current?.focus(), 0);
+    } else {
+      setSearchQuery('');
+      setCurrentMatch(0);
+      setTotalMatches(0);
+    }
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f' && preview && !binaryPreview && previewMode !== 'hex') {
+        e.preventDefault();
+        setSearchOpen(true);
+        setTimeout(() => searchInputRef.current?.focus(), 0);
+      }
+      if (searchOpen && e.key === 'Escape') {
+        setSearchOpen(false);
+        setSearchQuery('');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [preview, binaryPreview, previewMode, searchOpen]);
 
   const editorTheme = useMemo(() => {
     if (theme === 'dark') return 'dark';
@@ -125,6 +226,17 @@ export const PreviewPanel = ({
           </Tabs>
         </div>
         <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs"
+            onClick={handleSearchToggle}
+            disabled={disablePreviewButtons || previewMode === 'hex'}
+            title="Search (Ctrl+F)"
+          >
+            <Search className="size-3" />
+          </Button>
           <Button
             type="button"
             variant="ghost"
@@ -167,28 +279,92 @@ export const PreviewPanel = ({
                   </p>
                 </div>
               ) : editMode ? (
-                <CodeMirror
-                  value={editBuffer}
-                  height="500px"
-                  extensions={extensions}
-                  onChange={onEditBufferChange}
-                  theme={editorTheme}
-                  basicSetup={{
-                    lineNumbers: true,
-                    highlightActiveLineGutter: true,
-                    highlightSpecialChars: true,
-                    foldGutter: true,
-                    drawSelection: true,
-                    dropCursor: true,
-                    allowMultipleSelections: true,
-                    indentOnInput: true,
-                    bracketMatching: true,
-                    closeBrackets: true,
-                    autocompletion: true,
-                    highlightActiveLine: true,
-                    highlightSelectionMatches: true
-                  }}
-                />
+                <div className="relative h-[500px]">
+                  {searchOpen && (
+                    <div className="absolute top-2 right-2 z-10 bg-background border border-border rounded-md shadow-lg p-2 flex items-center gap-1">
+                      <input
+                        ref={searchInputRef}
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Find"
+                        className="w-48 px-2 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.shiftKey ? handlePrevious() : handleNext();
+                          }
+                        }}
+                      />
+                      <span className="text-xs text-muted-foreground px-1">
+                        {totalMatches > 0 ? `${currentMatch + 1}/${totalMatches}` : 'No results'}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={handlePrevious}
+                        disabled={totalMatches === 0}
+                      >
+                        <ChevronUp className="size-3" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={handleNext}
+                        disabled={totalMatches === 0}
+                      >
+                        <ChevronDown className="size-3" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className={`h-6 w-6 p-0 ${caseSensitive ? 'bg-primary/20 hover:bg-primary/30' : ''}`}
+                        onClick={() => setCaseSensitive(!caseSensitive)}
+                        title="Match Case"
+                      >
+                        <span className={`text-xs font-semibold ${caseSensitive ? 'text-primary' : 'text-muted-foreground'}`}>Aa</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={handleSearchToggle}
+                      >
+                        <X className="size-3" />
+                      </Button>
+                    </div>
+                  )}
+                  <CodeMirror
+                    value={editBuffer}
+                    height="500px"
+                    extensions={extensions}
+                    onChange={onEditBufferChange}
+                    theme={editorTheme}
+                    onCreateEditor={(view) => {
+                      editorViewRef.current = view;
+                    }}
+                    basicSetup={{
+                      lineNumbers: true,
+                      highlightActiveLineGutter: true,
+                      highlightSpecialChars: true,
+                      foldGutter: true,
+                      drawSelection: true,
+                      dropCursor: true,
+                      allowMultipleSelections: true,
+                      indentOnInput: true,
+                      bracketMatching: true,
+                      closeBrackets: true,
+                      autocompletion: true,
+                      highlightActiveLine: true,
+                      highlightSelectionMatches: true
+                    }}
+                  />
+                </div>
               ) : previewMode === 'hex' ? (
                 <div className="h-[500px] overflow-auto">
                   <pre className="whitespace-pre text-xs text-foreground font-mono p-3">
@@ -196,20 +372,84 @@ export const PreviewPanel = ({
                   </pre>
                 </div>
               ) : (
-                <CodeMirror
-                  value={preview.content}
-                  height="500px"
-                  extensions={extensions}
-                  editable={false}
-                  theme={editorTheme}
-                  basicSetup={{
-                    lineNumbers: true,
-                    highlightActiveLineGutter: false,
-                    highlightSpecialChars: true,
-                    foldGutter: true,
-                    highlightActiveLine: false
-                  }}
-                />
+                <div className="relative h-[500px]">
+                  {searchOpen && (
+                    <div className="absolute top-2 right-2 z-10 bg-background border border-border rounded-md shadow-lg p-2 flex items-center gap-1">
+                      <input
+                        ref={searchInputRef}
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Find"
+                        className="w-48 px-2 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.shiftKey ? handlePrevious() : handleNext();
+                          }
+                        }}
+                      />
+                      <span className="text-xs text-muted-foreground px-1">
+                        {totalMatches > 0 ? `${currentMatch + 1}/${totalMatches}` : 'No results'}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={handlePrevious}
+                        disabled={totalMatches === 0}
+                      >
+                        <ChevronUp className="size-3" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={handleNext}
+                        disabled={totalMatches === 0}
+                      >
+                        <ChevronDown className="size-3" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className={`h-6 w-6 p-0 ${caseSensitive ? 'bg-primary/20 hover:bg-primary/30' : ''}`}
+                        onClick={() => setCaseSensitive(!caseSensitive)}
+                        title="Match Case"
+                      >
+                        <span className={`text-xs font-semibold ${caseSensitive ? 'text-primary' : 'text-muted-foreground'}`}>Aa</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={handleSearchToggle}
+                      >
+                        <X className="size-3" />
+                      </Button>
+                    </div>
+                  )}
+                  <CodeMirror
+                    value={preview.content}
+                    height="500px"
+                    extensions={extensions}
+                    editable={false}
+                    theme={editorTheme}
+                    onCreateEditor={(view) => {
+                      editorViewRef.current = view;
+                    }}
+                    basicSetup={{
+                      lineNumbers: true,
+                      highlightActiveLineGutter: false,
+                      highlightSpecialChars: true,
+                      foldGutter: true,
+                      highlightActiveLine: false
+                    }}
+                  />
+                </div>
               )}
             </div>
             {preview.truncated && (
