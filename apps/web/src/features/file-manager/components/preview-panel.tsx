@@ -1,4 +1,13 @@
+import CodeMirror from '@uiw/react-codemirror';
+import { javascript } from '@codemirror/lang-javascript';
+import { json } from '@codemirror/lang-json';
+import { xml } from '@codemirror/lang-xml';
+import { html } from '@codemirror/lang-html';
+import { css } from '@codemirror/lang-css';
+import { python } from '@codemirror/lang-python';
+import { sql } from '@codemirror/lang-sql';
 import { Save, SplitSquareHorizontal } from 'lucide-react';
+import { useMemo } from 'react';
 
 import { toHex } from '../utils';
 
@@ -6,7 +15,7 @@ import type { PreviewMode } from '../types';
 import type { WorkspaceFilePreview } from '@/types/desktop';
 
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface PreviewPanelProps {
   preview: WorkspaceFilePreview | null;
@@ -24,6 +33,34 @@ interface PreviewPanelProps {
   onOpenSplitDialog: () => void;
 }
 
+const getLanguageExtension = (filePath: string) => {
+  const ext = filePath.split('.').pop()?.toLowerCase();
+  switch (ext) {
+    case 'js':
+    case 'jsx':
+    case 'ts':
+    case 'tsx':
+      return javascript({ jsx: true, typescript: ext.startsWith('ts') });
+    case 'json':
+      return json();
+    case 'xml':
+      return xml();
+    case 'html':
+    case 'htm':
+      return html();
+    case 'css':
+    case 'scss':
+    case 'less':
+      return css();
+    case 'py':
+      return python();
+    case 'sql':
+      return sql();
+    default:
+      return undefined;
+  }
+};
+
 export const PreviewPanel = ({
   preview,
   previewError,
@@ -40,97 +77,142 @@ export const PreviewPanel = ({
   onOpenSplitDialog
 }: PreviewPanelProps) => {
   const disablePreviewButtons = !preview || binaryPreview;
+  
+  const languageExtension = useMemo(
+    () => (preview?.path ? getLanguageExtension(preview.path) : undefined),
+    [preview?.path]
+  );
+  
+  const extensions = useMemo(() => {
+    const exts = [];
+    if (languageExtension) exts.push(languageExtension);
+    return exts;
+  }, [languageExtension]);
 
   return (
-    <div className="rounded-lg border border-border p-4 overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium text-foreground">Preview</p>
-        <div className="flex flex-wrap items-center gap-2">
+    <div className="rounded-lg border border-border overflow-hidden flex flex-col">
+      <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border bg-muted/30">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground">File Preview</span>
+          <Tabs value={editMode ? 'edit' : previewMode} onValueChange={(v) => {
+            if (v === 'edit') {
+              if (!editMode) onToggleEditMode();
+            } else {
+              if (editMode) onToggleEditMode();
+              onModeChange(v as PreviewMode);
+            }
+          }}>
+            <TabsList className="h-7">
+              <TabsTrigger value="text" className="text-xs h-6 px-2" disabled={disablePreviewButtons}>
+                Text
+              </TabsTrigger>
+              <TabsTrigger value="hex" className="text-xs h-6 px-2" disabled={disablePreviewButtons}>
+                Hex
+              </TabsTrigger>
+              <TabsTrigger value="edit" className="text-xs h-6 px-2" disabled={disablePreviewButtons}>
+                Edit
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+        <div className="flex items-center gap-1">
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             size="sm"
-            className={previewMode === 'text' ? 'bg-muted' : ''}
-            disabled={disablePreviewButtons}
-            onClick={() => onModeChange('text')}
-          >
-            Text
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className={previewMode === 'hex' ? 'bg-muted' : ''}
-            disabled={disablePreviewButtons}
-            onClick={() => onModeChange('hex')}
-          >
-            Hex
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className={editMode ? 'bg-muted' : ''}
-            disabled={disablePreviewButtons}
-            onClick={onToggleEditMode}
-          >
-            {editMode ? 'Editing' : 'Edit'}
-          </Button>
-          <Button type="button" variant="outline" size="sm" disabled>
-            Validate
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-2"
+            className="h-7 px-2 text-xs"
             onClick={onSave}
             disabled={!editMode || !preview || saving || binaryPreview}
           >
-            <Save className="size-4" />
+            <Save className="size-3 mr-1" />
             Save
           </Button>
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             size="sm"
-            className="flex items-center gap-2"
+            className="h-7 px-2 text-xs"
             onClick={onOpenSplitDialog}
             disabled={!desktopAvailable || !preview?.path}
           >
-            <SplitSquareHorizontal className="size-4" />
-            Split file
+            <SplitSquareHorizontal className="size-3 mr-1" />
+            Split
           </Button>
         </div>
       </div>
-      <div className="mt-3">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {previewError ? (
-          <p className="text-sm text-destructive">{previewError}</p>
+          <div className="p-4">
+            <p className="text-sm text-destructive">{previewError}</p>
+          </div>
         ) : preview ? (
-          <div className="space-y-2 text-sm overflow-hidden">
-            <p className="font-mono text-xs text-muted-foreground break-all">{preview.path}</p>
-            <div className="rounded-md border border-border bg-muted/40 w-full max-w-full max-h-[60vh] overflow-auto">
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="px-3 py-1 bg-muted/20 border-b border-border">
+              <p className="font-mono text-xs text-muted-foreground truncate">{preview.path}</p>
+            </div>
+            <div className="flex-1 overflow-hidden">
               {binaryPreview ? (
-                <p className="text-xs text-muted-foreground p-3">
-                  Binary file preview is unavailable. Download or open the file with an external editor.
-                </p>
+                <div className="h-full flex items-center justify-center">
+                  <p className="text-xs text-muted-foreground">
+                    Binary file preview is unavailable. Download or open the file with an external editor.
+                  </p>
+                </div>
               ) : editMode ? (
-                <Textarea
+                <CodeMirror
                   value={editBuffer}
-                  onChange={(event) => onEditBufferChange(event.target.value)}
-                  rows={10}
-                  className="h-full min-h-[200px] text-xs font-mono"
+                  height="500px"
+                  extensions={extensions}
+                  onChange={onEditBufferChange}
+                  theme="light"
+                  basicSetup={{
+                    lineNumbers: true,
+                    highlightActiveLineGutter: true,
+                    highlightSpecialChars: true,
+                    foldGutter: true,
+                    drawSelection: true,
+                    dropCursor: true,
+                    allowMultipleSelections: true,
+                    indentOnInput: true,
+                    bracketMatching: true,
+                    closeBrackets: true,
+                    autocompletion: true,
+                    highlightActiveLine: true,
+                    highlightSelectionMatches: true
+                  }}
                 />
+              ) : previewMode === 'hex' ? (
+                <div className="h-[500px] overflow-auto">
+                  <pre className="whitespace-pre text-xs text-foreground font-mono p-3">
+                    {toHex(preview.content)}
+                  </pre>
+                </div>
               ) : (
-                <pre className="whitespace-pre text-xs text-foreground min-w-max p-3">
-                  {previewMode === 'hex' ? toHex(preview.content) : preview.content}
-                </pre>
+                <CodeMirror
+                  value={preview.content}
+                  height="500px"
+                  extensions={extensions}
+                  editable={false}
+                  theme="light"
+                  basicSetup={{
+                    lineNumbers: true,
+                    highlightActiveLineGutter: false,
+                    highlightSpecialChars: true,
+                    foldGutter: true,
+                    highlightActiveLine: false
+                  }}
+                />
               )}
             </div>
-            {preview.truncated ? <p className="text-xs text-muted-foreground">Preview truncated to 512KB.</p> : null}
+            {preview.truncated && (
+              <div className="px-3 py-1 bg-amber-50 border-t border-amber-200">
+                <p className="text-xs text-amber-800">Preview truncated to 512KB</p>
+              </div>
+            )}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">Select a file to see its contents.</p>
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-sm text-muted-foreground">Select a file to see its contents</p>
+          </div>
         )}
       </div>
     </div>

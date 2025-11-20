@@ -38,7 +38,7 @@ export const AuthenticatedLayout = ({
           // spacer element to create the layout gap, so applying padding here
           // causes a double-offset. Using the peer-data variant limits the
           // padding to inset layouts where it's needed.
-          'md:peer-data-[variant=inset]:pl-[var(--sidebar-inset)]'
+          'md:peer-data-[variant=inset]:pl-(--sidebar-inset)'
         )}
       >
         <TopNav />

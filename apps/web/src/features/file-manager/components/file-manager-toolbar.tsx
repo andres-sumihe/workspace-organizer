@@ -33,7 +33,6 @@ export const FileManagerToolbar = ({
   workspaceLoading,
   onRefresh,
   refreshDisabled,
-  isRefreshing,
   canMerge,
   onMerge
 }: FileManagerToolbarProps) => {

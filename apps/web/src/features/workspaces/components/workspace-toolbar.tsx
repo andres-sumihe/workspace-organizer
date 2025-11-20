@@ -1,4 +1,4 @@
-import { FolderOpen, Loader2, RefreshCw } from 'lucide-react';
+import { FolderOpen, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 
 import type { WorkspaceFormValues } from '../types';
