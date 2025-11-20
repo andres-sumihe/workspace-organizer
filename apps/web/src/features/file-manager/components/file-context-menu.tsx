@@ -1,19 +1,22 @@
-import { Edit } from 'lucide-react';
+import { Edit, Trash2 } from 'lucide-react';
 
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
   ContextMenuTrigger
 } from '@/components/ui/context-menu';
 
 interface FileContextMenuProps {
   children: React.ReactNode;
   onRename: () => void;
+  onDelete: () => void;
+  hasMultipleSelected?: boolean;
   disabled?: boolean;
 }
 
-export const FileContextMenu = ({ children, onRename, disabled }: FileContextMenuProps) => {
+export const FileContextMenu = ({ children, onRename, onDelete, hasMultipleSelected, disabled }: FileContextMenuProps) => {
   if (disabled) {
     return <>{children}</>;
   }
@@ -28,7 +31,15 @@ export const FileContextMenu = ({ children, onRename, disabled }: FileContextMen
           <Edit className="mr-2 h-4 w-4" />
           Rename
         </ContextMenuItem>
-        {/* Future context menu items can be added here */}
+        <ContextMenuSeparator />
+        <ContextMenuItem 
+          onClick={onDelete} 
+          disabled={hasMultipleSelected}
+          className="cursor-pointer text-destructive focus:text-destructive"
+        >
+          <Trash2 className="mr-2 h-4 w-4" />
+          Delete
+        </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
   );
