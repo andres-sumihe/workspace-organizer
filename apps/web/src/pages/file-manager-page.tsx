@@ -83,6 +83,8 @@ export const FileManagerPage = () => {
   const [operationError, setOperationError] = useState<string | null>(null);
   const [desktopAvailable, setDesktopAvailable] = useState(false);
 
+
+
   useEffect(() => {
     setDesktopAvailable(typeof window !== 'undefined' && typeof window.api?.listDirectory === 'function');
   }, []);
@@ -321,6 +323,38 @@ export const FileManagerPage = () => {
     }
   };
 
+  const handleRenameEntry = async (entry: WorkspaceDirectoryEntry, newName: string) => {
+    if (!activeWorkspace?.rootPath || !window.api?.renameEntry) {
+      setOperationError('Desktop bridge unavailable.');
+      throw new Error('Desktop bridge unavailable');
+    }
+
+    try {
+      const response = await window.api.renameEntry({
+        rootPath: activeWorkspace.rootPath,
+        oldRelativePath: entry.path,
+        newName
+      });
+
+      if (!response.ok) {
+        throw new Error(response.error || 'Rename failed');
+      }
+
+      setOperationMessage(`Renamed to ${newName}`);
+      await loadDirectory(currentPath);
+
+      // Clear preview if renamed entry was selected
+      if (preview?.path === entry.path) {
+        setPreview(null);
+        setPreviewError(null);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to rename';
+      setOperationError(message);
+      throw err;
+    }
+  };
+
   const canMerge = selectedFiles.size >= 2 && desktopAvailable;
   const refreshDisabled = directoryLoading || !desktopAvailable;
 
@@ -364,6 +398,7 @@ export const FileManagerPage = () => {
             }}
             onToggleEntrySelection={toggleSelection}
             onToggleAllSelections={handleToggleAllSelections}
+            onRenameEntry={handleRenameEntry}
             loading={directoryLoading}
           />
 

@@ -1,10 +1,15 @@
 import { ChevronRight, FileText, Folder } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+
+import { FileContextMenu } from './file-context-menu';
 
 import type { WorkspaceBreadcrumb, WorkspaceDirectoryEntry } from '@/types/desktop';
 import type { CheckedState } from '@radix-ui/react-checkbox';
 
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+
+
 
 interface DirectoryBrowserProps {
   breadcrumbs: WorkspaceBreadcrumb[];
@@ -14,6 +19,7 @@ interface DirectoryBrowserProps {
   onEntryClick: (entry: WorkspaceDirectoryEntry) => void;
   onToggleEntrySelection: (entry: WorkspaceDirectoryEntry) => void;
   onToggleAllSelections: (state: CheckedState) => void;
+  onRenameEntry: (oldEntry: WorkspaceDirectoryEntry, newName: string) => Promise<void>;
   loading: boolean;
 }
 
@@ -25,8 +31,14 @@ export const DirectoryBrowser = ({
   onEntryClick,
   onToggleEntrySelection,
   onToggleAllSelections,
+  onRenameEntry,
   loading
 }: DirectoryBrowserProps) => {
+  const [renamingPath, setRenamingPath] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [renaming, setRenaming] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const selectableEntries = entries.filter((entry) => entry.type === 'file');
   const selectedCount = selectableEntries.filter((entry) => selectedFiles.has(entry.path)).length;
   const canSelectAll = selectableEntries.length > 0;
@@ -37,6 +49,45 @@ export const DirectoryBrowser = ({
         ? true
         : 'indeterminate'
     : false;
+
+  const startRename = (entry: WorkspaceDirectoryEntry) => {
+    setRenamingPath(entry.path);
+    setRenameValue(entry.name);
+  };
+
+  const cancelRename = () => {
+    setRenamingPath(null);
+    setRenameValue('');
+  };
+
+  const commitRename = async (entry: WorkspaceDirectoryEntry) => {
+    if (!renameValue.trim() || renameValue === entry.name || renaming) {
+      cancelRename();
+      return;
+    }
+
+    setRenaming(true);
+    try {
+      await onRenameEntry(entry, renameValue.trim());
+      cancelRename();
+    } catch (_) {
+      // Error handled by parent, keep edit mode active
+      setRenaming(false);
+    }
+  };
+
+  useEffect(() => {
+    if (renamingPath && inputRef.current) {
+      inputRef.current.focus();
+      // Select filename without extension
+      const dotIndex = renameValue.lastIndexOf('.');
+      if (dotIndex > 0) {
+        inputRef.current.setSelectionRange(0, dotIndex);
+      } else {
+        inputRef.current.select();
+      }
+    }
+  }, [renamingPath, renameValue]);
 
   return (
     <div className="rounded-lg border border-border">
@@ -69,30 +120,60 @@ export const DirectoryBrowser = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {entries.map((entry) => (
-              <tr key={entry.path} className="hover:bg-muted/30">
-                <td className="pl-2 py-2">
-                  {entry.type === 'file' ? (
-                    <Checkbox checked={selectedFiles.has(entry.path)} onCheckedChange={() => onToggleEntrySelection(entry)} />
-                  ) : null}
-                </td>
-                <td className="pl-2 py-2">
-                  <button
-                    type="button"
-                    className="flex items-center gap-2 text-left text-foreground w-full"
-                    onClick={() => onEntryClick(entry)}
-                    disabled={loading}
-                  >
-                    {entry.type === 'directory' ? <Folder className="size-4" /> : <FileText className="size-4" />}
-                    <span className="truncate">{entry.name}</span>
-                  </button>
-                </td>
-                <td className="px-4 py-2 text-muted-foreground">
-                  {entry.size !== null ? `${(entry.size / 1024).toFixed(1)} KB` : '—'}
-                </td>
-                <td className="px-4 py-2 text-muted-foreground">{new Date(entry.modifiedAt).toLocaleString()}</td>
-              </tr>
-            ))}
+            {entries.map((entry) => {
+              const isRenaming = renamingPath === entry.path;
+              return (
+                <tr key={entry.path} className="hover:bg-muted/30">
+                  <td className="pl-2 py-2">
+                    {entry.type === 'file' ? (
+                      <Checkbox
+                        checked={selectedFiles.has(entry.path)}
+                        onCheckedChange={() => onToggleEntrySelection(entry)}
+                        disabled={isRenaming}
+                      />
+                    ) : null}
+                  </td>
+                  <td className="pl-2 py-2">
+                    <FileContextMenu onRename={() => startRename(entry)} disabled={loading || isRenaming}>
+                      <div className="flex items-center gap-2 text-left text-foreground w-full">
+                        {entry.type === 'directory' ? <Folder className="size-4" /> : <FileText className="size-4" />}
+                        {isRenaming ? (
+                          <input
+                            ref={inputRef}
+                            type="text"
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            onBlur={() => void commitRename(entry)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                void commitRename(entry);
+                              } else if (e.key === 'Escape') {
+                                cancelRename();
+                              }
+                            }}
+                            disabled={renaming}
+                            className="flex-1 px-1 py-0.5 text-sm border border-primary rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            className="flex-1 text-left truncate"
+                            onClick={() => onEntryClick(entry)}
+                            disabled={loading}
+                          >
+                            {entry.name}
+                          </button>
+                        )}
+                      </div>
+                    </FileContextMenu>
+                  </td>
+                  <td className="px-4 py-2 text-muted-foreground">
+                    {entry.size !== null ? `${(entry.size / 1024).toFixed(1)} KB` : '—'}
+                  </td>
+                  <td className="px-4 py-2 text-muted-foreground">{new Date(entry.modifiedAt).toLocaleString()}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </ScrollArea>
