@@ -24,12 +24,22 @@ interface SplitDialogProps {
 }
 
 export const SplitDialog = ({ form, open, onOpenChange, onSubmit }: SplitDialogProps) => {
+  const sourceMode = form.watch('sourceMode');
+  const mode = form.watch('mode');
+  
+  const isClipboardMode = sourceMode === 'clipboard';
+  const isBoundaryMode = mode === 'boundary';
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Split file</DialogTitle>
-          <DialogDescription>Break the current file into smaller files by separator.</DialogDescription>
+          <DialogTitle>{isClipboardMode ? 'Extract from clipboard' : 'Split file'}</DialogTitle>
+          <DialogDescription>
+            {isClipboardMode
+              ? 'Extract files from clipboard content using boundary markers.'
+              : 'Break the current file into smaller files by separator.'}
+          </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form
@@ -39,47 +49,60 @@ export const SplitDialog = ({ form, open, onOpenChange, onSubmit }: SplitDialogP
               void form.handleSubmit((values) => onSubmit(values))(event);
             }}
           >
-            <FormField
-              control={form.control}
-              name="separator"
-              rules={{ required: true }}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Separator</FormLabel>
-                  <FormControl>
-                    <Textarea rows={3} {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="grid gap-4 sm:grid-cols-2">
+            {isBoundaryMode && (
+              <div className="rounded-md border border-muted bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                <p className="font-medium">Boundary mode active</p>
+                <p className="mt-1">Files will be extracted using <code className="text-[10px]">---FILE-BOUNDARY---|filename|index|</code> markers. Original filenames will be preserved.</p>
+              </div>
+            )}
+
+            {!isBoundaryMode && (
               <FormField
                 control={form.control}
-                name="prefix"
+                name="separator"
+                rules={{ required: !isBoundaryMode }}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Filename prefix</FormLabel>
+                    <FormLabel>Separator</FormLabel>
                     <FormControl>
-                      <Input placeholder="notes-part" {...field} />
+                      <Textarea rows={3} {...field} />
                     </FormControl>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="extension"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Extension</FormLabel>
-                    <FormControl>
-                      <Input placeholder=".txt" {...field} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            </div>
-            <div className="flex items-center justify-between">
+            )}
+
+            {!isBoundaryMode && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="prefix"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Filename prefix</FormLabel>
+                      <FormControl>
+                        <Input placeholder="notes-part" {...field} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="extension"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Extension</FormLabel>
+                      <FormControl>
+                        <Input placeholder=".txt" {...field} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
+
+            <div className="flex flex-col gap-3">
               <FormField
                 control={form.control}
                 name="overwrite"
@@ -92,26 +115,29 @@ export const SplitDialog = ({ form, open, onOpenChange, onSubmit }: SplitDialogP
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="preserveOriginal"
-                render={({ field }) => (
-                  <FormItem className="flex items-center gap-2">
-                    <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
-                    <FormLabel className="m-0">Keep original file</FormLabel>
-                  </FormItem>
-                )}
-              />
+              {!isClipboardMode && (
+                <FormField
+                  control={form.control}
+                  name="preserveOriginal"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center gap-2">
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <FormLabel className="m-0">Keep original file</FormLabel>
+                    </FormItem>
+                  )}
+                />
+              )}
             </div>
+            
             <div className="flex justify-end gap-2">
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
               <Button type="submit" className="flex items-center gap-2">
                 <SplitSquareHorizontal className="size-4" />
-                Split
+                {isClipboardMode ? 'Extract' : 'Split'}
               </Button>
             </div>
           </form>

@@ -89,15 +89,20 @@ export interface DesktopApi {
     separator?: string;
     includeHeaders?: boolean;
     overwrite?: boolean;
-  }) => Promise<{ ok: boolean; error?: string; destination?: string }>;
+    mode?: 'simple' | 'boundary';
+    copyToClipboard?: boolean;
+  }) => Promise<{ ok: boolean; error?: string; destination?: string; content?: string }>;
   splitTextFile: (payload: {
     rootPath: string;
-    source: string;
+    source?: string;
+    clipboardContent?: string;
     separator: string;
     prefix?: string;
     extension?: string;
     overwrite?: boolean;
     preserveOriginal?: boolean;
+    mode?: 'simple' | 'boundary';
+    outputDir?: string;
   }) => Promise<{ ok: boolean; error?: string; created?: string[] }>;
   createDirectory: (payload: { rootPath: string; relativePath: string }) => Promise<{ ok: boolean; error?: string; path?: string }>;
   writeTextFile: (payload: {

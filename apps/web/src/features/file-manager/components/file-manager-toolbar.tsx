@@ -1,4 +1,4 @@
-import { GitMerge, ListTree, RefreshCw } from 'lucide-react';
+import { GitMerge, ListTree, RefreshCw, SplitSquareHorizontal } from 'lucide-react';
 import { useState } from 'react';
 
 import type { WorkspaceSummary } from '@workspace/shared';
@@ -24,6 +24,8 @@ interface FileManagerToolbarProps {
   isRefreshing: boolean;
   canMerge: boolean;
   onMerge: () => void;
+  onSplitFromClipboard: () => void;
+  desktopAvailable: boolean;
 }
 
 export const FileManagerToolbar = ({
@@ -34,7 +36,9 @@ export const FileManagerToolbar = ({
   onRefresh,
   refreshDisabled,
   canMerge,
-  onMerge
+  onMerge,
+  onSplitFromClipboard,
+  desktopAvailable
 }: FileManagerToolbarProps) => {
   const [isAnimating, setIsAnimating] = useState(false);
 
@@ -85,6 +89,17 @@ export const FileManagerToolbar = ({
       >
         <GitMerge className="size-4" />
         Merge selected
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={!desktopAvailable}
+        onClick={onSplitFromClipboard}
+        className="flex items-center gap-2"
+      >
+        <SplitSquareHorizontal className="size-4" />
+        Extract from clipboard
       </Button>
     </div>
   );

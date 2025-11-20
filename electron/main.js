@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, clipboard } = require('electron');
 const path = require('path');
 
 function createWindow() {
@@ -132,13 +132,21 @@ ipcMain.handle('workspace:read-text', async (event, payload) => {
 });
 
 ipcMain.handle('workspace:merge-text', async (event, payload) => {
+  console.log('🔍 Electron IPC received merge request with mode:', payload?.mode);
   try {
     const result = await workspaceFs.mergeTextFiles(payload?.rootPath, payload?.sources, payload?.destination, {
       separator: payload?.separator,
       includeHeaders: payload?.includeHeaders,
       overwrite: payload?.overwrite,
       encoding: payload?.encoding,
+      mode: payload?.mode,
     });
+    
+    // Copy to clipboard if requested
+    if (payload?.copyToClipboard && result.content) {
+      clipboard.writeText(result.content);
+    }
+    
     return { ok: true, ...result };
   } catch (err) {
     return { ok: false, error: String(err) };
@@ -154,6 +162,9 @@ ipcMain.handle('workspace:split-text', async (event, payload) => {
       overwrite: payload?.overwrite,
       preserveOriginal: payload?.preserveOriginal,
       encoding: payload?.encoding,
+      mode: payload?.mode,
+      clipboardContent: payload?.clipboardContent,
+      outputDir: payload?.outputDir,
     });
     return { ok: true, ...result };
   } catch (err) {

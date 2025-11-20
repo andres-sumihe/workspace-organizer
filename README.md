@@ -27,6 +27,8 @@ npm run test:api
 - `apps/api`: Express backend that will manage project templates, filesystem operations, and metadata.
 - `apps/web`: React/Vite frontend for organizing projects and previewing files.
 - `packages/shared`: Shared TypeScript interfaces for API contracts and template schemas.
+- `electron`: Desktop shell with file system bridge and IPC handlers.
+- `docs`: Documentation including [File Merge & Extract System](docs/file-merge-extract-system.md) for GPO bypass workflows.
 
 ## Immediate Next Steps
 
