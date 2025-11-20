@@ -15,6 +15,7 @@ interface DirectoryBrowserProps {
   breadcrumbs: WorkspaceBreadcrumb[];
   entries: WorkspaceDirectoryEntry[];
   selectedFiles: Set<string>;
+  activeFilePath?: string | null;
   onNavigate: (path: string) => void;
   onEntryClick: (entry: WorkspaceDirectoryEntry) => void;
   onToggleEntrySelection: (entry: WorkspaceDirectoryEntry) => void;
@@ -28,6 +29,7 @@ export const DirectoryBrowser = ({
   breadcrumbs,
   entries,
   selectedFiles,
+  activeFilePath,
   onNavigate,
   onEntryClick,
   onToggleEntrySelection,
@@ -124,8 +126,9 @@ export const DirectoryBrowser = ({
           <tbody className="divide-y divide-border">
             {entries.map((entry) => {
               const isRenaming = renamingPath === entry.path;
+              const isActive = entry.type === 'file' && activeFilePath === entry.path;
               return (
-                <tr key={entry.path} className="hover:bg-muted/30">
+                <tr key={entry.path} className={`hover:bg-muted/30 ${isActive ? 'bg-primary/10' : ''}`}>
                   <td className="pl-2 py-2">
                     {entry.type === 'file' ? (
                       <Checkbox

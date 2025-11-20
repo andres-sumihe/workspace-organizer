@@ -1,11 +1,12 @@
 import { AlertCircle } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import type { WorkspaceBreadcrumb, WorkspaceDirectoryEntry, WorkspaceFilePreview } from '@/types/desktop';
 import type { CheckedState } from '@radix-ui/react-checkbox';
 
 import { PageShell } from '@/components/layout/page-shell';
+import { useFileManagerState } from '@/contexts/file-manager-context';
 import { useWorkspaceContext } from '@/contexts/workspace-context';
 import {
   DeleteConfirmDialog,
@@ -40,16 +41,21 @@ export const FileManagerPage = () => {
     error: workspaceError
   } = useWorkspaceContext();
 
+  const { getState, updateState } = useFileManagerState();
+
   const selectedWorkspaceId = activeWorkspaceId ?? '';
   const setSelectedWorkspaceId = (id: string) => setActiveWorkspaceId(id || null);
 
-  const [entries, setEntries] = useState<WorkspaceDirectoryEntry[]>([]);
-  const [breadcrumbs, setBreadcrumbs] = useState<WorkspaceBreadcrumb[]>([{ label: 'Root', path: '' }]);
-  const [currentPath, setCurrentPath] = useState('');
+  // Get persisted state for current workspace
+  const persistedState = selectedWorkspaceId ? getState(selectedWorkspaceId) : null;
+
+  const [entries, setEntries] = useState<WorkspaceDirectoryEntry[]>(persistedState?.entries || []);
+  const [breadcrumbs, setBreadcrumbs] = useState<WorkspaceBreadcrumb[]>(persistedState?.breadcrumbs || [{ label: 'Root', path: '' }]);
+  const [currentPath, setCurrentPath] = useState(persistedState?.currentPath || '');
   const [directoryError, setDirectoryError] = useState<string | null>(null);
   const [directoryLoading, setDirectoryLoading] = useState(false);
 
-  const [preview, setPreview] = useState<WorkspaceFilePreview | null>(null);
+  const [preview, setPreview] = useState<WorkspaceFilePreview | null>(persistedState?.preview || null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<PreviewMode>('text');
   const [editMode, setEditMode] = useState(false);
@@ -57,7 +63,7 @@ export const FileManagerPage = () => {
   const [binaryPreview, setBinaryPreview] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(persistedState?.selectedFiles || new Set());
 
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const mergeForm = useForm<MergeFormValues>({
@@ -91,9 +97,45 @@ export const FileManagerPage = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ paths: string[]; names: string[] } | null>(null);
 
+  const isRestoringState = useRef(false);
+  const lastWorkspaceId = useRef<string | null>(null);
+
   useEffect(() => {
     setDesktopAvailable(typeof window !== 'undefined' && typeof window.api?.listDirectory === 'function');
   }, []);
+
+  // Restore persisted state when workspace changes
+  useEffect(() => {
+    if (selectedWorkspaceId && selectedWorkspaceId !== lastWorkspaceId.current) {
+      lastWorkspaceId.current = selectedWorkspaceId;
+      isRestoringState.current = true;
+      
+      const persisted = getState(selectedWorkspaceId);
+      setEntries(persisted.entries);
+      setBreadcrumbs(persisted.breadcrumbs);
+      setCurrentPath(persisted.currentPath);
+      setPreview(persisted.preview);
+      setSelectedFiles(new Set(persisted.selectedFiles));
+      
+      // Reset flag after state updates are done
+      setTimeout(() => {
+        isRestoringState.current = false;
+      }, 0);
+    }
+  }, [selectedWorkspaceId, getState]);
+
+  // Persist state when it changes (but not during restoration)
+  useEffect(() => {
+    if (selectedWorkspaceId && !isRestoringState.current) {
+      updateState(selectedWorkspaceId, {
+        entries,
+        breadcrumbs,
+        currentPath,
+        preview,
+        selectedFiles
+      });
+    }
+  }, [selectedWorkspaceId, entries, breadcrumbs, currentPath, preview, selectedFiles, updateState]);
 
   const activeWorkspace = useMemo(
     () => workspaces.find((ws) => ws.id === selectedWorkspaceId),
@@ -138,10 +180,14 @@ export const FileManagerPage = () => {
   }, [currentPath, loadDirectory]);
 
   useEffect(() => {
-    if (activeWorkspace && desktopAvailable) {
-      loadDirectory('');
+    if (activeWorkspace && desktopAvailable && selectedWorkspaceId) {
+      const persisted = getState(selectedWorkspaceId);
+      // Only load if there's no persisted state
+      if (!persisted.entries.length && persisted.currentPath === '') {
+        void loadDirectory('');
+      }
     }
-  }, [activeWorkspace, desktopAvailable, loadDirectory]);
+  }, [activeWorkspace, desktopAvailable, selectedWorkspaceId, getState, loadDirectory]);
 
   const handleEntryClick = async (entry: WorkspaceDirectoryEntry) => {
     if (entry.type === 'directory') {
@@ -526,6 +572,7 @@ export const FileManagerPage = () => {
             breadcrumbs={breadcrumbs}
             entries={entries}
             selectedFiles={selectedFiles}
+            activeFilePath={preview?.path}
             onNavigate={(path) => {
               void loadDirectory(path);
             }}
