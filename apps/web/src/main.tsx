@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 
 import { App } from './App';
 import { ThemeProvider } from './components/theme-provider';
+import { FileManagerProvider } from './contexts/file-manager-context';
 import './styles/globals.css';
 
 const rootElement = document.getElementById('root');
@@ -14,7 +15,9 @@ if (!rootElement) {
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <ThemeProvider defaultTheme="system" storageKey="workspace-organizer-theme">
-      <App />
+      <FileManagerProvider>
+        <App />
+      </FileManagerProvider>
     </ThemeProvider>
   </React.StrictMode>
 );
