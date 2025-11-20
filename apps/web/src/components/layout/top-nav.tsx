@@ -1,5 +1,6 @@
 import { Bell, Menu, Search, Settings2 } from 'lucide-react';
 
+import { ModeToggle } from '@/components/mode-toggle';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
@@ -26,6 +27,7 @@ export const TopNav = () => {
         </Button>
       </div>
       <div className="ml-auto flex items-center gap-2">
+        <ModeToggle />
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="ghost" size="icon">

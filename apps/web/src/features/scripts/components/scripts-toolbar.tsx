@@ -19,9 +19,9 @@ export const ScriptsToolbar = ({ onRefresh, onNewScript, onScanDirectory }: Scri
   };
 
   return (
-    <div className="flex items-center justify-between border-b bg-white px-6 py-3.5 shadow-sm">
+    <div className="flex items-center justify-between border-b border-border bg-card px-6 py-3.5 shadow-sm">
       <div className="flex items-center gap-2">
-        <h2 className="text-lg font-semibold text-gray-900">Batch Scripts</h2>
+        <h2 className="text-lg font-semibold text-foreground">Batch Scripts</h2>
       </div>
 
       <div className="flex items-center gap-2">
