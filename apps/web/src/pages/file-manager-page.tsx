@@ -8,6 +8,7 @@ import type { CheckedState } from '@radix-ui/react-checkbox';
 import { PageShell } from '@/components/layout/page-shell';
 import { useWorkspaceContext } from '@/contexts/workspace-context';
 import {
+  DeleteConfirmDialog,
   DirectoryBrowser,
   FileManagerToolbar,
   MergeDialog,
@@ -87,7 +88,8 @@ export const FileManagerPage = () => {
   const [operationError, setOperationError] = useState<string | null>(null);
   const [desktopAvailable, setDesktopAvailable] = useState(false);
 
-
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ paths: string[]; names: string[] } | null>(null);
 
   useEffect(() => {
     setDesktopAvailable(typeof window !== 'undefined' && typeof window.api?.listDirectory === 'function');
@@ -424,6 +426,67 @@ export const FileManagerPage = () => {
     }
   };
 
+  const openDeleteDialog = (pathsToDelete: string[], names: string[]) => {
+    setDeleteTarget({ paths: pathsToDelete, names });
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteSingle = (entry: WorkspaceDirectoryEntry) => {
+    openDeleteDialog([entry.path], [entry.name]);
+  };
+
+  const handleDeleteBulk = () => {
+    const paths = Array.from(selectedFiles);
+    const names = entries
+      .filter(e => paths.includes(e.path))
+      .map(e => e.name);
+    openDeleteDialog(paths, names);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!activeWorkspace?.rootPath || !window.api?.deleteEntries || !deleteTarget) {
+      setOperationError('Desktop bridge unavailable.');
+      return;
+    }
+
+    try {
+      const response = await window.api.deleteEntries({
+        rootPath: activeWorkspace.rootPath,
+        relativePaths: deleteTarget.paths
+      });
+
+      if (!response.ok) {
+        throw new Error(response.error || 'Delete failed');
+      }
+
+      const deletedCount = response.deleted?.length || 0;
+      const errorCount = response.errors?.length || 0;
+
+      if (deletedCount > 0) {
+        setOperationMessage(
+          `Deleted ${deletedCount} item${deletedCount > 1 ? 's' : ''}` +
+          (errorCount > 0 ? ` (${errorCount} failed)` : '')
+        );
+      }
+
+      if (errorCount > 0 && deletedCount === 0) {
+        throw new Error(`Failed to delete all items`);
+      }
+
+      // Clear selection and preview
+      setSelectedFiles(new Set());
+      if (preview && deleteTarget.paths.includes(preview.path)) {
+        setPreview(null);
+        setPreviewError(null);
+      }
+
+      await loadDirectory(currentPath);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete';
+      setOperationError(message);
+    }
+  };
+
   const canMerge = selectedFiles.size >= 2 && desktopAvailable;
   const refreshDisabled = directoryLoading || !desktopAvailable;
 
@@ -445,6 +508,8 @@ export const FileManagerPage = () => {
             canMerge={canMerge}
             onMerge={openMergeDialog}
             onSplitFromClipboard={() => openSplitDialog(true)}
+            canDelete={selectedFiles.size > 0 && desktopAvailable}
+            onDelete={handleDeleteBulk}
             desktopAvailable={desktopAvailable}
           />
         }
@@ -470,6 +535,7 @@ export const FileManagerPage = () => {
             onToggleEntrySelection={toggleSelection}
             onToggleAllSelections={handleToggleAllSelections}
             onRenameEntry={handleRenameEntry}
+            onDeleteEntry={handleDeleteSingle}
             loading={directoryLoading}
           />
 
@@ -493,6 +559,13 @@ export const FileManagerPage = () => {
 
       <MergeDialog form={mergeForm} open={mergeDialogOpen} onOpenChange={setMergeDialogOpen} onSubmit={handleMerge} />
       <SplitDialog form={splitForm} open={splitDialogOpen} onOpenChange={setSplitDialogOpen} onSubmit={handleSplit} />
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleDeleteConfirm}
+        itemCount={deleteTarget?.paths.length || 0}
+        itemNames={deleteTarget?.names || []}
+      />
     </div>
   );
 };

@@ -20,6 +20,7 @@ interface DirectoryBrowserProps {
   onToggleEntrySelection: (entry: WorkspaceDirectoryEntry) => void;
   onToggleAllSelections: (state: CheckedState) => void;
   onRenameEntry: (oldEntry: WorkspaceDirectoryEntry, newName: string) => Promise<void>;
+  onDeleteEntry: (entry: WorkspaceDirectoryEntry) => void;
   loading: boolean;
 }
 
@@ -32,6 +33,7 @@ export const DirectoryBrowser = ({
   onToggleEntrySelection,
   onToggleAllSelections,
   onRenameEntry,
+  onDeleteEntry,
   loading
 }: DirectoryBrowserProps) => {
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
@@ -134,7 +136,12 @@ export const DirectoryBrowser = ({
                     ) : null}
                   </td>
                   <td className="pl-2 py-2">
-                    <FileContextMenu onRename={() => startRename(entry)} disabled={loading || isRenaming}>
+                    <FileContextMenu 
+                      onRename={() => startRename(entry)} 
+                      onDelete={() => onDeleteEntry(entry)}
+                      hasMultipleSelected={selectedFiles.size > 1}
+                      disabled={loading || isRenaming}
+                    >
                       <div className="flex items-center gap-2 text-left text-foreground w-full">
                         {entry.type === 'directory' ? <Folder className="size-4" /> : <FileText className="size-4" />}
                         {isRenaming ? (

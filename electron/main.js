@@ -201,6 +201,15 @@ ipcMain.handle('workspace:rename', async (event, payload) => {
   }
 });
 
+ipcMain.handle('workspace:delete', async (event, payload) => {
+  try {
+    const result = await workspaceFs.deleteEntries(payload?.rootPath, payload?.relativePaths);
+    return { ok: true, ...result };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
 ipcMain.handle('templates:list', async () => {
   try {
     const result = await templateRegistry.listTemplates(getUserDataRoot());

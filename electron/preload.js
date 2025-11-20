@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('api', {
   createDirectory: (payload) => ipcRenderer.invoke('workspace:create-dir', payload),
   writeTextFile: (payload) => ipcRenderer.invoke('workspace:write-text', payload),
   renameEntry: (payload) => ipcRenderer.invoke('workspace:rename', payload),
+  deleteEntries: (payload) => ipcRenderer.invoke('workspace:delete', payload),
   listTemplates: () => ipcRenderer.invoke('templates:list'),
   createTemplateFromFolder: (payload) => ipcRenderer.invoke('templates:create-from-folder', payload),
   getTemplateManifest: (payload) => ipcRenderer.invoke('templates:get', payload),

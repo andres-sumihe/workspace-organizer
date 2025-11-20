@@ -116,6 +116,10 @@ export interface DesktopApi {
     oldRelativePath: string;
     newName: string;
   }) => Promise<{ ok: boolean; error?: string; oldPath?: string; newPath?: string }>;
+  deleteEntries: (payload: {
+    rootPath: string;
+    relativePaths: string[];
+  }) => Promise<{ ok: boolean; error?: string; deleted?: string[]; errors?: Array<{ path: string; error: string }> }>;
   createTemplateFromFolder: (payload: {
     name?: string;
     description?: string;
