@@ -181,6 +181,15 @@ ipcMain.handle('workspace:write-text', async (event, payload) => {
   }
 });
 
+ipcMain.handle('workspace:rename', async (event, payload) => {
+  try {
+    const result = await workspaceFs.renameEntry(payload?.rootPath, payload?.oldRelativePath, payload?.newName);
+    return { ok: true, ...result };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
 ipcMain.handle('templates:list', async () => {
   try {
     const result = await templateRegistry.listTemplates(getUserDataRoot());

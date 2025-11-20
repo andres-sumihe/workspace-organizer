@@ -106,6 +106,11 @@ export interface DesktopApi {
     content: string;
     encoding?: string;
   }) => Promise<{ ok: boolean; error?: string; path?: string }>;
+  renameEntry: (payload: {
+    rootPath: string;
+    oldRelativePath: string;
+    newName: string;
+  }) => Promise<{ ok: boolean; error?: string; oldPath?: string; newPath?: string }>;
   createTemplateFromFolder: (payload: {
     name?: string;
     description?: string;

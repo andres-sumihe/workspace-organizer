@@ -1,4 +1,5 @@
 export * from './components/directory-browser';
+export * from './components/file-context-menu';
 export * from './components/file-manager-toolbar';
 export * from './components/merge-dialog';
 export * from './components/preview-panel';
