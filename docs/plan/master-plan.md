@@ -112,3 +112,47 @@ If you want me to save this as the repo master plan, it is now written here. If 
 
 ---
 Last updated: 2025-10-30
+\
+## Workspace Feature Evaluation & Consolidation Plan (Added 2025-11-14)
+
+### Current Split
+- `Workspaces` page: workspace & project CRUD, template assignment, lightweight FS create (folder/file) per project.
+- `Workspace Files` page: deep directory traversal, file preview/edit, merge & split operations, bulk file selection.
+
+### Identified Frictions
+- Duplicate workspace list fetch & selection state on both pages.
+- Cross-page workflow (create project -> inspect files) requires manual navigation & re-selection.
+- Template application feedback limited to Workspaces page; file results visible only after manual switch.
+- No shared refresh mechanism (list mutations on one page not reflected immediately on the other).
+
+### Guiding Simplification Principle
+Consolidate workspace-centric actions behind a single "Workspace Detail" surface to reduce state duplication and streamline end-to-end workflows while retaining modular code organization.
+
+### Progressive Consolidation Phases
+1. Shared Context (short-term): Introduce a `WorkspaceContext` providing list, active ID, selectors, and refresh. Refactor both pages to consume it (eliminate duplicate fetch logic). No UI merge yet.
+2. Tabbed Detail View (mid-term): Route `/workspaces/:id` with tabs: Overview (existing detail panel), Files (current file manager), Templates (assignment), Settings (future rules). List view remains at `/workspaces`.
+3. Quick Actions (future): Workspace cards get direct navigation icons (Files, Templates) enabling single-click transitions. Remove the standalone Files page once adoption confirmed.
+
+### Immediate Action Items
+- Add `apps/web/src/contexts/workspace-context.tsx` with shared fetch & selection.
+- Replace local workspace list/state in both pages with context consumption.
+- Expose `refreshWorkspaces()` to allow template/project mutations to propagate instantly.
+- Log baseline user flow timings (create workspace -> open files) to measure consolidation impact.
+
+### Risks & Mitigations
+- Risk: Over-consolidation causing large component complexity. Mitigation: Keep tabs as thin routers delegating to feature modules.
+- Risk: Loss of parallel development speed. Mitigation: Maintain feature directories (`features/workspaces`, `features/file-manager`) even after UI merge.
+- Risk: Route transition churn. Mitigation: Maintain backward-compatible redirect from `/files` to `/workspaces/:id/files` for one release.
+
+### Success Metrics
+- Reduction in duplicate network calls for workspace list to **1 per initial load**.
+- End-to-end workflow (create workspace + project + open file) reduced from ≥3 navigation steps to ≤1 route change.
+- Shared context integration completed with <150 LOC net change and no increase in component cyclomatic complexity.
+
+### Next Recommended Commit Grouping
+1. Context introduction (new file + page refactors) – `feat(web): add WorkspaceContext and unify workspace state`.
+2. Routing + Tabs scaffold – `feat(web): add tabbed workspace detail route`.
+3. Migration & cleanup – `refactor(web): remove legacy Files page after adoption`.
+
+---
+Evaluation added: 2025-11-14

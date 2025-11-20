@@ -20,11 +20,19 @@
 - Use the provided OKLCH CSS variables for color tokens. Prefer semantic Tailwind classes such as `bg-card`, `text-muted-foreground`, and `border-border`.
 - Cards should use rounded corners (`rounded-xl`), subtle borders (`border border-border`), and light shadows (`shadow-sm`).
 - Favor Tailwind spacing utilities (`gap-*`, `px-*`, `py-*`) over manual CSS.
+- **Dark mode support**: All components must use semantic color tokens from `globals.css` that automatically adapt to light/dark themes. Avoid hard-coded color values like `bg-white`, `text-gray-800`, `bg-slate-50`. Use `bg-card`, `text-foreground`, `bg-muted` instead. When theme-specific styling is required, use Tailwind's `dark:` variant (e.g., `dark:bg-muted dark:text-foreground`).
 
 ## Component Library
 - Leverage shadcn/ui components sourced through the CLI (e.g., `Button`, `Tabs`, `DataTable`, `Sheet`, `Dialog`).
 - Place shared UI exports under `apps/web/src/components/ui` and helper utilities (like `cn`) under `apps/web/src/lib`.
 - When adding components, ensure `components.json` stays in sync and run `npm run lint` afterward.
+
+## Dark Mode
+- **Theme Provider**: The app uses a React context-based theme provider (`ThemeProvider`) that supports three modes: `light`, `dark`, and `system` (follows OS preference).
+- **Theme Toggle**: A `ModeToggle` component in the top navigation allows users to switch themes. The preference is persisted to localStorage.
+- **Theme-aware Components**: Use the `useTheme()` hook from `@/components/theme-provider` when components need to respond to theme changes (e.g., CodeMirror editor).
+- **CSS Variables**: All color tokens in `globals.css` have both light (`:root`) and dark (`.dark`) variants. The `ThemeProvider` automatically applies the `.dark` class to `document.documentElement`.
+- **Third-party Libraries**: When integrating external libraries (Monaco, CodeMirror, charts), ensure they receive the current theme value and update when the theme changes.
 
 ## Interaction Patterns
 - Support explicit refresh actions for data-driven cards (see `App.tsx` refresh button example).
@@ -39,6 +47,9 @@
 ## Implementation Checklist
 - ✅ Use named exports for React components (`export function App()`), matching ESLint rules.
 - ✅ Import Tailwind globals in `src/main.tsx` and register the `@` alias via `tsconfig.json` + Vite config.
+- ✅ Use semantic color tokens (`bg-card`, `text-foreground`, etc.) instead of hard-coded colors to ensure dark mode compatibility.
+- ✅ Test all new UI in both light and dark modes using the theme toggle in the top navigation.
+- ✅ When integrating external components (code editors, charts), ensure they support theme switching via the `useTheme()` hook.
 - ✅ Run `npm run lint` and resolve warnings before committing.
 
 Refer back to this document whenever adding new screens or components to keep the UI cohesive.

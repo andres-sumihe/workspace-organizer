@@ -14,6 +14,7 @@ import { toHex } from '../utils';
 import type { PreviewMode } from '../types';
 import type { WorkspaceFilePreview } from '@/types/desktop';
 
+import { useTheme } from '@/components/theme-provider';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -76,6 +77,7 @@ export const PreviewPanel = ({
   desktopAvailable,
   onOpenSplitDialog
 }: PreviewPanelProps) => {
+  const { theme } = useTheme();
   const disablePreviewButtons = !preview || binaryPreview;
   
   const languageExtension = useMemo(
@@ -88,6 +90,13 @@ export const PreviewPanel = ({
     if (languageExtension) exts.push(languageExtension);
     return exts;
   }, [languageExtension]);
+
+  const editorTheme = useMemo(() => {
+    if (theme === 'dark') return 'dark';
+    if (theme === 'light') return 'light';
+    // For 'system', check the actual applied theme
+    return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+  }, [theme]);
 
   return (
     <div className="rounded-lg border border-border overflow-hidden flex flex-col">
@@ -163,7 +172,7 @@ export const PreviewPanel = ({
                   height="500px"
                   extensions={extensions}
                   onChange={onEditBufferChange}
-                  theme="light"
+                  theme={editorTheme}
                   basicSetup={{
                     lineNumbers: true,
                     highlightActiveLineGutter: true,
@@ -192,7 +201,7 @@ export const PreviewPanel = ({
                   height="500px"
                   extensions={extensions}
                   editable={false}
-                  theme="light"
+                  theme={editorTheme}
                   basicSetup={{
                     lineNumbers: true,
                     highlightActiveLineGutter: false,

@@ -215,8 +215,8 @@ export const ScriptDetailPanel = ({ script, loading, onEdit, onDelete, conflicts
           <FileCode className="h-4 w-4 text-muted-foreground" />
           <h3 className="text-sm font-semibold text-foreground">Script Content</h3>
         </div>
-        <div className="max-h-96 overflow-auto rounded-lg border border-border bg-slate-50 p-4 shadow-sm">
-          <pre className="text-xs font-mono text-slate-800 whitespace-pre-wrap wrap-break-word leading-relaxed">{script.content}</pre>
+        <div className="max-h-96 overflow-auto rounded-lg border border-border bg-muted/30 p-4 shadow-sm">
+          <pre className="text-xs font-mono text-foreground whitespace-pre-wrap wrap-break-word leading-relaxed">{script.content}</pre>
         </div>
       </div>
 

@@ -141,7 +141,7 @@ export const ScriptsListPanel = ({
                       {script.isActive ? (
                         <CheckCircle className="h-3.5 w-3.5 shrink-0 text-green-600" />
                       ) : (
-                        <AlertCircle className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                        <AlertCircle className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                       )}
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground truncate" title={script.filePath}>{script.filePath}</p>
@@ -172,7 +172,7 @@ export const ScriptsListPanel = ({
 
       {/* Pagination - Sticky at bottom */}
       {total !== null ? (
-        <div className="flex items-center justify-between border-t bg-white pt-3 text-sm text-muted-foreground">
+        <div className="flex items-center justify-between border-t border-border bg-card pt-3 text-sm text-muted-foreground">
           <div>
             {items.length} of {total} scripts
           </div>

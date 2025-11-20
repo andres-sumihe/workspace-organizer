@@ -21,9 +21,9 @@ export const getScriptTypeColor = (type: string): string => {
     batch: 'bg-blue-500',
     powershell: 'bg-purple-500',
     shell: 'bg-green-500',
-    other: 'bg-gray-500'
+    other: 'bg-muted-foreground'
   };
-  return colorMap[type] || 'bg-gray-500';
+  return colorMap[type] || 'bg-muted-foreground';
 };
 
 export const highlightSearchTerm = (text: string, searchQuery: string): string => {

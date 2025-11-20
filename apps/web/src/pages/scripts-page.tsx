@@ -157,7 +157,7 @@ export const ScriptsPage = () => {
       <PanelGroup direction="horizontal" className="flex-1">
         {/* Left Panel - Scripts List */}
         <Panel defaultSize={35} minSize={20} maxSize={60}>
-          <div className="h-full border-r bg-white overflow-hidden flex flex-col p-4">
+          <div className="h-full border-r border-border bg-card overflow-hidden flex flex-col p-4">
             <ScriptsListPanel
               items={scripts}
               loading={loading}
@@ -178,7 +178,7 @@ export const ScriptsPage = () => {
 
         {/* Right Panel - Script Detail */}
         <Panel defaultSize={65} minSize={40}>
-          <div className="h-full bg-linear-to-br from-gray-50 to-gray-100">
+          <div className="h-full bg-muted/20">
             <ScriptDetailPanel
               script={selectedScript}
               loading={detailLoading}

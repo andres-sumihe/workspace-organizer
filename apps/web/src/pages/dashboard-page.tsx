@@ -68,9 +68,9 @@ const initiatives: InitiativeSummary[] = [
 ];
 
 const statusVariant: Record<InitiativeStatus, string> = {
-  Active: 'bg-amber-100 text-amber-800',
-  Completed: 'bg-emerald-100 text-emerald-800',
-  Planned: 'bg-slate-200 text-slate-700',
+  Active: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
+  Completed: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
+  Planned: 'bg-muted text-muted-foreground',
 };
 
 export const DashboardPage = () => {
