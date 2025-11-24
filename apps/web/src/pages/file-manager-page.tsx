@@ -567,40 +567,44 @@ export const FileManagerPage = () => {
         {operationMessage ? <div className="text-sm text-emerald-600">{operationMessage}</div> : null}
         {operationError ? <div className="text-sm text-destructive">{operationError}</div> : null}
 
-        <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
-          <DirectoryBrowser
-            breadcrumbs={breadcrumbs}
-            entries={entries}
-            selectedFiles={selectedFiles}
-            activeFilePath={preview?.path}
-            onNavigate={(path) => {
-              void loadDirectory(path);
-            }}
-            onEntryClick={(entry) => {
-              void handleEntryClick(entry);
-            }}
-            onToggleEntrySelection={toggleSelection}
-            onToggleAllSelections={handleToggleAllSelections}
-            onRenameEntry={handleRenameEntry}
-            onDeleteEntry={handleDeleteSingle}
-            loading={directoryLoading}
-          />
+        <div className="grid gap-6 xl:grid-cols-[1fr,1fr] 2xl:grid-cols-[2fr,1fr]">
+          <div className="min-w-0">
+            <DirectoryBrowser
+              breadcrumbs={breadcrumbs}
+              entries={entries}
+              selectedFiles={selectedFiles}
+              activeFilePath={preview?.path}
+              onNavigate={(path) => {
+                void loadDirectory(path);
+              }}
+              onEntryClick={(entry) => {
+                void handleEntryClick(entry);
+              }}
+              onToggleEntrySelection={toggleSelection}
+              onToggleAllSelections={handleToggleAllSelections}
+              onRenameEntry={handleRenameEntry}
+              onDeleteEntry={handleDeleteSingle}
+              loading={directoryLoading}
+            />
+          </div>
 
-          <PreviewPanel
-            preview={preview}
-            previewError={previewError}
-            previewMode={previewMode}
-            onModeChange={setPreviewMode}
-            editMode={editMode}
-            onToggleEditMode={handleToggleEditMode}
-            editBuffer={editBuffer}
-            onEditBufferChange={setEditBuffer}
-            onSave={handleSaveEdit}
-            saving={saving}
-            binaryPreview={binaryPreview}
-            desktopAvailable={desktopAvailable}
-            onOpenSplitDialog={() => openSplitDialog(false)}
-          />
+          <div className="min-w-0">
+            <PreviewPanel
+              preview={preview}
+              previewError={previewError}
+              previewMode={previewMode}
+              onModeChange={setPreviewMode}
+              editMode={editMode}
+              onToggleEditMode={handleToggleEditMode}
+              editBuffer={editBuffer}
+              onEditBufferChange={setEditBuffer}
+              onSave={handleSaveEdit}
+              saving={saving}
+              binaryPreview={binaryPreview}
+              desktopAvailable={desktopAvailable}
+              onOpenSplitDialog={() => openSplitDialog(false)}
+            />
+          </div>
         </div>
       </PageShell>
 

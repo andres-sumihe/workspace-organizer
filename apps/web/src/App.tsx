@@ -9,10 +9,11 @@ import { AuthenticatedLayout } from '@/layouts/authenticated-layout';
 import { DashboardPage } from '@/pages/dashboard-page';
 import { FileManagerPage } from '@/pages/file-manager-page';
 import { ScriptsPage } from '@/pages/scripts-page';
+import { SettingsPage } from '@/pages/settings-page';
 import { TemplatesPage } from '@/pages/templates-page';
 import { WorkspacesPage } from '@/pages/workspaces-page';
 
-type AppPage = 'dashboard' | 'workspaces' | 'files' | 'scripts' | 'templates' | 'analytics' | 'system';
+type AppPage = 'dashboard' | 'workspaces' | 'files' | 'scripts' | 'templates' | 'analytics' | 'settings' | 'system';
 
 const placeholderCopy: Record<AppPage, { title: string; description: string }> = {
   dashboard: {
@@ -38,6 +39,10 @@ const placeholderCopy: Record<AppPage, { title: string; description: string }> =
   templates: {
     title: 'Templates',
     description: 'Capture folder structures once and reuse them for new projects.',
+  },
+  settings: {
+    title: 'Settings',
+    description: 'Configure application settings and validation criteria.',
   },
   system: {
     title: 'System',
@@ -74,6 +79,7 @@ export function App() {
           stored === 'scripts' ||
           stored === 'templates' ||
           stored === 'analytics' ||
+          stored === 'settings' ||
           stored === 'system'
         ) {
           return stored as AppPage;
@@ -94,7 +100,7 @@ export function App() {
       { key: 'scripts', label: 'Scripts', icon: FileCode },
       { key: 'templates', label: 'Templates', icon: Layers },
       { key: 'analytics', label: 'Analytics', icon: LineChart },
-      { key: 'system', label: 'System', icon: Settings },
+      { key: 'settings', label: 'Settings', icon: Settings },
     ],
     []
   );
@@ -110,6 +116,8 @@ export function App() {
       <ScriptsPage />
     ) : activePage === 'templates' ? (
       <TemplatesPage />
+    ) : activePage === 'settings' ? (
+      <SettingsPage />
     ) : (
       renderPlaceholder(activePage)
     );

@@ -13,13 +13,17 @@ import { EditorView } from '@codemirror/view';
 import { EditorSelection } from '@codemirror/state';
 
 import { toHex } from '../utils';
+import { ValidationResult } from './validation-result';
 
 import type { PreviewMode } from '../types';
 import type { WorkspaceFilePreview } from '@/types/desktop';
+import type { ISO20022ValidationResult } from '@/utils/iso20022-validator';
 
 import { useTheme } from '@/components/theme-provider';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useValidationSettings } from '@/contexts/validation-settings-context';
+import { detectISO20022, validateISO20022 } from '@/utils/iso20022-validator';
 
 interface PreviewPanelProps {
   preview: WorkspaceFilePreview | null;
@@ -81,7 +85,9 @@ export const PreviewPanel = ({
   onOpenSplitDialog
 }: PreviewPanelProps) => {
   const { theme } = useTheme();
+  const { isEnabled: validationEnabled, criteria } = useValidationSettings();
   const disablePreviewButtons = !preview || binaryPreview;
+  const [validationResult, setValidationResult] = useState<ISO20022ValidationResult | null>(null);
   
   const languageExtension = useMemo(
     () => (preview?.path ? getLanguageExtension(preview.path) : undefined),
@@ -199,6 +205,24 @@ export const PreviewPanel = ({
     return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
   }, [theme]);
 
+  // Run validation when preview changes and validation is enabled
+  useEffect(() => {
+    if (!validationEnabled || !preview || binaryPreview || !preview.path.toLowerCase().endsWith('.xml')) {
+      setValidationResult(null);
+      return;
+    }
+
+    const content = editMode ? editBuffer : preview.content;
+    
+    // Check if it's an ISO20022 file
+    if (detectISO20022(content)) {
+      const result = validateISO20022(content, criteria);
+      setValidationResult(result);
+    } else {
+      setValidationResult(null);
+    }
+  }, [validationEnabled, preview, binaryPreview, editMode, editBuffer, criteria]);
+
   return (
     <div className="rounded-lg border border-border overflow-hidden flex flex-col">
       <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border bg-muted/30">
@@ -268,8 +292,13 @@ export const PreviewPanel = ({
           </div>
         ) : preview ? (
           <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="px-3 py-1 bg-muted/20 border-b border-border">
+            <div className="px-3 py-1 bg-muted/20 border-b border-border flex items-center justify-between gap-2">
               <p className="font-mono text-xs text-muted-foreground truncate">{preview.path}</p>
+              {validationResult && (
+                <div className="relative flex-shrink-0">
+                  <ValidationResult result={validationResult} />
+                </div>
+              )}
             </div>
             <div className="flex-1 overflow-hidden">
               {binaryPreview ? (
