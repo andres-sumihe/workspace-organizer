@@ -112,80 +112,87 @@ export const DirectoryBrowser = ({
         </div>
       </div>
       <ScrollArea className="h-[480px]">
-        <table className="min-w-full divide-y divide-border text-sm">
-          <thead className="bg-muted/40">
-            <tr>
-              <th className="w-6 pl-2 py-2 text-left font-medium text-muted-foreground">
-                <Checkbox checked={headerState} onCheckedChange={onToggleAllSelections} />
-              </th>
-              <th className="pl-2 pr-4 py-2 text-left font-medium text-muted-foreground">Name</th>
-              <th className="px-4 py-2 text-left font-medium text-muted-foreground">Size</th>
-              <th className="px-4 py-2 text-left font-medium text-muted-foreground">Modified</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {entries.map((entry) => {
-              const isRenaming = renamingPath === entry.path;
-              const isActive = entry.type === 'file' && activeFilePath === entry.path;
-              return (
-                <tr key={entry.path} className={`hover:bg-muted/30 ${isActive ? 'bg-primary/10' : ''}`}>
-                  <td className="pl-2 py-2">
-                    {entry.type === 'file' ? (
-                      <Checkbox
-                        checked={selectedFiles.has(entry.path)}
-                        onCheckedChange={() => onToggleEntrySelection(entry)}
-                        disabled={isRenaming}
-                      />
-                    ) : null}
-                  </td>
-                  <td className="pl-2 py-2">
-                    <FileContextMenu 
-                      onRename={() => startRename(entry)} 
-                      onDelete={() => onDeleteEntry(entry)}
-                      hasMultipleSelected={selectedFiles.size > 1}
-                      disabled={loading || isRenaming}
-                    >
-                      <div className="flex items-center gap-2 text-left text-foreground w-full">
-                        {entry.type === 'directory' ? <Folder className="size-4" /> : <FileText className="size-4" />}
-                        {isRenaming ? (
-                          <input
-                            ref={inputRef}
-                            type="text"
-                            value={renameValue}
-                            onChange={(e) => setRenameValue(e.target.value)}
-                            onBlur={() => void commitRename(entry)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                void commitRename(entry);
-                              } else if (e.key === 'Escape') {
-                                cancelRename();
-                              }
-                            }}
-                            disabled={renaming}
-                            className="flex-1 px-1 py-0.5 text-sm border border-primary rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                          />
-                        ) : (
-                          <button
-                            type="button"
-                            className="flex-1 text-left truncate"
-                            onClick={() => onEntryClick(entry)}
-                            disabled={loading}
-                          >
-                            {entry.name}
-                          </button>
-                        )}
-                      </div>
-                    </FileContextMenu>
-                  </td>
-                  <td className="px-4 py-2 text-muted-foreground">
-                    {entry.size !== null ? `${(entry.size / 1024).toFixed(1)} KB` : '—'}
-                  </td>
-                  <td className="px-4 py-2 text-muted-foreground">{new Date(entry.modifiedAt).toLocaleString()}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <div className="overflow-x-auto">
+          <table className="w-full table-fixed divide-y divide-border text-sm">
+            <thead className="bg-muted/40">
+              <tr>
+                <th className="w-10 pl-2 py-2 text-left font-medium text-muted-foreground">
+                  <Checkbox checked={headerState} onCheckedChange={onToggleAllSelections} />
+                </th>
+                <th className="pl-2 pr-4 py-2 text-left font-medium text-muted-foreground w-[45%]">Name</th>
+                <th className="px-4 py-2 text-right font-medium text-muted-foreground w-[15%]">Size</th>
+                <th className="px-4 py-2 text-left font-medium text-muted-foreground w-[30%]">Modified</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {entries.map((entry) => {
+                const isRenaming = renamingPath === entry.path;
+                const isActive = entry.type === 'file' && activeFilePath === entry.path;
+                return (
+                  <tr key={entry.path} className={`hover:bg-muted/30 ${isActive ? 'bg-primary/10' : ''}`}>
+                    <td className="pl-2 py-2">
+                      {entry.type === 'file' ? (
+                        <Checkbox
+                          checked={selectedFiles.has(entry.path)}
+                          onCheckedChange={() => onToggleEntrySelection(entry)}
+                          disabled={isRenaming}
+                        />
+                      ) : null}
+                    </td>
+                    <td className="pl-2 py-2">
+                      <FileContextMenu 
+                        onRename={() => startRename(entry)} 
+                        onDelete={() => onDeleteEntry(entry)}
+                        hasMultipleSelected={selectedFiles.size > 1}
+                        disabled={loading || isRenaming}
+                      >
+                        <div className="flex items-center gap-2 text-left text-foreground min-w-0">
+                          <div className="flex-shrink-0">
+                            {entry.type === 'directory' ? <Folder className="size-4" /> : <FileText className="size-4" />}
+                          </div>
+                          {isRenaming ? (
+                            <input
+                              ref={inputRef}
+                              type="text"
+                              value={renameValue}
+                              onChange={(e) => setRenameValue(e.target.value)}
+                              onBlur={() => void commitRename(entry)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  void commitRename(entry);
+                                } else if (e.key === 'Escape') {
+                                  cancelRename();
+                                }
+                              }}
+                              disabled={renaming}
+                              className="flex-1 px-1 py-0.5 text-sm border border-primary rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary min-w-0"
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              className="flex-1 text-left truncate min-w-0"
+                              onClick={() => onEntryClick(entry)}
+                              disabled={loading}
+                              title={entry.name}
+                            >
+                              {entry.name}
+                            </button>
+                          )}
+                        </div>
+                      </FileContextMenu>
+                    </td>
+                    <td className="px-4 py-2 text-muted-foreground text-right truncate">
+                      {entry.size !== null ? `${(entry.size / 1024).toFixed(1)} KB` : '—'}
+                    </td>
+                    <td className="px-4 py-2 text-muted-foreground truncate" title={new Date(entry.modifiedAt).toLocaleString()}>
+                      {new Date(entry.modifiedAt).toLocaleString()}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </ScrollArea>
     </div>
   );
