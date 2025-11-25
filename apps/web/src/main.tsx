@@ -15,7 +15,7 @@ if (!rootElement) {
 
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
-    <ThemeProvider defaultTheme="system" storageKey="workspace-organizer-theme">
+    <ThemeProvider defaultTheme="light" storageKey="workspace-organizer-theme">
       <ValidationSettingsProvider>
         <FileManagerProvider>
           <App />
