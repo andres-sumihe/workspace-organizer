@@ -1,5 +1,7 @@
 import { Loader2, FileCode, MapPin, Tag, Link2, AlertTriangle, Trash2, Edit } from 'lucide-react';
 
+import { DriveConflictAlert } from './drive-conflict-alert';
+
 import type { BatchScriptDetail, DriveConflict } from '@workspace/shared';
 
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +15,6 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table';
-import { DriveConflictAlert } from './drive-conflict-alert';
 
 interface ScriptDetailPanelProps {
   script: BatchScriptDetail | null;
