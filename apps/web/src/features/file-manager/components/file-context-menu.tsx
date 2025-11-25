@@ -1,5 +1,7 @@
 import { Edit, Trash2 } from 'lucide-react';
 
+import type { ReactNode } from 'react';
+
 import {
   ContextMenu,
   ContextMenuContent,
@@ -9,7 +11,7 @@ import {
 } from '@/components/ui/context-menu';
 
 interface FileContextMenuProps {
-  children: React.ReactNode;
+  children: ReactNode;
   onRename: () => void;
   onDelete: () => void;
   hasMultipleSelected?: boolean;

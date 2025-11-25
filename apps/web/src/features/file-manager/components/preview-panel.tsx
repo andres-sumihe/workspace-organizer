@@ -1,16 +1,16 @@
-import CodeMirror from '@uiw/react-codemirror';
+import { css } from '@codemirror/lang-css';
+import { html } from '@codemirror/lang-html';
 import { javascript } from '@codemirror/lang-javascript';
 import { json } from '@codemirror/lang-json';
-import { xml } from '@codemirror/lang-xml';
-import { html } from '@codemirror/lang-html';
-import { css } from '@codemirror/lang-css';
 import { python } from '@codemirror/lang-python';
 import { sql } from '@codemirror/lang-sql';
+import { xml } from '@codemirror/lang-xml';
 import { highlightSelectionMatches } from '@codemirror/search';
-import { Save, Search, SplitSquareHorizontal, X, ChevronDown, ChevronUp } from 'lucide-react';
-import { useMemo, useRef, useEffect, useState } from 'react';
-import { EditorView } from '@codemirror/view';
 import { EditorSelection } from '@codemirror/state';
+import { type EditorView } from '@codemirror/view';
+import CodeMirror from '@uiw/react-codemirror';
+import { Save, Search, SplitSquareHorizontal, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { useMemo, useRef, useEffect, useState, useCallback } from 'react';
 
 import { toHex } from '../utils';
 import { ValidationResult } from './validation-result';
@@ -110,7 +110,7 @@ export const PreviewPanel = ({
 
   const matchesRef = useRef<number[]>([]);
 
-  const performSearch = () => {
+  const performSearch = useCallback(() => {
     if (!searchQuery || !editorViewRef.current) {
       setTotalMatches(0);
       setCurrentMatch(0);
@@ -143,11 +143,11 @@ export const PreviewPanel = ({
     } else {
       setCurrentMatch(0);
     }
-  };
+  }, [searchQuery, caseSensitive])
 
   useEffect(() => {
     performSearch();
-  }, [searchQuery, caseSensitive]);
+  }, [searchQuery, caseSensitive, performSearch]);
 
   const handleNext = () => {
     if (matchesRef.current.length === 0 || !editorViewRef.current) return;
@@ -295,7 +295,7 @@ export const PreviewPanel = ({
             <div className="px-3 py-1 bg-muted/20 border-b border-border flex items-center justify-between gap-2">
               <p className="font-mono text-xs text-muted-foreground truncate">{preview.path}</p>
               {validationResult && (
-                <div className="relative flex-shrink-0">
+                <div className="relative shrink-0">
                   <ValidationResult result={validationResult} />
                 </div>
               )}

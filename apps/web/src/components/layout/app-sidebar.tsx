@@ -39,7 +39,7 @@ export const AppSidebar = ({ items, activeKey, onNavigate, connectionLabel }: Ap
     <Sidebar collapsible="icon">
       <SidebarHeader className="gap-3">
         <div className="flex h-12 items-center gap-2 rounded-lg bg-sidebar-accent px-3 text-sm font-semibold group-data-[collapsible=icon]:h-auto group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-2">
-          <div className="flex-shrink-0">
+          <div className="shrink-0">
             <img 
               src={LogoMark} 
               alt="Workspace Organizer" 
