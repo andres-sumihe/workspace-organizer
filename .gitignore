@@ -11,3 +11,20 @@ yarn.lock
 package-lock.json
 .npmrc
 /apps/api/data/*.sqlite
+
+# Electron build outputs
+release/
+out/
+*.exe
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+*.snap
+
+# Build assets (keep source logo and generated icons, ignore intermediate files)
+!build-assets/logo.jpg
+!build-assets/*.ico
+!build-assets/*.png
+!build-assets/README.md
+!build-assets/.gitkeep

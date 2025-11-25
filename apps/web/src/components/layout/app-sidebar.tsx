@@ -2,7 +2,7 @@ import { Database } from 'lucide-react';
 
 import type { LucideIcon } from 'lucide-react';
 
-import LogoMark from '@/assets/wo-logo.svg';
+import LogoMark from '@/assets/logo-rounded.png';
 import {
   Sidebar,
   SidebarContent,
@@ -38,9 +38,13 @@ export const AppSidebar = ({ items, activeKey, onNavigate, connectionLabel }: Ap
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="gap-3">
-        <div className="flex h-12 items-center gap-2 rounded-lg bg-sidebar-accent px-3 text-sm font-semibold group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
-          <div className="grid h-9 w-9 place-items-center rounded-mdtext-sidebar-primary-foreground group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10">
-            <img src={LogoMark} alt="Workspace Organizer" className="h-9 w-9" />
+        <div className="flex h-12 items-center gap-2 rounded-lg bg-sidebar-accent px-3 text-sm font-semibold group-data-[collapsible=icon]:h-auto group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-2">
+          <div className="flex-shrink-0">
+            <img 
+              src={LogoMark} 
+              alt="Workspace Organizer" 
+              className="h-9 w-9 rounded-lg object-cover group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:rounded-xl" 
+            />
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
             <span className="text-xs text-muted-foreground">Workspace</span>
