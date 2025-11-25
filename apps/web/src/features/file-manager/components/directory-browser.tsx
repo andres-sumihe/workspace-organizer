@@ -116,10 +116,10 @@ export const DirectoryBrowser = ({
           <table className="w-full table-fixed divide-y divide-border text-sm">
             <thead className="bg-muted/40">
               <tr>
-                <th className="w-10 pl-2 py-2 text-left font-medium text-muted-foreground">
+                <th className="pl-2 py-2 text-left font-medium text-muted-foreground w-6">
                   <Checkbox checked={headerState} onCheckedChange={onToggleAllSelections} />
                 </th>
-                <th className="pl-2 pr-4 py-2 text-left font-medium text-muted-foreground w-[45%]">Name</th>
+                <th className="pl-2 pr-4 py-2 text-left font-medium text-muted-foreground w-[65%]">Name</th>
                 <th className="px-4 py-2 text-right font-medium text-muted-foreground w-[15%]">Size</th>
                 <th className="px-4 py-2 text-left font-medium text-muted-foreground w-[30%]">Modified</th>
               </tr>
@@ -147,7 +147,7 @@ export const DirectoryBrowser = ({
                         disabled={loading || isRenaming}
                       >
                         <div className="flex items-center gap-2 text-left text-foreground min-w-0">
-                          <div className="flex-shrink-0">
+                          <div className="shrink-0">
                             {entry.type === 'directory' ? <Folder className="size-4" /> : <FileText className="size-4" />}
                           </div>
                           {isRenaming ? (
