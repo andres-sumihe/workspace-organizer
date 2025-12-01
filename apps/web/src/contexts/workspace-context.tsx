@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 
 import type { WorkspaceSummary } from '@workspace/shared';
 
-import { fetchWorkspaceList } from '@/api/workspaces';
+import { fetchWorkspaceList, updateWorkspace as updateWorkspaceAPI } from '@/api/workspaces';
 
 interface WorkspaceContextValue {
   workspaces: WorkspaceSummary[];
@@ -10,6 +10,7 @@ interface WorkspaceContextValue {
   activeWorkspace: WorkspaceSummary | null;
   setActiveWorkspaceId: (id: string | null) => void;
   refreshWorkspaces: () => Promise<void>;
+  updateWorkspace: (id: string, data: { name: string; rootPath: string; description?: string }) => Promise<void>;
   loading: boolean;
   error: string | null;
 }
@@ -55,6 +56,17 @@ export const WorkspaceProvider = ({ children }: WorkspaceProviderProps) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const updateWorkspace = useCallback(async (id: string, data: { name: string; rootPath: string; description?: string }) => {
+    try {
+      await updateWorkspaceAPI(id, data);
+      await refreshWorkspaces();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update workspace';
+      setError(message);
+      throw err;
+    }
+  }, [refreshWorkspaces]);
+
   const activeWorkspace = useMemo(
     () => workspaces.find((ws) => ws.id === activeWorkspaceId) ?? null,
     [workspaces, activeWorkspaceId]
@@ -67,10 +79,11 @@ export const WorkspaceProvider = ({ children }: WorkspaceProviderProps) => {
       activeWorkspace,
       setActiveWorkspaceId,
       refreshWorkspaces,
+      updateWorkspace,
       loading,
       error
     }),
-    [workspaces, activeWorkspaceId, activeWorkspace, refreshWorkspaces, loading, error]
+    [workspaces, activeWorkspaceId, activeWorkspace, refreshWorkspaces, updateWorkspace, loading, error]
   );
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;

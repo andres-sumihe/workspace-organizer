@@ -155,7 +155,7 @@ export const createWorkspace = async (input: CreateWorkspaceInput & { id: string
     name,
     rootPath,
     description,
-    status = 'offline',
+    status = 'healthy',
     settings = {},
     statistics = {},
     createdAt,

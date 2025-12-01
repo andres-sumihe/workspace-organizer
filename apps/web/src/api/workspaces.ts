@@ -51,3 +51,20 @@ export const createWorkspaceProject = (
     body: JSON.stringify(payload)
   });
 };
+
+export const updateWorkspaceProject = (
+  workspaceId: string,
+  projectId: string,
+  payload: { name?: string; relativePath?: string; description?: string }
+) => {
+  return apiRequest<WorkspaceProjectResponse>(`/api/v1/workspaces/${workspaceId}/projects/${projectId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload)
+  });
+};
+
+export const deleteWorkspaceProject = (workspaceId: string, projectId: string) => {
+  return apiRequest<{ success: boolean }>(`/api/v1/workspaces/${workspaceId}/projects/${projectId}`, {
+    method: 'DELETE'
+  });
+};

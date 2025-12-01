@@ -18,7 +18,7 @@ export const up = async (db: Database) => {
     CREATE TABLE IF NOT EXISTS workspaces (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'offline',
+      status TEXT NOT NULL DEFAULT 'healthy',
       project_count INTEGER NOT NULL DEFAULT 0,
       template_count INTEGER NOT NULL DEFAULT 0,
       last_indexed_at TEXT NOT NULL,
