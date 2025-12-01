@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom/client';
 
 import { App } from './App';
 import { ThemeProvider } from './components/theme-provider';
-import { FileManagerProvider } from './contexts/file-manager-context';
 import { ValidationSettingsProvider } from './contexts/validation-settings-context';
 import './styles/globals.css';
 
@@ -17,9 +16,7 @@ ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <ThemeProvider defaultTheme="light" storageKey="workspace-organizer-theme">
       <ValidationSettingsProvider>
-        <FileManagerProvider>
-          <App />
-        </FileManagerProvider>
+        <App />
       </ValidationSettingsProvider>
     </ThemeProvider>
   </React.StrictMode>

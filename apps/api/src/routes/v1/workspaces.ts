@@ -1,5 +1,6 @@
 import { Router } from 'express';
 
+import * as templatesController from '../../controllers/templates.controller.js';
 import {
   listWorkspaceProjectsHandler,
   createWorkspaceProjectHandler
@@ -21,3 +22,8 @@ workspacesRouter.patch('/:workspaceId', asyncHandler(updateWorkspaceHandler));
 
 workspacesRouter.get('/:workspaceId/projects', asyncHandler(listWorkspaceProjectsHandler));
 workspacesRouter.post('/:workspaceId/projects', asyncHandler(createWorkspaceProjectHandler));
+
+// Workspace-Template associations
+workspacesRouter.get('/:workspaceId/templates', templatesController.listWorkspaceTemplates);
+workspacesRouter.post('/:workspaceId/templates/:templateId', templatesController.assignTemplateToWorkspace);
+workspacesRouter.delete('/:workspaceId/templates/:templateId', templatesController.unassignTemplateFromWorkspace);

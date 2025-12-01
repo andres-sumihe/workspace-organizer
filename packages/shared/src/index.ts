@@ -361,3 +361,62 @@ export interface ScriptStatsResponse {
 export interface DriveAnalysisResponse {
   analysis: DriveAnalysis;
 }
+
+// Template Management Types
+export interface TemplateSummaryV2 {
+  id: string;
+  name: string;
+  description: string | null;
+  folderCount: number;
+  fileCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TemplateFolderV2 {
+  relativePath: string;
+}
+
+export interface TemplateFileV2 {
+  relativePath: string;
+  content: string;
+}
+
+export interface TemplateTokenV2 {
+  key: string;
+  label: string;
+  defaultValue?: string;
+}
+
+export interface TemplateManifestV2 {
+  id: string;
+  name: string;
+  description: string | null;
+  folders: TemplateFolderV2[];
+  files: TemplateFileV2[];
+  tokens: TemplateTokenV2[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTemplateInput {
+  name: string;
+  description?: string;
+  folders: TemplateFolderV2[];
+  files: TemplateFileV2[];
+  tokens: TemplateTokenV2[];
+}
+
+export interface UpdateTemplateInput {
+  name?: string;
+  description?: string;
+  folders?: TemplateFolderV2[];
+  files?: TemplateFileV2[];
+  tokens?: TemplateTokenV2[];
+}
+
+export type TemplateListResponse = PaginatedData<TemplateSummaryV2>;
+
+export interface TemplateDetailResponse {
+  template: TemplateManifestV2;
+}

@@ -1,621 +1,634 @@
+import { Plus, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useNavigate } from 'react-router-dom';
 
-import type {
-  FileFormValues,
-  FolderFormValues,
-  FsDialogState,
-  ProjectFormValues,
-  WorkspaceFormValues
-} from '@/features/workspaces';
-import type { TemplateSummary } from '@/types/desktop';
-import type { WorkspaceDetail, WorkspaceProject, WorkspaceSummary } from '@workspace/shared';
+import type { BuilderMeta, CaptureFormValues, EditableFile, EditableFolder, EditableToken } from '@/features/templates';
+import type { WorkspaceFormValues } from '@/features/workspaces';
+import type { TemplateManifest, TemplateSummary, TemplateTokenEntry } from '@/types/desktop';
 
-import {
-  createWorkspace,
-  createWorkspaceProject,
-  fetchWorkspaceDetail,
-  fetchWorkspaceProjects,
-  updateWorkspace as updateWorkspaceApi
-} from '@/api/workspaces';
+import { createWorkspace } from '@/api/workspaces';
 import { PageShell } from '@/components/layout/page-shell';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Textarea } from '@/components/ui/textarea';
 import { useWorkspaceContext } from '@/contexts/workspace-context';
-import {
-  WorkspaceToolbar,
-  WorkspaceListPanel,
-  WorkspaceDetailPanel,
-  EditWorkspaceDialog,
-  ProjectDialog,
-  WorkspaceTemplatesDialog,
-  FsDialog,
-  combineRelativePaths,
-  buildAbsolutePath,
-  sanitizeRelativeSegment,
-  slugifyPath
-} from '@/features/workspaces';
+import { TemplateGrid, TemplatesToolbar, makeId, normalizePathInput } from '@/features/templates';
+import { WorkspaceListPanel } from '@/features/workspaces';
 
-export const WorkspacesPage = () => {
+export function WorkspacesPage() {
+  const navigate = useNavigate();
   const {
-    workspaces: items,
-    activeWorkspaceId: selectedWorkspaceId,
-    setActiveWorkspaceId: setSelectedWorkspaceId,
+    workspaces,
     refreshWorkspaces,
-    loading: contextLoading,
+    loading,
     error: contextError
   } = useWorkspaceContext();
 
   const [localError, setLocalError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [pageSize] = useState(6);
   const [openNew, setOpenNew] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [selectingFolder, setSelectingFolder] = useState(false);
-  const [canSelectFolder, setCanSelectFolder] = useState(false);
-  const [workspaceDetail, setWorkspaceDetail] = useState<WorkspaceDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [updatingWorkspace, setUpdatingWorkspace] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 6;
 
-  const [projects, setProjects] = useState<WorkspaceProject[]>([]);
-  const [projectLoading, setProjectLoading] = useState(false);
-  const [projectError, setProjectError] = useState<string | null>(null);
-  const [templateApplyMessage, setTemplateApplyMessage] = useState<string | null>(null);
-
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [projectDialogOpen, setProjectDialogOpen] = useState(false);
+  // Template management state
+  const [templatesSheetOpen, setTemplatesSheetOpen] = useState(false);
+  const [templates, setTemplates] = useState<TemplateSummary[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [templatesError, setTemplatesError] = useState<string | null>(null);
   const [desktopAvailable, setDesktopAvailable] = useState(false);
-  const [fsDialog, setFsDialog] = useState<FsDialogState | null>(null);
-  const [fsError, setFsError] = useState<string | null>(null);
-  const [fsSuccess, setFsSuccess] = useState<string | null>(null);
-  const [allTemplates, setAllTemplates] = useState<TemplateSummary[]>([]);
-  const [templateLoading, setTemplateLoading] = useState(false);
-  const [templateError, setTemplateError] = useState<string | null>(null);
-  const [workspaceTemplates, setWorkspaceTemplates] = useState<TemplateSummary[]>([]);
-  const [workspaceTemplateIds, setWorkspaceTemplateIds] = useState<string[]>([]);
-  const [workspaceTemplateDialogOpen, setWorkspaceTemplateDialogOpen] = useState(false);
-  const [workspaceTemplateSaving, setWorkspaceTemplateSaving] = useState(false);
-  const [workspaceTemplateDraft, setWorkspaceTemplateDraft] = useState<string[]>([]);
-  const [workspaceTemplateError, setWorkspaceTemplateError] = useState<string | null>(null);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+
+  const [captureDialogOpen, setCaptureDialogOpen] = useState(false);
+  const [captureSubmitting, setCaptureSubmitting] = useState(false);
+
+  const [builderDialogOpen, setBuilderDialogOpen] = useState(false);
+  const [builderTemplateId, setBuilderTemplateId] = useState<string | null>(null);
+  const [builderLoading, setBuilderLoading] = useState(false);
+  const [builderSaving, setBuilderSaving] = useState(false);
+  const [builderFolders, setBuilderFolders] = useState<EditableFolder[]>([]);
+  const [builderFiles, setBuilderFiles] = useState<EditableFile[]>([]);
+  const [builderTokens, setBuilderTokens] = useState<EditableToken[]>([]);
+  const [builderError, setBuilderError] = useState<string | null>(null);
 
   const workspaceForm = useForm<WorkspaceFormValues>({
     defaultValues: { name: '', rootPath: '', description: '' }
   });
 
-  const editWorkspaceForm = useForm<WorkspaceFormValues>({
-    defaultValues: { name: '', rootPath: '', description: '' }
+  const captureForm = useForm<CaptureFormValues>({
+    defaultValues: { name: '', description: '', sourcePath: '' }
   });
 
-  const projectForm = useForm<ProjectFormValues>({
-    defaultValues: { name: '', relativePath: '', description: '' }
+  const builderForm = useForm<BuilderMeta>({
+    defaultValues: { name: '', description: '' }
   });
 
-  const folderForm = useForm<FolderFormValues>({ defaultValues: { folderName: '' } });
-  const fileForm = useForm<FileFormValues>({ defaultValues: { fileName: '', content: '' } });
-
-  const [projectPathEdited, setProjectPathEdited] = useState(false);
-
-  // Derive pagination values from context workspaces
-  const loading = contextLoading;
   const error = contextError || localError;
-  const total = items.length;
-  const paginatedItems = useMemo(() => {
-    const startIdx = (page - 1) * pageSize;
-    return items.slice(startIdx, startIdx + pageSize);
-  }, [items, page, pageSize]);
+  const total = workspaces.length;
+  const paginatedItems = workspaces.slice((page - 1) * pageSize, page * pageSize);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && typeof window.api?.selectDirectory === 'function') {
-      setCanSelectFolder(true);
-    }
-    if (typeof window !== 'undefined' && typeof window.api?.createDirectory === 'function') {
-      setDesktopAvailable(true);
-    }
+    setDesktopAvailable(typeof window !== 'undefined' && typeof window.api?.listTemplates === 'function');
   }, []);
 
-  useEffect(() => {
-    if (projectDialogOpen) {
-      projectForm.reset({ name: '', relativePath: '', description: '' });
-      setProjectPathEdited(false);
-      setSelectedTemplateId('');
-      setTemplateApplyMessage(null);
-    }
-  }, [projectDialogOpen, projectForm]);
-
-  const loadAllTemplates = useCallback(async () => {
-    if (!desktopAvailable || !window.api?.listTemplates) {
-      setAllTemplates([]);
-      return;
-    }
-    setTemplateLoading(true);
-    setTemplateError(null);
+  const loadTemplates = useCallback(async () => {
+    if (!desktopAvailable) return;
+    setTemplatesLoading(true);
+    setTemplatesError(null);
     try {
-      const response = await window.api.listTemplates();
-      if (!response.ok || !response.templates) {
-        throw new Error(response.error || 'Unable to load templates');
+      const response = await window.api?.listTemplates?.();
+      if (!response?.ok || !response.templates) {
+        throw new Error(response?.error || 'Unable to load templates');
       }
-      setAllTemplates(response.templates);
+      setTemplates(response.templates);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load templates';
-      setTemplateError(message);
+      setTemplatesError(message);
     } finally {
-      setTemplateLoading(false);
+      setTemplatesLoading(false);
     }
   }, [desktopAvailable]);
 
   useEffect(() => {
-    if (desktopAvailable) {
-      void loadAllTemplates();
+    if (templatesSheetOpen) {
+      void loadTemplates();
     }
-  }, [desktopAvailable, loadAllTemplates]);
+  }, [templatesSheetOpen, loadTemplates]);
 
-  const refreshWorkspaceTemplates = useCallback(
-    async (workspace: WorkspaceDetail | null) => {
-      if (!workspace?.rootPath || !desktopAvailable || !window.api?.listWorkspaceTemplates) {
-        setWorkspaceTemplates([]);
-        setWorkspaceTemplateIds([]);
-        return;
-      }
-      try {
-        const resp = await window.api.listWorkspaceTemplates({ workspaceRoot: workspace.rootPath });
-        if (!resp.ok || !resp.templates) {
-          setWorkspaceTemplates([]);
-          setWorkspaceTemplateIds([]);
-          return;
-        }
-        const templateIds = resp.templateIds ?? resp.templates.map((tpl) => tpl.id);
-        setWorkspaceTemplates(resp.templates);
-        setWorkspaceTemplateIds(templateIds);
-
-        const templateCount = templateIds.length;
-        setWorkspaceDetail((prev) =>
-          prev && prev.id === workspace.id ? { ...prev, templateCount, status: templateCount > 0 ? 'healthy' : prev.status } : prev
-        );
-      } catch (err) {
-        console.error('Failed to load workspace templates', err);
-        setWorkspaceTemplates([]);
-        setWorkspaceTemplateIds([]);
-      }
-    },
-    [desktopAvailable]
+  const formattedTemplates = useMemo(
+    () =>
+      templates.map((tpl) => ({
+        ...tpl,
+        createdDate: new Date(tpl.createdAt).toLocaleString()
+      })),
+    [templates]
   );
 
-  const loadDetailAndProjects = useCallback(
-    async (workspaceId: string) => {
-      setDetailLoading(true);
-      setProjectLoading(true);
-      setProjectError(null);
-      try {
-        const [detailResp, projectsResp] = await Promise.all([
-          fetchWorkspaceDetail(workspaceId),
-          fetchWorkspaceProjects(workspaceId)
-        ]);
-        setWorkspaceDetail(detailResp.workspace);
-        editWorkspaceForm.reset({
-          name: detailResp.workspace.name,
-          rootPath: detailResp.workspace.rootPath,
-          description: detailResp.workspace.description ?? ''
-        });
-        setProjects(projectsResp.projects);
-        await refreshWorkspaceTemplates(detailResp.workspace);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to load workspace detail';
-        setLocalError(message);
-        setProjectError(message);
-        setProjects([]);
-      } finally {
-        setDetailLoading(false);
-        setProjectLoading(false);
-      }
-    },
-    [editWorkspaceForm, refreshWorkspaceTemplates]
-  );
-
-  useEffect(() => {
-    if (!selectedWorkspaceId) {
-      setWorkspaceDetail(null);
-      setProjects([]);
-      return;
-    }
-    void loadDetailAndProjects(selectedWorkspaceId);
-  }, [selectedWorkspaceId, loadDetailAndProjects]);
-
-  useEffect(() => {
-    if (desktopAvailable && workspaceDetail) {
-      void refreshWorkspaceTemplates(workspaceDetail);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [desktopAvailable, workspaceDetail]);
-
-  const projectNameValue = projectForm.watch('name');
-  const availableTemplates = useMemo(
-    () => (workspaceTemplates.length > 0 ? workspaceTemplates : allTemplates),
-    [workspaceTemplates, allTemplates]
-  );
-
-  const getWorkspaceTemplateCount = useCallback(
-    (workspaceId: string, fallback: number) =>
-      workspaceDetail && workspaceDetail.id === workspaceId && workspaceTemplateIds.length > 0
-        ? workspaceTemplateIds.length
-        : fallback,
-    [workspaceDetail, workspaceTemplateIds.length]
-  );
-
-  const getWorkspaceStatus = useCallback(
-    (workspaceId: string, fallback: WorkspaceSummary['status']) =>
-      workspaceDetail && workspaceDetail.id === workspaceId && workspaceTemplateIds.length > 0 ? 'healthy' : fallback,
-    [workspaceDetail, workspaceTemplateIds.length]
-  );
-
-  useEffect(() => {
-    if (!projectDialogOpen) {
-      setProjectPathEdited(false);
-      return;
-    }
-
-    if (projectPathEdited) {
-      return;
-    }
-
-    const suggestion = slugifyPath(projectNameValue || '');
-    projectForm.setValue('relativePath', suggestion, {
-      shouldDirty: false,
-      shouldTouch: false,
-      shouldValidate: false
+  const pickSourceFolder = async () => {
+    const result = await window.api?.selectDirectory?.();
+    if (!result || result.canceled || !result.path) return;
+    captureForm.setValue('sourcePath', result.path, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true
     });
-  }, [projectNameValue, projectForm, projectPathEdited, projectDialogOpen]);
+  };
 
-  useEffect(() => {
-    if (selectedTemplateId && !availableTemplates.some((tpl) => tpl.id === selectedTemplateId)) {
-      setSelectedTemplateId('');
+  const handleCaptureTemplate = async (values: CaptureFormValues) => {
+    if (!desktopAvailable) return;
+    if (!values.sourcePath) {
+      captureForm.setError('sourcePath', { type: 'manual', message: 'Source folder is required' });
+      return;
     }
-  }, [availableTemplates, selectedTemplateId]);
+    setCaptureSubmitting(true);
+    try {
+      const response = await window.api?.createTemplateFromFolder?.({
+        name: values.name?.trim(),
+        description: values.description?.trim(),
+        sourcePath: values.sourcePath
+      });
+      if (!response?.ok || !response.template) {
+        throw new Error(response?.error || 'Failed to create template');
+      }
+      const manifest = response.template as TemplateManifest;
+      const summary: TemplateSummary = {
+        id: manifest.id,
+        name: manifest.name,
+        description: manifest.description,
+        createdAt: manifest.createdAt ?? new Date().toISOString(),
+        updatedAt: manifest.updatedAt,
+        folderCount: manifest.folders?.length ?? 0,
+        fileCount: manifest.files?.length ?? 0
+      };
+      setTemplates((prev) => [summary, ...prev]);
+      setCaptureDialogOpen(false);
+      captureForm.reset({ name: '', description: '', sourcePath: '' });
+    } catch (err) {
+      setTemplatesError(err instanceof Error ? err.message : 'Failed to create template');
+    } finally {
+      setCaptureSubmitting(false);
+    }
+  };
+
+  const handleDeleteTemplate = async (templateId: string) => {
+    if (!desktopAvailable) return;
+    if (!window.confirm('Delete this template? This cannot be undone.')) return;
+    try {
+      const response = await window.api?.deleteTemplate?.({ templateId });
+      if (!response?.ok) {
+        throw new Error(response?.error || 'Failed to delete template');
+      }
+      setTemplates((prev) => prev.filter((tpl) => tpl.id !== templateId));
+    } catch (err) {
+      setTemplatesError(err instanceof Error ? err.message : 'Failed to delete template');
+    }
+  };
+
+  const resetBuilderState = () => {
+    builderForm.reset({ name: '', description: '' });
+    setBuilderTemplateId(null);
+    setBuilderFolders([]);
+    setBuilderFiles([]);
+    setBuilderTokens([]);
+    setBuilderError(null);
+  };
+
+  const openBuilder = async (templateId?: string) => {
+    if (!desktopAvailable) return;
+    resetBuilderState();
+    setBuilderDialogOpen(true);
+    if (!templateId) {
+      setBuilderFolders([{ id: makeId(), path: 'src' }]);
+      setBuilderFiles([{ id: makeId(), path: 'README.md', content: '# Project' }]);
+      setBuilderTokens([]);
+      return;
+    }
+
+    setBuilderLoading(true);
+    setBuilderTemplateId(templateId);
+    try {
+      const response = await window.api?.getTemplateManifest?.({ templateId });
+      if (!response?.ok || !response.manifest) {
+        throw new Error(response?.error || 'Failed to load template');
+      }
+      const manifest = response.manifest;
+      builderForm.reset({ name: manifest.name, description: manifest.description ?? '' });
+      setBuilderFolders((manifest.folders || []).map((folder) => ({ id: makeId(), path: folder.path || '' })));
+      setBuilderFiles(
+        (manifest.files || []).map((file) => ({
+          id: makeId(),
+          path: file.path || '',
+          content: file.content || ''
+        }))
+      );
+      setBuilderTokens(
+        (manifest.tokens || []).map((token) => ({
+          id: makeId(),
+          key: token.key,
+          label: token.label || '',
+          defaultValue: token.default || ''
+        }))
+      );
+    } catch (err) {
+      setBuilderError(err instanceof Error ? err.message : 'Failed to load template');
+    } finally {
+      setBuilderLoading(false);
+    }
+  };
+
+  const addFolderRow = () => setBuilderFolders((rows) => [...rows, { id: makeId(), path: '' }]);
+  const updateFolderRow = (id: string, value: string) =>
+    setBuilderFolders((rows) => rows.map((row) => (row.id === id ? { ...row, path: value } : row)));
+  const removeFolderRow = (id: string) => setBuilderFolders((rows) => rows.filter((row) => row.id !== id));
+
+  const addFileRow = () => setBuilderFiles((rows) => [...rows, { id: makeId(), path: '', content: '' }]);
+  const updateFileRow = (id: string, patch: Partial<EditableFile>) =>
+    setBuilderFiles((rows) => rows.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+  const removeFileRow = (id: string) => setBuilderFiles((rows) => rows.filter((row) => row.id !== id));
+
+  const addTokenRow = () => setBuilderTokens((rows) => [...rows, { id: makeId(), key: '', label: '', defaultValue: '' }]);
+  const updateTokenRow = (id: string, patch: Partial<EditableToken>) =>
+    setBuilderTokens((rows) => rows.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+  const removeTokenRow = (id: string) => setBuilderTokens((rows) => rows.filter((row) => row.id !== id));
+
+  const handleSaveTemplate = async () => {
+    const values = builderForm.getValues();
+    if (!values.name.trim()) {
+      setBuilderError('Template name is required.');
+      return;
+    }
+
+    const folders = builderFolders
+      .map((folder) => folder.path.trim() && { path: normalizePathInput(folder.path.trim()) })
+      .filter(Boolean) as { path: string }[];
+
+    const files = builderFiles
+      .map((file) => file.path.trim() ? { path: normalizePathInput(file.path.trim()), content: file.content } : null)
+      .filter((entry): entry is { path: string; content: string } => 
+        entry !== null && !files.some((f, i, arr) => arr.findIndex(other => other?.path === f?.path) < i)
+      );
+
+    if (!folders.length && !files.length) {
+      setBuilderError('Add at least one folder or file.');
+      return;
+    }
+
+    const tokens = builderTokens
+      .map((token) => token.key.trim() && { key: token.key.trim(), label: token.label?.trim(), default: token.defaultValue })
+      .filter(Boolean) as TemplateTokenEntry[];
+
+    setBuilderSaving(true);
+    try {
+      if (!window.api?.saveTemplateManifest) {
+        throw new Error('Desktop API not available');
+      }
+      const response = await window.api.saveTemplateManifest({
+        id: builderTemplateId ?? undefined,
+        name: values.name.trim(),
+        description: values.description?.trim(),
+        folders,
+        files,
+        tokens
+      });
+      if (!response.ok || !response.template) {
+        throw new Error(response.error || 'Failed to save template');
+      }
+      const manifest = response.template as TemplateManifest;
+      const summary: TemplateSummary = {
+        id: manifest.id,
+        name: manifest.name,
+        description: manifest.description,
+        createdAt: manifest.createdAt ?? new Date().toISOString(),
+        updatedAt: manifest.updatedAt,
+        folderCount: manifest.folders?.length ?? 0,
+        fileCount: manifest.files?.length ?? 0
+      };
+      setTemplates((prev) => {
+        const exists = prev.findIndex((tpl) => tpl.id === summary.id);
+        if (exists === -1) {
+          return [summary, ...prev];
+        }
+        const clone = [...prev];
+        clone[exists] = { ...clone[exists], ...summary };
+        return clone;
+      });
+      setBuilderDialogOpen(false);
+    } catch (err) {
+      setBuilderError(err instanceof Error ? err.message : 'Failed to save template');
+    } finally {
+      setBuilderSaving(false);
+    }
+  };
 
   const handleCreateWorkspace = async (values: WorkspaceFormValues) => {
-    const payload = {
-      name: values.name?.trim() ?? '',
-      rootPath: values.rootPath?.trim() ?? '',
-      description: values.description?.trim() || undefined
-    };
-
-    if (!payload.name) {
-      workspaceForm.setError('name', { type: 'manual', message: 'Name is required' });
-      return;
-    }
-
-    if (!payload.rootPath) {
-      workspaceForm.setError('rootPath', { type: 'manual', message: 'Root path is required' });
-      return;
-    }
-
     setCreating(true);
+    setLocalError(null);
+
     try {
-      const resp = await createWorkspace(payload);
-      const created = (resp as unknown as { workspace?: WorkspaceSummary }).workspace;
-      if (created) {
-        await refreshWorkspaces();
-        setSelectedWorkspaceId(created.id);
-        workspaceForm.reset();
-        setOpenNew(false);
-      }
+      const result = await createWorkspace({
+        name: values.name,
+        rootPath: values.rootPath,
+        description: values.description || undefined
+      }) as { workspace: { id: string } };
+
+      await refreshWorkspaces();
+      setOpenNew(false);
+      workspaceForm.reset();
+
+      // Navigate to the new workspace detail page
+      navigate(`/workspaces/${result.workspace.id}`);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to create workspace';
-      setLocalError(message);
+      setLocalError(err instanceof Error ? err.message : 'Failed to create workspace');
     } finally {
       setCreating(false);
-    }
-  };
-
-  const handleUpdateWorkspace = async (values: WorkspaceFormValues) => {
-    if (!workspaceDetail) return;
-    setUpdatingWorkspace(true);
-    try {
-      const resp = await updateWorkspaceApi(workspaceDetail.id, {
-        name: values.name?.trim(),
-        rootPath: values.rootPath?.trim(),
-        description: values.description?.trim()
-      });
-      const updated = (resp as unknown as { workspace?: WorkspaceDetail }).workspace;
-      if (updated) {
-        setWorkspaceDetail(updated);
-        await refreshWorkspaces();
-        setEditDialogOpen(false);
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to update workspace';
-      setLocalError(message);
-    } finally {
-      setUpdatingWorkspace(false);
-    }
-  };
-
-  const handleCreateProject = async (values: ProjectFormValues) => {
-    if (!workspaceDetail) return;
-    const payload = {
-      name: values.name?.trim() ?? '',
-      relativePath: values.relativePath?.trim() ?? '',
-      description: values.description?.trim() || undefined
-    };
-    if (!payload.name) {
-      projectForm.setError('name', { type: 'manual', message: 'Name is required' });
-      return;
-    }
-    if (!payload.relativePath) {
-      projectForm.setError('relativePath', { type: 'manual', message: 'Folder path is required' });
-      return;
-    }
-
-    try {
-      const resp = await createWorkspaceProject(workspaceDetail.id, payload);
-      const created = resp.project;
-      setProjects((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
-      await refreshWorkspaces();
-      projectForm.reset({ name: '', relativePath: '', description: '' });
-      setProjectDialogOpen(false);
-      if (desktopAvailable && selectedTemplateId && window.api?.applyTemplateToProject) {
-        try {
-          setProjectError(null);
-          setTemplateApplyMessage(null);
-          const applyResp = await window.api.applyTemplateToProject({
-            templateId: selectedTemplateId,
-            workspaceRoot: workspaceDetail.rootPath,
-            projectRelativePath: payload.relativePath
-          });
-          if (!applyResp?.ok) {
-            throw new Error(applyResp?.error || 'Template apply failed');
-          }
-          setTemplateApplyMessage(`Template applied to ${payload.relativePath}`);
-        } catch (applyErr) {
-          const message = applyErr instanceof Error ? applyErr.message : 'Template apply failed';
-          setProjectError(message);
-        }
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to create project';
-      setProjectError(message);
-    }
-  };
-
-  const handleSaveWorkspaceTemplates = async () => {
-    if (!workspaceDetail?.rootPath || !window.api?.saveWorkspaceTemplates) {
-      setWorkspaceTemplateDialogOpen(false);
-      return;
-    }
-    setWorkspaceTemplateSaving(true);
-    setWorkspaceTemplateError(null);
-    try {
-      const resp = await window.api.saveWorkspaceTemplates({
-        workspaceRoot: workspaceDetail.rootPath,
-        templateIds: workspaceTemplateDraft
-      });
-      if (!resp.ok) {
-        throw new Error(resp.error || 'Failed to save workspace templates');
-      }
-      const templateIds = resp.templateIds ?? workspaceTemplateDraft;
-      setWorkspaceTemplateIds(templateIds);
-      const selectedTemplates = resp.templates ?? allTemplates.filter((tpl) => templateIds.includes(tpl.id));
-      setWorkspaceTemplates(selectedTemplates);
-      const templateCount = templateIds.length;
-      setWorkspaceDetail((prev) => (prev ? { ...prev, templateCount, status: templateCount > 0 ? 'healthy' : prev.status } : prev));
-      await refreshWorkspaces();
-      setWorkspaceTemplateDialogOpen(false);
-    } catch (err) {
-      setWorkspaceTemplateError(err instanceof Error ? err.message : 'Failed to save workspace templates');
-    } finally {
-      setWorkspaceTemplateSaving(false);
-    }
-  };
-
-  const openProjectFolderPicker = async () => {
-    if (selectingFolder || !canSelectFolder) return;
-    try {
-      setSelectingFolder(true);
-      const result = await window.api?.selectDirectory?.();
-      if (!result || result.canceled || !result.path) return;
-      workspaceForm.setValue('rootPath', result.path, {
-        shouldDirty: true,
-        shouldTouch: true,
-        shouldValidate: true
-      });
-    } catch (err) {
-      console.error('Failed to select folder', err);
-      workspaceForm.setError('rootPath', { type: 'manual', message: 'Unable to select folder' });
-    } finally {
-      setSelectingFolder(false);
-    }
-  };
-
-  const openProjectInExplorer = async (project: WorkspaceProject) => {
-    if (!workspaceDetail?.rootPath) return;
-    await window.api?.openPath?.(buildAbsolutePath(workspaceDetail.rootPath, project.relativePath));
-  };
-
-  const triggerFsDialog = (mode: 'folder' | 'file', project: WorkspaceProject) => {
-    setFsError(null);
-    setFsSuccess(null);
-    if (mode === 'folder') {
-      folderForm.reset({ folderName: '' });
-    } else {
-      fileForm.reset({ fileName: '', content: '' });
-    }
-    setFsDialog({ mode, project });
-  };
-
-  const handleCreateFolder = async (values: FolderFormValues) => {
-    if (!fsDialog || !workspaceDetail?.rootPath || !desktopAvailable) return;
-    const segment = sanitizeRelativeSegment(values.folderName);
-    if (!segment) {
-      folderForm.setError('folderName', { type: 'manual', message: 'Folder name is required' });
-      return;
-    }
-    const targetPath = combineRelativePaths(fsDialog.project.relativePath, segment);
-    try {
-      const resp = await window.api?.createDirectory?.({
-        rootPath: workspaceDetail.rootPath,
-        relativePath: targetPath
-      });
-      if (!resp?.ok) {
-        throw new Error(resp?.error || 'Failed to create folder');
-      }
-      setFsSuccess(`Created ${resp.path}`);
-      setFsDialog(null);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unable to create folder';
-      setFsError(message);
-    }
-  };
-
-  const handleCreateFile = async (values: FileFormValues) => {
-    if (!fsDialog || !workspaceDetail?.rootPath || !desktopAvailable) return;
-    const fileName = sanitizeRelativeSegment(values.fileName);
-    if (!fileName) {
-      fileForm.setError('fileName', { type: 'manual', message: 'File name is required' });
-      return;
-    }
-    const targetPath = combineRelativePaths(fsDialog.project.relativePath, fileName);
-    try {
-      const resp = await window.api?.writeTextFile?.({
-        rootPath: workspaceDetail.rootPath,
-        relativePath: targetPath,
-        content: values.content ?? ''
-      });
-      if (!resp?.ok) {
-        throw new Error(resp?.error || 'Failed to create file');
-      }
-      setFsSuccess(`Created ${resp.path}`);
-      setFsDialog(null);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unable to create file';
-      setFsError(message);
-    }
-  };
-
-  const selectedWorkspace = useMemo(
-    () => items.find((item) => item.id === selectedWorkspaceId) ?? null,
-    [items, selectedWorkspaceId]
-  );
-
-  const handleTemplatesDialogChange = (open: boolean) => {
-    setWorkspaceTemplateDialogOpen(open);
-    if (open) {
-      setWorkspaceTemplateDraft(workspaceTemplateIds);
-    } else {
-      setWorkspaceTemplateError(null);
-    }
-  };
-
-  const handleToggleWorkspaceTemplate = (templateId: string, checked: boolean) => {
-    setWorkspaceTemplateDraft((draft) => (checked ? [...draft, templateId] : draft.filter((id) => id !== templateId)));
-  };
-
-  const handleFsDialogChange = (open: boolean) => {
-    if (!open) {
-      setFsDialog(null);
-      setFsError(null);
     }
   };
 
   return (
     <PageShell
       title="Workspaces"
-      description="Inventory of indexed workspaces and their status."
+      description="Manage workspace inventory, indexing cadence, and template associations."
       toolbar={
-        <WorkspaceToolbar
-          loading={loading}
-          onRefresh={() => void refreshWorkspaces()}
-          createDialogOpen={openNew}
-          onCreateDialogChange={setOpenNew}
-          form={workspaceForm}
-          onSubmit={handleCreateWorkspace}
-          creating={creating}
-          canSelectFolder={canSelectFolder}
-          selectingFolder={selectingFolder}
-          onSelectFolder={openProjectFolderPicker}
-        />
+        <div className="flex justify-end">
+          <Button onClick={() => setOpenNew(true)} className="gap-2">
+            <Plus className="size-4" />
+            New Workspace
+          </Button>
+        </div>
       }
     >
       {error ? <div className="mb-4 text-sm text-destructive">Error: {error}</div> : null}
-      <div className="grid gap-6 lg:grid-cols-[2fr,1.2fr]">
-        <WorkspaceListPanel
-          items={paginatedItems}
-          loading={loading}
-          selectedWorkspaceId={selectedWorkspaceId}
-          onSelect={(id) => setSelectedWorkspaceId(id)}
-          getTemplateCount={getWorkspaceTemplateCount}
-          getWorkspaceStatus={getWorkspaceStatus}
-          page={page}
-          pageSize={pageSize}
-          total={total}
-          onPageChange={setPage}
-        />
-        <WorkspaceDetailPanel
-          detailLoading={detailLoading}
-          selectedWorkspace={selectedWorkspace}
-          workspaceDetail={workspaceDetail}
-          desktopAvailable={desktopAvailable}
-          workspaceTemplates={workspaceTemplates}
-          workspaceTemplateError={workspaceTemplateError}
-          onManageTemplates={() => {
-            setWorkspaceTemplateDraft(workspaceTemplateIds);
-            setWorkspaceTemplateDialogOpen(true);
-          }}
-          projects={projects}
-          projectLoading={projectLoading}
-          projectError={projectError}
-          templateApplyMessage={templateApplyMessage}
-          onOpenProjectDialog={() => setProjectDialogOpen(true)}
-          onEditWorkspace={() => setEditDialogOpen(true)}
-          onOpenProjectInExplorer={openProjectInExplorer}
-          onTriggerFsDialog={triggerFsDialog}
-        />
-      </div>
 
-      <EditWorkspaceDialog
-        open={editDialogOpen}
-        onOpenChange={setEditDialogOpen}
-        form={editWorkspaceForm}
-        onSubmit={handleUpdateWorkspace}
-        saving={updatingWorkspace}
+      <WorkspaceListPanel
+        items={paginatedItems}
+        loading={loading}
+        selectedWorkspaceId={null}
+        onSelect={(id) => navigate(`/workspaces/${id}`)}
+        getTemplateCount={(wsId) => {
+          const ws = workspaces.find((w) => w.id === wsId);
+          return ws?.templateCount ?? 0;
+        }}
+        getWorkspaceStatus={(wsId, fallback) => {
+          const ws = workspaces.find((w) => w.id === wsId);
+          return ws?.status ?? fallback;
+        }}
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        onPageChange={setPage}
       />
 
-      <ProjectDialog
-        open={projectDialogOpen}
-        onOpenChange={setProjectDialogOpen}
-        form={projectForm}
-        onSubmit={handleCreateProject}
-        desktopAvailable={desktopAvailable}
-        availableTemplates={availableTemplates}
-        templateLoading={templateLoading}
-        templateError={templateError}
-        selectedTemplateId={selectedTemplateId}
-        onTemplateChange={setSelectedTemplateId}
-        onPathManualEdit={() => setProjectPathEdited(true)}
-      />
+      <Dialog open={openNew} onOpenChange={setOpenNew}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Workspace</DialogTitle>
+            <DialogDescription>Enter details for the new workspace</DialogDescription>
+          </DialogHeader>
 
-      <WorkspaceTemplatesDialog
-        open={workspaceTemplateDialogOpen}
-        onOpenChange={handleTemplatesDialogChange}
-        templates={allTemplates}
-        loading={templateLoading}
-        draft={workspaceTemplateDraft}
-        onToggleTemplate={handleToggleWorkspaceTemplate}
-        onSave={handleSaveWorkspaceTemplates}
-        saving={workspaceTemplateSaving}
-        error={workspaceTemplateError}
-      />
+          <form onSubmit={workspaceForm.handleSubmit(handleCreateWorkspace)} className="space-y-4">
+            <div>
+              <Label htmlFor="name">Name</Label>
+              <Input id="name" {...workspaceForm.register('name', { required: true })} placeholder="My Workspace" />
+            </div>
 
-      <FsDialog
-        state={fsDialog}
-        open={fsDialog !== null}
-        onOpenChange={handleFsDialogChange}
-        folderForm={folderForm}
-        fileForm={fileForm}
-        onCreateFolder={handleCreateFolder}
-        onCreateFile={handleCreateFile}
-        desktopAvailable={desktopAvailable}
-        error={fsError}
-      />
+            <div>
+              <Label htmlFor="rootPath">Root Path</Label>
+              <Input
+                id="rootPath"
+                {...workspaceForm.register('rootPath', { required: true })}
+                placeholder="C:\Projects\MyWorkspace"
+              />
+            </div>
 
-      {fsSuccess ? <p className="mt-4 text-sm text-emerald-600">{fsSuccess}</p> : null}
+            <div>
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                {...workspaceForm.register('description')}
+                placeholder="Optional description"
+              />
+            </div>
+
+            {localError && <div className="text-sm text-destructive">{localError}</div>}
+
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="ghost" onClick={() => setOpenNew(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={creating}>
+                {creating ? 'Creating...' : 'Create'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Templates Management Sheet */}
+      <Sheet open={templatesSheetOpen} onOpenChange={setTemplatesSheetOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-4xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Template Library</SheetTitle>
+          </SheetHeader>
+
+          <div className="mt-6 space-y-4">
+            {!desktopAvailable ? (
+              <div className="rounded-md border border-dashed border-amber-500 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                Templates require the desktop shell. Launch via <code>npm run dev:desktop</code> to design, capture, and apply them.
+              </div>
+            ) : null}
+            
+            {templatesError ? <p className="text-sm text-destructive">{templatesError}</p> : null}
+
+            {/* Show builder inside sheet when creating/editing */}
+            {builderDialogOpen ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">
+                    {builderTemplateId ? 'Edit template' : 'Create template'}
+                  </h3>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => {
+                      setBuilderDialogOpen(false);
+                      resetBuilderState();
+                    }}
+                  >
+                    ← Back to list
+                  </Button>
+                </div>
+
+                {builderLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="size-6 animate-spin" />
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {builderError ? (
+                      <div className="text-sm text-destructive">{builderError}</div>
+                    ) : null}
+
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="builder-name">Name</Label>
+                        <Input
+                          id="builder-name"
+                          {...builderForm.register('name', { required: true })}
+                          placeholder="Template name"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="builder-description">Description</Label>
+                        <Textarea
+                          id="builder-description"
+                          {...builderForm.register('description')}
+                          placeholder="Optional description"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label>Folders</Label>
+                        <Button type="button" size="sm" variant="outline" onClick={addFolderRow}>
+                          Add folder
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        {builderFolders.map((folder) => (
+                          <div key={folder.id} className="flex gap-2">
+                            <Input
+                              value={folder.path}
+                              onChange={(e) => updateFolderRow(folder.id, e.target.value)}
+                              placeholder="src"
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => removeFolderRow(folder.id)}
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label>Files</Label>
+                        <Button type="button" size="sm" variant="outline" onClick={addFileRow}>
+                          Add file
+                        </Button>
+                      </div>
+                      <div className="space-y-3">
+                        {builderFiles.map((file) => (
+                          <div key={file.id} className="space-y-2 rounded-md border p-3">
+                            <div className="flex gap-2">
+                              <Input
+                                value={file.path}
+                                onChange={(e) => updateFileRow(file.id, { path: e.target.value })}
+                                placeholder="README.md"
+                              />
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => removeFileRow(file.id)}
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                            <Textarea
+                              value={file.content}
+                              onChange={(e) => updateFileRow(file.id, { content: e.target.value })}
+                              placeholder="File content"
+                              rows={3}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label>Tokens</Label>
+                        <Button type="button" size="sm" variant="outline" onClick={addTokenRow}>
+                          Add token
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        {builderTokens.map((token) => (
+                          <div key={token.id} className="flex gap-2">
+                            <Input
+                              value={token.key}
+                              onChange={(e) => updateTokenRow(token.id, { key: e.target.value })}
+                              placeholder="clientName"
+                              className="flex-1"
+                            />
+                            <Input
+                              value={token.label}
+                              onChange={(e) => updateTokenRow(token.id, { label: e.target.value })}
+                              placeholder="Client Name"
+                              className="flex-1"
+                            />
+                            <Input
+                              value={token.defaultValue}
+                              onChange={(e) => updateTokenRow(token.id, { defaultValue: e.target.value })}
+                              placeholder="Default"
+                              className="flex-1"
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => removeTokenRow(token.id)}
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          setBuilderDialogOpen(false);
+                          resetBuilderState();
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button onClick={handleSaveTemplate} disabled={builderSaving}>
+                        {builderSaving ? 'Saving...' : 'Save template'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <TemplatesToolbar
+                  desktopAvailable={desktopAvailable}
+                  loading={templatesLoading}
+                  onRefresh={() => void loadTemplates()}
+                  captureDialogOpen={captureDialogOpen}
+                  onCaptureDialogChange={(open) => {
+                    setCaptureDialogOpen(open);
+                    if (!open) captureForm.reset({ name: '', description: '', sourcePath: '' });
+                  }}
+                  captureForm={captureForm}
+                  captureSubmitting={captureSubmitting}
+                  onCaptureSubmit={handleCaptureTemplate}
+                  onSelectSource={pickSourceFolder}
+                  onCreateBlank={() => {
+                    setBuilderDialogOpen(true);
+                    setBuilderFolders([{ id: makeId(), path: 'src' }]);
+                    setBuilderFiles([{ id: makeId(), path: 'README.md', content: '# Project' }]);
+                    setBuilderTokens([]);
+                  }}
+                />
+
+                <TemplateGrid 
+                  templates={formattedTemplates} 
+                  loading={templatesLoading} 
+                  onEdit={(templateId) => {
+                    setBuilderDialogOpen(true);
+                    void openBuilder(templateId);
+                  }} 
+                  onDelete={handleDeleteTemplate} 
+                />
+              </>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </PageShell>
   );
-};
+}

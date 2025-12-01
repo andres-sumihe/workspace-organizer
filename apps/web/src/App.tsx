@@ -1,16 +1,17 @@
-import { FolderGit2, LayoutDashboard, LineChart, Settings, Split, Layers, FileCode } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { FolderGit2, LayoutDashboard, LineChart, Settings, FileCode } from 'lucide-react';
+import { useMemo } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 
 import type { SidebarNavItem } from '@/components/layout/app-sidebar';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { FileManagerProvider } from '@/contexts/file-manager-context';
 import { WorkspaceProvider } from '@/contexts/workspace-context';
 import { AuthenticatedLayout } from '@/layouts/authenticated-layout';
 import { DashboardPage } from '@/pages/dashboard-page';
-import { FileManagerPage } from '@/pages/file-manager-page';
 import { ScriptsPage } from '@/pages/scripts-page';
 import { SettingsPage } from '@/pages/settings-page';
-import { TemplatesPage } from '@/pages/templates-page';
+import { WorkspaceDetailPage } from '@/pages/workspace-detail-page';
 import { WorkspacesPage } from '@/pages/workspaces-page';
 
 type AppPage = 'dashboard' | 'workspaces' | 'files' | 'scripts' | 'templates' | 'analytics' | 'settings' | 'system';
@@ -65,83 +66,69 @@ const renderPlaceholder = (page: AppPage) => {
   );
 };
 
-export function App() {
-  // Persist the active page so a browser refresh preserves the last selection.
-  // Use a lazy initializer to read from localStorage when available.
-  const [activePage, setActivePage] = useState<AppPage>(() => {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const stored = window.localStorage.getItem('wo:activePage');
-        if (
-          stored === 'dashboard' ||
-          stored === 'workspaces' ||
-          stored === 'files' ||
-          stored === 'scripts' ||
-          stored === 'templates' ||
-          stored === 'analytics' ||
-          stored === 'settings' ||
-          stored === 'system'
-        ) {
-          return stored as AppPage;
-        }
-      }
-    } catch (_e) {
-      // ignore storage errors and fall back to default
-    }
-
-    return 'dashboard';
-  });
+function AppContent() {
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const sidebarItems = useMemo<SidebarNavItem[]>(
     () => [
       { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { key: 'workspaces', label: 'Workspaces', icon: FolderGit2 },
-      { key: 'files', label: 'Files', icon: Split },
       { key: 'scripts', label: 'Scripts', icon: FileCode },
-      { key: 'templates', label: 'Templates', icon: Layers },
       { key: 'analytics', label: 'Analytics', icon: LineChart },
       { key: 'settings', label: 'Settings', icon: Settings },
     ],
     []
   );
 
-  const pageContent =
-    activePage === 'dashboard' ? (
-      <DashboardPage />
-    ) : activePage === 'workspaces' ? (
-      <WorkspacesPage />
-    ) : activePage === 'files' ? (
-      <FileManagerPage />
-    ) : activePage === 'scripts' ? (
-      <ScriptsPage />
-    ) : activePage === 'templates' ? (
-      <TemplatesPage />
-    ) : activePage === 'settings' ? (
-      <SettingsPage />
-    ) : (
-      renderPlaceholder(activePage)
-    );
+  // Determine active key from route
+  const getActiveKey = () => {
+    const path = location.pathname;
+    if (path.startsWith('/workspaces')) return 'workspaces';
+    if (path.startsWith('/scripts')) return 'scripts';
+    if (path.startsWith('/analytics')) return 'analytics';
+    if (path.startsWith('/settings')) return 'settings';
+    return 'dashboard';
+  };
 
   return (
-    <WorkspaceProvider>
-      <AuthenticatedLayout
-        sidebarItems={sidebarItems}
-        activeSidebarKey={activePage}
-        onNavigate={(key) => {
-          const page = key as AppPage;
-          setActivePage(page);
-          try {
-            if (typeof window !== 'undefined' && window.localStorage) {
-              window.localStorage.setItem('wo:activePage', page);
-            }
-          } catch (_e) {
-            // ignore localStorage failures
-          }
-        }}
-        connectionLabel="Connected to workspace datastore"
-      >
-        {pageContent}
-      </AuthenticatedLayout>
-    </WorkspaceProvider>
+    <AuthenticatedLayout
+      sidebarItems={sidebarItems}
+      activeSidebarKey={getActiveKey()}
+      onNavigate={(key) => {
+        const routes: Record<string, string> = {
+          dashboard: '/',
+          workspaces: '/workspaces',
+          scripts: '/scripts',
+          analytics: '/analytics',
+          settings: '/settings'
+        };
+        navigate(routes[key] || '/');
+      }}
+      connectionLabel="Connected to workspace datastore"
+    >
+      <Routes>
+        <Route path="/" element={<DashboardPage />} />
+        <Route path="/workspaces" element={<WorkspacesPage />} />
+        <Route path="/workspaces/:workspaceId" element={<WorkspaceDetailPage />} />
+        <Route path="/workspaces/:workspaceId/:tab" element={<WorkspaceDetailPage />} />
+        <Route path="/scripts" element={<ScriptsPage />} />
+        <Route path="/analytics" element={renderPlaceholder('analytics')} />
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </AuthenticatedLayout>
+  );
+}
+
+export function App() {
+  return (
+    <BrowserRouter>
+      <WorkspaceProvider>
+        <FileManagerProvider>
+          <AppContent />
+        </FileManagerProvider>
+      </WorkspaceProvider>
+    </BrowserRouter>
   );
 }

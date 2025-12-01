@@ -1,13 +1,24 @@
-import type { WorkspaceProject } from '@workspace/shared';
+export type PreviewMode = 'text' | 'hex';
 
-declare module '@workspace/shared' {
-  // no-op; imported for type re-export convenience
+export type MergeMode = 'simple' | 'boundary';
+
+export interface MergeFormValues {
+  destination: string;
+  separator: string;
+  includeHeaders: boolean;
+  overwrite: boolean;
+  mode: MergeMode;
+  copyToClipboard: boolean;
 }
 
-export interface WorkspaceFormValues {
-  name: string;
-  rootPath: string;
-  description?: string;
+export interface SplitFormValues {
+  separator: string;
+  prefix: string;
+  extension: string;
+  overwrite: boolean;
+  preserveOriginal: boolean;
+  mode: 'simple' | 'boundary';
+  sourceMode: 'file' | 'clipboard';
 }
 
 export interface ProjectFormValues {
@@ -16,18 +27,23 @@ export interface ProjectFormValues {
   description?: string;
 }
 
-export interface FolderFormValues {
-  folderName: string;
+export interface WorkspaceFormValues {
+  name: string;
+  rootPath: string;
+  description?: string;
 }
 
 export interface FileFormValues {
-  fileName: string;
-  content: string;
+  name: string;
+  content?: string;
 }
 
-export type FsDialogMode = 'folder' | 'file';
+export interface FolderFormValues {
+  name: string;
+}
 
 export interface FsDialogState {
-  mode: FsDialogMode;
-  project: WorkspaceProject;
+  open: boolean;
+  mode: 'folder' | 'file';
+  projectPath: string;
 }

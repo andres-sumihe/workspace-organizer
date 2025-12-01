@@ -16,9 +16,12 @@ export const PageShell = ({ title, description, children, className, toolbar }: 
   return (
     <Card className={cn('w-full', className)}>
       <CardHeader className="flex flex-col items-start text-left">
-        <div>
-          <CardTitle>{title}</CardTitle>
-          {description ? <CardDescription>{description}</CardDescription> : null}
+        <div className="flex w-full items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <CardTitle>{title}</CardTitle>
+            {description ? <CardDescription>{description}</CardDescription> : null}
+          </div>
+          {toolbar ? <div className="flex items-center gap-2 shrink-0">{toolbar}</div> : null}
         </div>
         <div className="mt-4 w-full">
           <div className="border-t border-border" />
@@ -26,7 +29,6 @@ export const PageShell = ({ title, description, children, className, toolbar }: 
       </CardHeader>
 
       <CardContent>
-        {toolbar ? <div className="mb-4">{toolbar}</div> : null}
         <div>{children}</div>
       </CardContent>
     </Card>

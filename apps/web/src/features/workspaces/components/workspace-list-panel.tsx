@@ -41,13 +41,13 @@ export const WorkspaceListPanel = ({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col h-full">
       {loading && items.length === 0 ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" /> Loading workspaces...
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 flex-1 content-start">
           {items.map((ws) => {
             const templateCount = getTemplateCount(ws.id, ws.templateCount);
             const status = getWorkspaceStatus(ws.id, ws.status);
@@ -57,7 +57,7 @@ export const WorkspaceListPanel = ({
                 key={ws.id}
                 type="button"
                 onClick={() => onSelect(ws.id)}
-                className={`rounded-md border p-4 text-left transition ${
+                className={`rounded-md border p-4 text-left transition h-fit ${
                   isActive ? 'border-primary shadow-sm' : 'border-border hover:border-muted-foreground'
                 }`}
               >
@@ -85,8 +85,8 @@ export const WorkspaceListPanel = ({
         </div>
       )}
 
-      {total !== null ? (
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
+      {total !== null && (
+        <div className="flex items-center justify-between text-sm text-muted-foreground pt-4 border-t mt-4">
           <div>
             {items.length} of {total} workspaces
           </div>
@@ -105,7 +105,7 @@ export const WorkspaceListPanel = ({
             </Button>
           </div>
         </div>
-      ) : null}
+      )}
     </div>
   );
 };

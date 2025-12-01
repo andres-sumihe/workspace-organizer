@@ -1,29 +1,30 @@
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Edit2, GitMerge, Plus, RefreshCw, SplitSquareHorizontal, Trash, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
+import { DeleteConfirmDialog } from './delete-confirm-dialog';
+import { DirectoryBrowser } from './directory-browser';
+import { MergeDialog } from './merge-dialog';
+import { PreviewPanel } from './preview-panel';
+import { SplitDialog } from './split-dialog';
+import { isLikelyBinary, relativeJoin } from '../utils';
+
+import type { MergeFormValues, PreviewMode, SplitFormValues } from '../types';
 import type { WorkspaceBreadcrumb, WorkspaceDirectoryEntry, WorkspaceFilePreview } from '@/types/desktop';
 import type { CheckedState } from '@radix-ui/react-checkbox';
 
-import { PageShell } from '@/components/layout/page-shell';
+import { fetchWorkspaceProjects, createWorkspaceProject, updateWorkspaceProject, deleteWorkspaceProject } from '@/api/workspaces';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { useFileManagerState } from '@/contexts/file-manager-context';
 import { useWorkspaceContext } from '@/contexts/workspace-context';
-import {
-  DeleteConfirmDialog,
-  DirectoryBrowser,
-  FileManagerToolbar,
-  MergeDialog,
-  PreviewPanel,
-  SplitDialog,
-  isLikelyBinary,
-  relativeJoin,
-  type MergeFormValues,
-  type PreviewMode,
-  type SplitFormValues
-} from '@/features/file-manager';
 
 const DesktopOnlyBanner = () => (
-  <div className="flex items-start gap-2 rounded-md border border-dashed border-amber-500 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+  <div className="flex items-start gap-2 rounded-md border border-dashed border-amber-500 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/20 dark:text-amber-400">
     <AlertCircle className="mt-0.5 size-4 shrink-0" />
     <p>
       File management actions require the desktop shell. Launch via <code>npm run dev:desktop</code> to enable browsing,
@@ -32,25 +33,47 @@ const DesktopOnlyBanner = () => (
   </div>
 );
 
-export const FileManagerPage = () => {
-  const {
-    workspaces,
-    activeWorkspaceId,
-    setActiveWorkspaceId,
-    loading: workspaceLoading,
-    error: workspaceError
-  } = useWorkspaceContext();
+interface WorkspaceFilesTabProps {
+  workspaceId: string;
+}
 
+interface Project {
+  id: string;
+  name: string;
+  relativePath: string;
+  description?: string;
+}
+
+export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
+  const { workspaces } = useWorkspaceContext();
   const { getState, updateState } = useFileManagerState();
+  
+  const activeWorkspace = useMemo(
+    () => workspaces.find((ws) => ws.id === workspaceId),
+    [workspaceId, workspaces]
+  );
 
-  const selectedWorkspaceId = activeWorkspaceId ?? '';
-  const setSelectedWorkspaceId = (id: string) => setActiveWorkspaceId(id || null);
+  const persistedState = workspaceId ? getState(workspaceId) : null;
 
-  // Get persisted state for current workspace
-  const persistedState = selectedWorkspaceId ? getState(selectedWorkspaceId) : null;
+  const [projects, setProjects] = useState<Project[]>([]);
+  const projectsRef = useRef<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [projectDialogOpen, setProjectDialogOpen] = useState(false);
+  const [projectDialogMode, setProjectDialogMode] = useState<'create' | 'edit'>('create');
+  const [projectToEdit, setProjectToEdit] = useState<Project | null>(null);
+  const [projectFormData, setProjectFormData] = useState({ name: '', relativePath: '', description: '' });
+  const [projectSaving, setProjectSaving] = useState(false);
 
+  // Keep projectsRef in sync
+  useEffect(() => {
+    projectsRef.current = projects;
+  }, [projects]);
+  
   const [entries, setEntries] = useState<WorkspaceDirectoryEntry[]>(persistedState?.entries || []);
-  const [breadcrumbs, setBreadcrumbs] = useState<WorkspaceBreadcrumb[]>(persistedState?.breadcrumbs || [{ label: 'Root', path: '' }]);
+  const [breadcrumbs, setBreadcrumbs] = useState<WorkspaceBreadcrumb[]>(
+    persistedState?.breadcrumbs || [{ label: 'Root', path: '' }]
+  );
   const [currentPath, setCurrentPath] = useState(persistedState?.currentPath || '');
   const [directoryError, setDirectoryError] = useState<string | null>(null);
   const [directoryLoading, setDirectoryLoading] = useState(false);
@@ -69,7 +92,7 @@ export const FileManagerPage = () => {
   const mergeForm = useForm<MergeFormValues>({
     defaultValues: {
       destination: '',
-      separator: '\n\n',
+      separator: '\\n\\n',
       includeHeaders: true,
       overwrite: false,
       mode: 'simple',
@@ -80,7 +103,7 @@ export const FileManagerPage = () => {
   const [splitDialogOpen, setSplitDialogOpen] = useState(false);
   const splitForm = useForm<SplitFormValues>({
     defaultValues: {
-      separator: '\n\n',
+      separator: '\\n\\n',
       prefix: '',
       extension: '.txt',
       overwrite: false,
@@ -98,36 +121,15 @@ export const FileManagerPage = () => {
   const [deleteTarget, setDeleteTarget] = useState<{ paths: string[]; names: string[] } | null>(null);
 
   const isRestoringState = useRef(false);
-  const lastWorkspaceId = useRef<string | null>(null);
 
   useEffect(() => {
     setDesktopAvailable(typeof window !== 'undefined' && typeof window.api?.listDirectory === 'function');
   }, []);
 
-  // Restore persisted state when workspace changes
+  // Persist state when it changes
   useEffect(() => {
-    if (selectedWorkspaceId && selectedWorkspaceId !== lastWorkspaceId.current) {
-      lastWorkspaceId.current = selectedWorkspaceId;
-      isRestoringState.current = true;
-      
-      const persisted = getState(selectedWorkspaceId);
-      setEntries(persisted.entries);
-      setBreadcrumbs(persisted.breadcrumbs);
-      setCurrentPath(persisted.currentPath);
-      setPreview(persisted.preview);
-      setSelectedFiles(new Set(persisted.selectedFiles));
-      
-      // Reset flag after state updates are done
-      setTimeout(() => {
-        isRestoringState.current = false;
-      }, 0);
-    }
-  }, [selectedWorkspaceId, getState]);
-
-  // Persist state when it changes (but not during restoration)
-  useEffect(() => {
-    if (selectedWorkspaceId && !isRestoringState.current) {
-      updateState(selectedWorkspaceId, {
+    if (workspaceId && !isRestoringState.current) {
+      updateState(workspaceId, {
         entries,
         breadcrumbs,
         currentPath,
@@ -135,12 +137,7 @@ export const FileManagerPage = () => {
         selectedFiles
       });
     }
-  }, [selectedWorkspaceId, entries, breadcrumbs, currentPath, preview, selectedFiles, updateState]);
-
-  const activeWorkspace = useMemo(
-    () => workspaces.find((ws) => ws.id === selectedWorkspaceId),
-    [selectedWorkspaceId, workspaces]
-  );
+  }, [workspaceId, entries, breadcrumbs, currentPath, preview, selectedFiles, updateState]);
 
   const loadDirectory = useCallback(
     async (targetPath: string) => {
@@ -149,21 +146,40 @@ export const FileManagerPage = () => {
         return;
       }
 
+      if (!selectedProjectId) {
+        setEntries([]);
+        setBreadcrumbs([{ label: 'Root', path: '' }]);
+        setCurrentPath('');
+        return;
+      }
+
+      const selectedProject = projectsRef.current.find(p => p.id === selectedProjectId);
+      if (!selectedProject) {
+        setDirectoryError('Selected project not found.');
+        return;
+      }
+
       setDirectoryLoading(true);
       setDirectoryError(null);
       setOperationMessage(null);
       setOperationError(null);
-      setPreview(null);
-      setPreviewError(null);
 
       try {
-        const response = await window.api.listDirectory({ rootPath: activeWorkspace.rootPath, relativePath: targetPath });
+        const projectBasePath = selectedProject.relativePath;
+        const fullPath = targetPath ? `${projectBasePath}/${targetPath}` : projectBasePath;
+
+        const response = await window.api.listDirectory({
+          rootPath: activeWorkspace.rootPath,
+          relativePath: fullPath
+        });
+        
         if (!response.ok || !response.entries || !response.breadcrumbs) {
           throw new Error(response.error || 'Unable to read directory');
         }
+        
         setEntries(response.entries);
         setBreadcrumbs(response.breadcrumbs);
-        setCurrentPath(response.path ?? targetPath ?? '');
+        setCurrentPath(response.path ?? fullPath ?? '');
         setSelectedFiles(new Set());
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to read directory';
@@ -172,24 +188,26 @@ export const FileManagerPage = () => {
         setDirectoryLoading(false);
       }
     },
-    [activeWorkspace?.rootPath, desktopAvailable]
+    [activeWorkspace?.rootPath, desktopAvailable, selectedProjectId]
   );
 
-  const handleRefresh = useCallback(() => {
-    void loadDirectory(currentPath);
-  }, [currentPath, loadDirectory]);
-
   useEffect(() => {
-    if (activeWorkspace && desktopAvailable && selectedWorkspaceId) {
-      const persisted = getState(selectedWorkspaceId);
-      // Only load if there's no persisted state
+    if (activeWorkspace && desktopAvailable && workspaceId) {
+      const persisted = getState(workspaceId);
       if (!persisted.entries.length && persisted.currentPath === '') {
         void loadDirectory('');
       }
     }
-  }, [activeWorkspace, desktopAvailable, selectedWorkspaceId, getState, loadDirectory]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeWorkspace, desktopAvailable, workspaceId]);
 
-  const handleEntryClick = async (entry: WorkspaceDirectoryEntry) => {
+  useEffect(() => {
+    if (selectedProjectId && desktopAvailable) {
+      void loadDirectory('');
+    }
+  }, [selectedProjectId, desktopAvailable, loadDirectory]);
+
+  const handleEntryClick = useCallback(async (entry: WorkspaceDirectoryEntry) => {
     if (entry.type === 'directory') {
       await loadDirectory(entry.path);
       return;
@@ -201,15 +219,25 @@ export const FileManagerPage = () => {
     }
 
     setPreviewError(null);
+    setBinaryPreview(false);
+    
+    if (isLikelyBinary(entry.path)) {
+      setBinaryPreview(true);
+      setPreview(null);
+      return;
+    }
+
     try {
       const response = await window.api.readTextFile({
         rootPath: activeWorkspace.rootPath,
         relativePath: entry.path,
         maxBytes: 512 * 1024
       });
+      
       if (!response.ok || typeof response.content !== 'string') {
         throw new Error(response.error || 'Unable to load file preview');
       }
+      
       setPreview({
         path: response.path ?? entry.path,
         content: response.content,
@@ -219,12 +247,11 @@ export const FileManagerPage = () => {
       setPreviewMode('text');
       setEditMode(false);
       setEditBuffer(response.content);
-      setBinaryPreview(isLikelyBinary(response.content));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to preview file';
       setPreviewError(message);
     }
-  };
+  }, [loadDirectory, activeWorkspace?.rootPath]);
 
   const handleToggleEditMode = () => {
     setEditMode((mode) => {
@@ -238,7 +265,6 @@ export const FileManagerPage = () => {
 
   const toggleSelection = (entry: WorkspaceDirectoryEntry) => {
     if (entry.type !== 'file') return;
-
     setSelectedFiles((prev) => {
       const next = new Set(prev);
       if (next.has(entry.path)) {
@@ -266,8 +292,9 @@ export const FileManagerPage = () => {
     });
   };
 
-  const handleSaveEdit = async () => {
+  const handleSaveEdit = useCallback(async () => {
     if (!editMode || !preview || !activeWorkspace?.rootPath || !window.api?.writeTextFile) return;
+    
     setSaving(true);
     try {
       const resp = await window.api.writeTextFile({
@@ -280,12 +307,14 @@ export const FileManagerPage = () => {
       }
       setPreview((prev) => (prev ? { ...prev, content: editBuffer } : prev));
       setEditMode(false);
+      setOperationMessage('File saved successfully');
+      setTimeout(() => setOperationMessage(null), 3000);
     } catch (err) {
       setPreviewError(err instanceof Error ? err.message : 'Failed to save file');
     } finally {
       setSaving(false);
     }
-  };
+  }, [editMode, preview, activeWorkspace?.rootPath, editBuffer]);
 
   const openMergeDialog = () => {
     const defaultDestination = relativeJoin(currentPath, `merged-${new Date().toISOString().replace(/[:.]/g, '-')}.txt`);
@@ -293,10 +322,10 @@ export const FileManagerPage = () => {
     mergeForm.reset({
       destination: defaultDestination,
       separator: '\n\n',
-      includeHeaders: currentMode === 'simple' ? true : false,
+      includeHeaders: currentMode === 'simple',
       overwrite: false,
-      mode: currentMode, // Preserve the user's mode selection
-      copyToClipboard: currentMode === 'boundary' ? true : false
+      mode: currentMode,
+      copyToClipboard: currentMode === 'boundary'
     });
     setMergeDialogOpen(true);
   };
@@ -332,8 +361,6 @@ export const FileManagerPage = () => {
   };
 
   const handleMerge = async (values: MergeFormValues) => {
-    console.log('🔍 handleMerge called with values:', JSON.stringify(values, null, 2));
-    
     if (!activeWorkspace?.rootPath || !window.api?.mergeTextFiles) {
       setOperationError('Desktop bridge unavailable.');
       return;
@@ -356,6 +383,7 @@ export const FileManagerPage = () => {
         mode: values.mode,
         copyToClipboard: values.copyToClipboard
       });
+      
       if (!response.ok || !response.destination) {
         throw new Error(response.error || 'Merge failed');
       }
@@ -383,7 +411,6 @@ export const FileManagerPage = () => {
     try {
       let clipboardContent: string | undefined;
       
-      // Get clipboard content if in clipboard mode
       if (values.sourceMode === 'clipboard') {
         try {
           clipboardContent = await navigator.clipboard.readText();
@@ -391,7 +418,6 @@ export const FileManagerPage = () => {
             throw new Error('Clipboard is empty');
           }
           
-          // Validate clipboard contains boundary format when mode is boundary
           if (values.mode === 'boundary') {
             if (!clipboardContent.includes('---FILE-BOUNDARY---|')) {
               throw new Error(
@@ -460,7 +486,6 @@ export const FileManagerPage = () => {
       setOperationMessage(`Renamed to ${newName}`);
       await loadDirectory(currentPath);
 
-      // Clear preview if renamed entry was selected
       if (preview?.path === entry.path) {
         setPreview(null);
         setPreviewError(null);
@@ -519,7 +544,6 @@ export const FileManagerPage = () => {
         throw new Error(`Failed to delete all items`);
       }
 
-      // Clear selection and preview
       setSelectedFiles(new Set());
       if (preview && deleteTarget.paths.includes(preview.path)) {
         setPreview(null);
@@ -533,40 +557,221 @@ export const FileManagerPage = () => {
     }
   };
 
+  const loadProjects = useCallback(async () => {
+    if (!workspaceId) return;
+    setProjectsLoading(true);
+    try {
+      const response = await fetchWorkspaceProjects(workspaceId);
+      const projectsList = response?.projects || [];
+      setProjects(projectsList);
+      // Set default project if none selected and projects exist
+      if (!selectedProjectId && projectsList.length > 0) {
+        setSelectedProjectId(projectsList[0].id);
+      }
+    } catch (err) {
+      console.error('Failed to load projects:', err);
+      setProjects([]);
+      setOperationError('Failed to load projects. The API endpoint may not be implemented yet.');
+    } finally {
+      setProjectsLoading(false);
+    }
+  }, [workspaceId, selectedProjectId]);
+
+  useEffect(() => {
+    void loadProjects();
+  }, [loadProjects]);
+
+  const openCreateProjectDialog = () => {
+    setProjectDialogMode('create');
+    setProjectToEdit(null);
+    setProjectFormData({ name: '', relativePath: '', description: '' });
+    setProjectDialogOpen(true);
+  };
+
+  const openEditProjectDialog = () => {
+    if (!selectedProjectId) return;
+    const project = projects.find(p => p.id === selectedProjectId);
+    if (!project) return;
+    setProjectDialogMode('edit');
+    setProjectToEdit(project);
+    setProjectFormData({
+      name: project.name,
+      relativePath: project.relativePath,
+      description: project.description || ''
+    });
+    setProjectDialogOpen(true);
+  };
+
+  const handleProjectSave = async () => {
+    if (!workspaceId) return;
+    setProjectSaving(true);
+    try {
+      if (projectDialogMode === 'create') {
+        await createWorkspaceProject(workspaceId, projectFormData);
+      } else if (projectToEdit) {
+        await updateWorkspaceProject(workspaceId, projectToEdit.id, projectFormData);
+      }
+      await loadProjects();
+      setProjectDialogOpen(false);
+    } catch (err) {
+      console.error('Failed to save project:', err);
+      setOperationError(err instanceof Error ? err.message : 'Failed to save project');
+    } finally {
+      setProjectSaving(false);
+    }
+  };
+
+  const handleProjectDelete = async () => {
+    if (!workspaceId || !projectToEdit) return;
+    if (!confirm('Delete this project? This will not delete files on disk.')) return;
+    try {
+      await deleteWorkspaceProject(workspaceId, projectToEdit.id);
+      setSelectedProjectId(null);
+      setProjectDialogOpen(false);
+      await loadProjects();
+      setOperationMessage('Project deleted successfully');
+    } catch (err) {
+      console.error('Failed to delete project:', err);
+      setOperationError(err instanceof Error ? err.message : 'Failed to delete project');
+    }
+  };
+
   const canMerge = selectedFiles.size >= 2 && desktopAvailable;
   const refreshDisabled = directoryLoading || !desktopAvailable;
 
+  if (!desktopAvailable) {
+    return <DesktopOnlyBanner />;
+  }
+
+  if (!activeWorkspace) {
+    return (
+      <div className="rounded-md border border-dashed p-8 text-center text-muted-foreground">
+        <p>Workspace not found</p>
+      </div>
+    );
+  }
+
+  const showEmptyProjectState = !selectedProjectId && projects.length > 0;
+  const showNoProjectsState = projects.length === 0 && !projectsLoading;
+
   return (
     <div className="space-y-4">
-      {!desktopAvailable ? <DesktopOnlyBanner /> : null}
-      <PageShell
-        title="Workspace Files"
-        description="Inspect workspace folders, preview files, and run merge/split workflows."
-        toolbar={
-          <FileManagerToolbar
-            workspaces={workspaces}
-            selectedWorkspaceId={selectedWorkspaceId}
-            onWorkspaceChange={setSelectedWorkspaceId}
-            workspaceLoading={workspaceLoading}
-            onRefresh={handleRefresh}
-            refreshDisabled={refreshDisabled}
-            isRefreshing={directoryLoading}
-            canMerge={canMerge}
-            onMerge={openMergeDialog}
-            onSplitFromClipboard={() => openSplitDialog(true)}
-            canDelete={selectedFiles.size > 0 && desktopAvailable}
-            onDelete={handleDeleteBulk}
-            desktopAvailable={desktopAvailable}
-          />
-        }
-      >
-        {workspaceError ? (
-          <div className="text-sm text-destructive">Failed to load workspaces: {workspaceError}</div>
-        ) : null}
-        {directoryError ? <div className="text-sm text-destructive">Error: {directoryError}</div> : null}
-        {operationMessage ? <div className="text-sm text-emerald-600">{operationMessage}</div> : null}
-        {operationError ? <div className="text-sm text-destructive">{operationError}</div> : null}
+      {directoryError ? <div className="text-sm text-destructive">Error: {directoryError}</div> : null}
+      {operationMessage ? <div className="text-sm text-emerald-600">{operationMessage}</div> : null}
+      {operationError ? <div className="text-sm text-destructive">{operationError}</div> : null}
 
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Select value={selectedProjectId || undefined} onValueChange={setSelectedProjectId}>
+            <SelectTrigger className="h-10 w-60">
+              <SelectValue placeholder="Select a project...">
+                {selectedProjectId ? projects.find(p => p.id === selectedProjectId)?.name : 'Select a project...'}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {projects?.length > 0 ? (
+                projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
+                  </SelectItem>
+                ))
+              ) : null}
+            </SelectContent>
+          </Select>
+          
+          <div className="flex items-center gap-2 rounded-md border border-border/40 p-1">
+            <Button 
+              onClick={openCreateProjectDialog} 
+              variant="ghost" 
+              size="sm"
+              className="h-8 gap-2 px-3"
+            >
+              <Plus className="size-4" />
+              <span>New Project</span>
+            </Button>
+            <Button 
+              onClick={openEditProjectDialog} 
+              disabled={!selectedProjectId} 
+              variant="ghost" 
+              size="sm"
+              className="h-8 gap-2 px-3"
+            >
+              <Edit2 className="size-4" />
+              <span>Edit</span>
+            </Button>
+            <Button
+              onClick={() => void loadDirectory(currentPath)}
+              disabled={refreshDisabled}
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-2 px-3"
+            >
+              <RefreshCw className="size-4" />
+              <span>Refresh</span>
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          
+          <div className="flex items-center gap-2 rounded-md border border-border/40 p-1">
+            <Button
+              onClick={openMergeDialog}
+              disabled={!canMerge}
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-2 px-3"
+            >
+              <GitMerge className="size-4" />
+              <span>Merge</span>
+              {selectedFiles.size > 0 && (
+                <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+                  {selectedFiles.size}
+                </span>
+              )}
+            </Button>
+            <Button
+              onClick={() => openSplitDialog(true)}
+              disabled={!desktopAvailable}
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-2 px-3"
+            >
+              <SplitSquareHorizontal className="size-4" />
+              <span>Extract</span>
+            </Button>
+            <Button
+              onClick={handleDeleteBulk}
+              disabled={selectedFiles.size === 0 || !desktopAvailable}
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-2 px-3 text-destructive hover:text-destructive"
+            >
+              <Trash2 className="size-4" />
+              <span>Delete</span>
+              {selectedFiles.size > 0 && (
+                <span className="ml-1 rounded-full bg-destructive/10 px-1.5 py-0.5 text-xs font-medium">
+                  {selectedFiles.size}
+                </span>
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {showNoProjectsState ? (
+        <div className="rounded-md border border-dashed p-12 text-center">
+          <p className="text-muted-foreground">No projects in this workspace. Create one to start browsing files.</p>
+          <Button onClick={openCreateProjectDialog} variant="outline" className="mt-4">
+            <Plus className="size-4 mr-2" />
+            Create Project
+          </Button>
+        </div>
+      ) : showEmptyProjectState ? (
+        <div className="rounded-md border border-dashed p-12 text-center text-muted-foreground">
+          <p>Select a project from the dropdown to browse its files.</p>
+        </div>
+      ) : (
         <div className="grid gap-6 xl:grid-cols-[1fr,1fr] 2xl:grid-cols-[2fr,1fr]">
           <div className="min-w-0">
             <DirectoryBrowser
@@ -606,17 +811,76 @@ export const FileManagerPage = () => {
             />
           </div>
         </div>
-      </PageShell>
+      )}
 
       <MergeDialog form={mergeForm} open={mergeDialogOpen} onOpenChange={setMergeDialogOpen} onSubmit={handleMerge} />
       <SplitDialog form={splitForm} open={splitDialogOpen} onOpenChange={setSplitDialogOpen} onSubmit={handleSplit} />
       <DeleteConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        onConfirm={handleDeleteConfirm}
         itemCount={deleteTarget?.paths.length || 0}
         itemNames={deleteTarget?.names || []}
+        onConfirm={handleDeleteConfirm}
       />
+
+      <Dialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{projectDialogMode === 'create' ? 'Create Project' : 'Edit Project'}</DialogTitle>
+            <DialogDescription>
+              {projectDialogMode === 'create' 
+                ? 'Add a new project to this workspace' 
+                : 'Update project details'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="project-name">Name</Label>
+              <Input
+                id="project-name"
+                value={projectFormData.name}
+                onChange={(e) => setProjectFormData({ ...projectFormData, name: e.target.value })}
+                placeholder="My Project"
+              />
+            </div>
+            <div>
+              <Label htmlFor="project-path">Relative Path</Label>
+              <Input
+                id="project-path"
+                value={projectFormData.relativePath}
+                onChange={(e) => setProjectFormData({ ...projectFormData, relativePath: e.target.value })}
+                placeholder="projects/my-project"
+              />
+            </div>
+            <div>
+              <Label htmlFor="project-description">Description</Label>
+              <Textarea
+                id="project-description"
+                value={projectFormData.description}
+                onChange={(e) => setProjectFormData({ ...projectFormData, description: e.target.value })}
+                placeholder="Optional description"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setProjectDialogOpen(false)}>
+              Cancel
+            </Button>
+            {projectDialogMode === 'edit' && (
+              <Button 
+                variant="destructive" 
+                onClick={handleProjectDelete}
+              >
+                <Trash className="size-4 mr-2" />
+                Delete Project
+              </Button>
+            )}
+            <Button onClick={handleProjectSave} disabled={projectSaving || !projectFormData.name || !projectFormData.relativePath}>
+              {projectSaving ? 'Saving...' : projectDialogMode === 'create' ? 'Create' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
