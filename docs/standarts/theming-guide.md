@@ -239,7 +239,7 @@ When adding new colors:
 
 ### Gradient Overlays
 ```tsx
-<div className="bg-gradient-to-b from-background/0 to-background">
+<div className="bg-linear-to-b from-background/0 to-background">
   {/* Content */}
 </div>
 ```
