@@ -5,3 +5,5 @@ export * from './components/script-dialog';
 export * from './components/drive-usage-map';
 export * from './components/drive-conflict-alert';
 export * from './components/scan-directory-dialog';
+export * from './components/scripts-tab';
+export * from './components/drive-mappings-tab';
