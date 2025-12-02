@@ -1,28 +1,33 @@
-import { AlertCircle, Edit2, FolderOpen, GitMerge, Plus, RefreshCw, SplitSquareHorizontal, Trash, Trash2 } from 'lucide-react';
+import { AlertCircle, FolderOpen, Trash } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { DeleteConfirmDialog } from './delete-confirm-dialog';
 import { DirectoryBrowser, type DirectoryBrowserHandle } from './directory-browser';
+import { FileOperationsToolbar } from './file-operations-toolbar';
 import { MergeDialog } from './merge-dialog';
 import { PreviewPanel } from './preview-panel';
+import { ProjectSelector } from './project-selector';
 import { SplitDialog } from './split-dialog';
-import { getMediaType, isLikelyBinary, relativeJoin } from '../utils';
+import { useDirectoryNavigation } from '../hooks/use-directory-navigation';
+import { useFileOperations } from '../hooks/use-file-operations';
+import { useFilePreview } from '../hooks/use-file-preview';
+import { useProjectManagement, type Project } from '../hooks/use-project-management';
 
-import type { MergeFormValues, PreviewMode, SplitFormValues } from '../types';
-import type { MediaType } from '../utils';
-import type { WorkspaceBreadcrumb, WorkspaceDirectoryEntry, WorkspaceFilePreview, WorkspaceMediaPreview } from '@/types/desktop';
+import type { MergeFormValues, SplitFormValues } from '../types';
 import type { CheckedState } from '@radix-ui/react-checkbox';
 
-import { fetchWorkspaceProjects, createWorkspaceProject, updateWorkspaceProject, deleteWorkspaceProject } from '@/api/workspaces';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useFileManagerState } from '@/contexts/file-manager-context';
 import { useWorkspaceContext } from '@/contexts/workspace-context';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sub-components
+// ─────────────────────────────────────────────────────────────────────────────
 
 const DesktopOnlyBanner = () => (
   <div className="flex items-start gap-2 rounded-md border border-dashed border-amber-500 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/20 dark:text-amber-400">
@@ -34,16 +39,23 @@ const DesktopOnlyBanner = () => (
   </div>
 );
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface WorkspaceFilesTabProps {
   workspaceId: string;
 }
 
-interface Project {
-  id: string;
+interface ProjectFormData {
   name: string;
   relativePath: string;
-  description?: string;
+  description: string;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main Component
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
   const { workspaces } = useWorkspaceContext();
@@ -54,62 +66,117 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
     [workspaceId, workspaces]
   );
 
-  // Get persisted state ONCE on mount using a ref
+  // ─────────────────────────────────────────────────────────────────────────
+  // Desktop availability
+  // ─────────────────────────────────────────────────────────────────────────
+  
+  const [desktopAvailable, setDesktopAvailable] = useState(false);
+  
+  useEffect(() => {
+    setDesktopAvailable(typeof window !== 'undefined' && typeof window.api?.listDirectory === 'function');
+  }, []);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Persisted state restoration
+  // ─────────────────────────────────────────────────────────────────────────
+  
   const initialPersistedState = useRef<ReturnType<typeof getState> | null>(null);
   if (initialPersistedState.current === null && workspaceId) {
     initialPersistedState.current = getState(workspaceId);
   }
   
-  // Track if this is the initial mount to decide whether to restore or fetch
   const isInitialMount = useRef(true);
   const hasInitialized = useRef(false);
 
-  const [projects, setProjects] = useState<Project[]>([]);
-  const projectsRef = useRef<Project[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [projectsLoading, setProjectsLoading] = useState(false);
-  const [projectDialogOpen, setProjectDialogOpen] = useState(false);
-  const [projectDialogMode, setProjectDialogMode] = useState<'create' | 'edit'>('create');
-  const [projectToEdit, setProjectToEdit] = useState<Project | null>(null);
-  const [projectFormData, setProjectFormData] = useState({ name: '', relativePath: '', description: '' });
-  const [projectSaving, setProjectSaving] = useState(false);
+  // ─────────────────────────────────────────────────────────────────────────
+  // Project Management
+  // ─────────────────────────────────────────────────────────────────────────
+  
+  const {
+    projects,
+    projectsRef,
+    selectedProjectId,
+    setSelectedProjectId,
+    loading: projectsLoading,
+    isLoaded: projectsLoaded,
+    loadProjects
+  } = useProjectManagement(workspaceId, {
+    initialSelectedProjectId: initialPersistedState.current?.selectedProjectId,
+    onError: (msg) => setOperationError(msg)
+  });
 
-  // Keep projectsRef in sync
-  useEffect(() => {
-    projectsRef.current = projects;
-  }, [projects]);
-
-  // Track if projects have been loaded at least once
-  const projectsLoaded = useRef(false);
-
-  // Helper to get the effective root path based on project's path type
+  // ─────────────────────────────────────────────────────────────────────────
+  // Path helpers
+  // ─────────────────────────────────────────────────────────────────────────
+  
   const getEffectiveRootPath = useCallback(() => {
-    const selectedProject = projectsRef.current.find(p => p.id === selectedProjectId);
-    if (!selectedProject) return activeWorkspace?.rootPath || '';
+    const project = projectsRef.current.find(p => p.id === selectedProjectId);
+    if (!project) return activeWorkspace?.rootPath || '';
     
-    const projectBasePath = selectedProject.relativePath;
+    const projectBasePath = project.relativePath;
     const isAbsolutePath = /^[a-zA-Z]:[\\/]/.test(projectBasePath) || projectBasePath.startsWith('/');
     
     return isAbsolutePath ? projectBasePath : activeWorkspace?.rootPath || '';
-  }, [selectedProjectId, activeWorkspace?.rootPath]);
+  }, [selectedProjectId, activeWorkspace?.rootPath, projectsRef]);
+
+  const getRelativePath = useCallback((targetPath: string) => {
+    const project = projectsRef.current.find(p => p.id === selectedProjectId);
+    if (!project) return { rootPath: '', relativePath: targetPath };
+    
+    const projectBasePath = project.relativePath;
+    const isAbsolutePath = /^[a-zA-Z]:[\\/]/.test(projectBasePath) || projectBasePath.startsWith('/');
+    
+    if (isAbsolutePath) {
+      return { rootPath: projectBasePath, relativePath: targetPath || '.' };
+    }
+    return {
+      rootPath: activeWorkspace?.rootPath || '',
+      relativePath: targetPath ? `${projectBasePath}/${targetPath}` : projectBasePath
+    };
+  }, [selectedProjectId, activeWorkspace?.rootPath, projectsRef]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Directory Navigation
+  // ─────────────────────────────────────────────────────────────────────────
   
-  const [entries, setEntries] = useState<WorkspaceDirectoryEntry[]>([]);
-  const [breadcrumbs, setBreadcrumbs] = useState<WorkspaceBreadcrumb[]>([{ label: 'Root', path: '' }]);
-  const [currentPath, setCurrentPath] = useState('');
-  const [directoryError, setDirectoryError] = useState<string | null>(null);
-  const [directoryLoading, setDirectoryLoading] = useState(false);
+  const {
+    entries,
+    setEntries,
+    breadcrumbs,
+    setBreadcrumbs,
+    currentPath,
+    setCurrentPath,
+    loading: directoryLoading,
+    error: directoryError,
+    loadDirectory
+  } = useDirectoryNavigation({
+    getEffectiveRootPath,
+    getRelativePath,
+    desktopAvailable
+  });
 
-  const [preview, setPreview] = useState<WorkspaceFilePreview | null>(null);
-  const [previewError, setPreviewError] = useState<string | null>(null);
-  const [previewMode, setPreviewMode] = useState<PreviewMode>('text');
-  const [editMode, setEditMode] = useState(false);
-  const [editBuffer, setEditBuffer] = useState('');
-  const [binaryPreview, setBinaryPreview] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [mediaPreview, setMediaPreview] = useState<WorkspaceMediaPreview | null>(null);
-  const [mediaType, setMediaType] = useState<MediaType>(null);
-
-  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  // ─────────────────────────────────────────────────────────────────────────
+  // File Preview
+  // ─────────────────────────────────────────────────────────────────────────
+  
+  const {
+    preview,
+    setPreview,
+    mediaPreview,
+    mediaType,
+    previewMode,
+    setPreviewMode,
+    previewError,
+    binaryPreview,
+    editMode,
+    editBuffer,
+    setEditBuffer,
+    saving,
+    loadPreview,
+    clearPreview,
+    handleToggleEditMode,
+    saveEdit
+  } = useFilePreview({ getEffectiveRootPath });
 
   // Ref for DirectoryBrowser to update highlight imperatively
   const directoryBrowserRef = useRef<DirectoryBrowserHandle>(null);
@@ -120,7 +187,41 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
     directoryBrowserRef.current?.setActiveHighlight(activePath);
   }, [preview?.path, mediaPreview?.path]);
 
-  // Restore state from context on mount (runs once)
+  // ─────────────────────────────────────────────────────────────────────────
+  // File Operations
+  // ─────────────────────────────────────────────────────────────────────────
+  
+  const refreshDirectory = useCallback(async () => {
+    await loadDirectory(currentPath);
+  }, [loadDirectory, currentPath]);
+
+  const {
+    selectedFiles,
+    setSelectedFiles,
+    operationMessage,
+    setOperationMessage,
+    operationError,
+    setOperationError,
+    toggleSelection,
+    handleToggleAllSelections,
+    handleMerge,
+    handleSplit,
+    handleRenameEntry,
+    handleDeleteEntries,
+    getDefaultMergeDestination
+  } = useFileOperations({
+    getEffectiveRootPath,
+    currentPath,
+    entries,
+    preview,
+    onRefreshDirectory: refreshDirectory,
+    onClearPreview: clearPreview
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // State Restoration (runs once on mount)
+  // ─────────────────────────────────────────────────────────────────────────
+  
   useEffect(() => {
     const persistedState = initialPersistedState.current;
     if (isInitialMount.current && persistedState && !hasInitialized.current) {
@@ -133,7 +234,6 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
         setPreview(persistedState.preview);
         setSelectedFiles(persistedState.selectedFiles);
         setSelectedProjectId(persistedState.selectedProjectId);
-        // Mark as initialized after a microtask to ensure state is set
         queueMicrotask(() => {
           hasInitialized.current = true;
         });
@@ -143,12 +243,76 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
           hasInitialized.current = true;
         });
       } else {
-        // No persisted state to restore, mark as initialized immediately
         hasInitialized.current = true;
       }
     }
-  }, []); // Empty deps - runs once on mount
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // State Persistence
+  // ─────────────────────────────────────────────────────────────────────────
+  
+  useEffect(() => {
+    if (workspaceId && hasInitialized.current) {
+      updateState(workspaceId, {
+        entries,
+        breadcrumbs,
+        currentPath,
+        preview,
+        selectedFiles,
+        selectedProjectId
+      });
+    }
+  }, [workspaceId, entries, breadcrumbs, currentPath, preview, selectedFiles, selectedProjectId, updateState]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Load projects on mount
+  // ─────────────────────────────────────────────────────────────────────────
+  
+  useEffect(() => {
+    void loadProjects();
+  }, [loadProjects]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Auto-load directory when project changes
+  // ─────────────────────────────────────────────────────────────────────────
+  
+  useEffect(() => {
+    if (!hasInitialized.current) return;
+    if (activeWorkspace && desktopAvailable && workspaceId && entries.length === 0 && selectedProjectId) {
+      void loadDirectory('');
+    }
+  }, [activeWorkspace, desktopAvailable, workspaceId, selectedProjectId, entries.length, loadDirectory]);
+
+  const prevSelectedProjectId = useRef<string | null>(selectedProjectId);
+  
+  useEffect(() => {
+    if (selectedProjectId && desktopAvailable && projectsLoaded) {
+      const isUserChange = prevSelectedProjectId.current !== null && 
+                          prevSelectedProjectId.current !== selectedProjectId;
+      if (isUserChange) {
+        void loadDirectory('');
+      }
+    }
+    prevSelectedProjectId.current = selectedProjectId;
+  }, [selectedProjectId, desktopAvailable, projectsLoaded, loadDirectory]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Entry click handler
+  // ─────────────────────────────────────────────────────────────────────────
+  
+  const handleEntryClick = useCallback(async (entry: { type: string; path: string }) => {
+    if (entry.type === 'directory') {
+      await loadDirectory(entry.path);
+      return;
+    }
+    await loadPreview(entry.path);
+  }, [loadDirectory, loadPreview]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Dialogs state
+  // ─────────────────────────────────────────────────────────────────────────
+  
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const mergeForm = useForm<MergeFormValues>({
     defaultValues: {
@@ -174,290 +338,24 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
     }
   });
 
-  const [operationMessage, setOperationMessage] = useState<string | null>(null);
-  const [operationError, setOperationError] = useState<string | null>(null);
-  const [desktopAvailable, setDesktopAvailable] = useState(false);
-
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ paths: string[]; names: string[] } | null>(null);
 
-  useEffect(() => {
-    setDesktopAvailable(typeof window !== 'undefined' && typeof window.api?.listDirectory === 'function');
-  }, []);
+  // Project dialog state
+  const [projectDialogOpen, setProjectDialogOpen] = useState(false);
+  const [projectDialogMode, setProjectDialogMode] = useState<'create' | 'edit'>('create');
+  const [projectToEdit, setProjectToEdit] = useState<Project | null>(null);
+  const [projectFormData, setProjectFormData] = useState<ProjectFormData>({ name: '', relativePath: '', description: '' });
+  const [projectSaving, setProjectSaving] = useState(false);
 
-  // Persist state when it changes (but not during initial restore)
-  useEffect(() => {
-    if (workspaceId && hasInitialized.current) {
-      updateState(workspaceId, {
-        entries,
-        breadcrumbs,
-        currentPath,
-        preview,
-        selectedFiles,
-        selectedProjectId
-      });
-    }
-  }, [workspaceId, entries, breadcrumbs, currentPath, preview, selectedFiles, selectedProjectId, updateState]);
-
-  const loadDirectory = useCallback(
-    async (targetPath: string) => {
-      if (!desktopAvailable || !window.api?.listDirectory) {
-        setDirectoryError('Desktop file bridge unavailable.');
-        return;
-      }
-
-      if (!selectedProjectId) {
-        setEntries([]);
-        setBreadcrumbs([{ label: 'Root', path: '' }]);
-        setCurrentPath('');
-        return;
-      }
-
-      const selectedProject = projectsRef.current.find(p => p.id === selectedProjectId);
-      if (!selectedProject) {
-        setDirectoryError('Selected project not found.');
-        return;
-      }
-
-      setDirectoryLoading(true);
-      setDirectoryError(null);
-      setOperationMessage(null);
-      setOperationError(null);
-
-      try {
-        const projectBasePath = selectedProject.relativePath;
-        // Check if projectBasePath is an absolute path (starts with drive letter or /)
-        const isAbsolutePath = /^[a-zA-Z]:[\\/]/.test(projectBasePath) || projectBasePath.startsWith('/');
-        
-        let rootPath: string;
-        let relativePath: string;
-        
-        if (isAbsolutePath) {
-          // Use the absolute path as the root
-          rootPath = projectBasePath;
-          relativePath = targetPath || '.';
-        } else {
-          // Use workspace root + relative project path
-          rootPath = activeWorkspace?.rootPath || '';
-          relativePath = targetPath ? `${projectBasePath}/${targetPath}` : projectBasePath;
-        }
-
-        const response = await window.api.listDirectory({
-          rootPath,
-          relativePath
-        });
-        
-        if (!response.ok || !response.entries || !response.breadcrumbs) {
-          throw new Error(response.error || 'Unable to read directory');
-        }
-        
-        setEntries(response.entries);
-        setBreadcrumbs(response.breadcrumbs);
-        setCurrentPath(response.path ?? relativePath ?? '');
-        setSelectedFiles(new Set());
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to read directory';
-        setDirectoryError(message);
-      } finally {
-        setDirectoryLoading(false);
-      }
-    },
-    [activeWorkspace?.rootPath, desktopAvailable, selectedProjectId]
-  );
-
-  useEffect(() => {
-    // Skip directory load on initial mount - let restore effect handle it
-    // Only load if we don't have entries and initialization is complete
-    if (!hasInitialized.current) {
-      return;
-    }
-    if (activeWorkspace && desktopAvailable && workspaceId && entries.length === 0 && selectedProjectId) {
-      void loadDirectory('');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeWorkspace, desktopAvailable, workspaceId, selectedProjectId]);
-
-  // Track the previous project ID to detect user-initiated changes
-  const prevSelectedProjectId = useRef<string | null>(selectedProjectId);
+  // ─────────────────────────────────────────────────────────────────────────
+  // Dialog handlers
+  // ─────────────────────────────────────────────────────────────────────────
   
-  useEffect(() => {
-    // Only trigger directory load when user explicitly changes project selection
-    // (not on initial mount or navigation back)
-    if (selectedProjectId && desktopAvailable && projectsLoaded.current) {
-      const isUserChange = prevSelectedProjectId.current !== null && 
-                          prevSelectedProjectId.current !== selectedProjectId;
-      if (isUserChange) {
-        void loadDirectory('');
-      }
-    }
-    prevSelectedProjectId.current = selectedProjectId;
-  }, [selectedProjectId, desktopAvailable, loadDirectory]);
-
-  const handleEntryClick = useCallback(async (entry: WorkspaceDirectoryEntry) => {
-    if (entry.type === 'directory') {
-      await loadDirectory(entry.path);
-      return;
-    }
-
-    const effectiveRoot = getEffectiveRootPath();
-    if (!effectiveRoot) {
-      setPreviewError('No root path available for preview.');
-      return;
-    }
-
-    setPreviewError(null);
-    setBinaryPreview(false);
-
-    // Check if it's a media file
-    const detectedMediaType = getMediaType(entry.path);
-    if (detectedMediaType !== null) {
-      if (!window.api?.readBinaryFile) {
-        setPreviewError('Desktop bridge unavailable for media preview.');
-        setMediaPreview(null);
-        setMediaType(null);
-        return;
-      }
-      
-      try {
-        const response = await window.api.readBinaryFile({
-          rootPath: effectiveRoot,
-          relativePath: entry.path
-        });
-        
-        if (!response.ok || !response.base64) {
-          throw new Error(response.error || 'Unable to load media preview');
-        }
-        
-        // Set all media state together to avoid flicker
-        setMediaPreview({
-          path: response.path ?? entry.path,
-          base64: response.base64,
-          mimeType: response.mimeType ?? 'application/octet-stream',
-          size: response.size ?? 0
-        });
-        setMediaType(detectedMediaType);
-        setPreviewMode('media');
-        setPreview(null);
-        setEditMode(false);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to preview media file';
-        setPreviewError(message);
-        setMediaPreview(null);
-        setMediaType(null);
-      }
-      return;
-    }
-    
-    // Not a media file - clear media state
-    setMediaPreview(null);
-    setMediaType(null);
-    
-    if (isLikelyBinary(entry.path)) {
-      setBinaryPreview(true);
-      setPreview(null);
-      return;
-    }
-
-    if (!window.api?.readTextFile) {
-      setPreviewError('Desktop bridge unavailable for preview.');
-      return;
-    }
-
-    try {
-      const response = await window.api.readTextFile({
-        rootPath: effectiveRoot,
-        relativePath: entry.path,
-        maxBytes: 512 * 1024
-      });
-      
-      if (!response.ok || typeof response.content !== 'string') {
-        throw new Error(response.error || 'Unable to load file preview');
-      }
-      
-      setPreview({
-        path: response.path ?? entry.path,
-        content: response.content,
-        truncated: Boolean(response.truncated),
-        size: response.size ?? 0
-      });
-      setPreviewMode('text');
-      setEditMode(false);
-      setEditBuffer(response.content);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to preview file';
-      setPreviewError(message);
-    }
-  }, [loadDirectory, getEffectiveRootPath]);
-
-  const handleToggleEditMode = () => {
-    setEditMode((mode) => {
-      const next = !mode;
-      if (next && preview) {
-        setEditBuffer(preview.content);
-      }
-      return next;
-    });
-  };
-
-  const toggleSelection = (entry: WorkspaceDirectoryEntry) => {
-    if (entry.type !== 'file') return;
-    setSelectedFiles((prev) => {
-      const next = new Set(prev);
-      if (next.has(entry.path)) {
-        next.delete(entry.path);
-      } else {
-        next.add(entry.path);
-      }
-      return next;
-    });
-  };
-
-  const handleToggleAllSelections = (checked: CheckedState) => {
-    setSelectedFiles((prev) => {
-      const next = new Set(prev);
-      if (checked) {
-        entries.forEach((entry) => {
-          if (entry.type === 'file') next.add(entry.path);
-        });
-      } else {
-        entries.forEach((entry) => {
-          if (entry.type === 'file') next.delete(entry.path);
-        });
-      }
-      return next;
-    });
-  };
-
-  const handleSaveEdit = useCallback(async () => {
-    const effectiveRoot = getEffectiveRootPath();
-    if (!editMode || !preview || !effectiveRoot || !window.api?.writeTextFile) return;
-    
-    setSaving(true);
-    try {
-      const resp = await window.api.writeTextFile({
-        rootPath: effectiveRoot,
-        relativePath: preview.path,
-        content: editBuffer
-      });
-      if (!resp.ok) {
-        throw new Error(resp.error || 'Failed to save file');
-      }
-      setPreview((prev) => (prev ? { ...prev, content: editBuffer } : prev));
-      setEditMode(false);
-      setOperationMessage('File saved successfully');
-      setTimeout(() => setOperationMessage(null), 3000);
-    } catch (err) {
-      setPreviewError(err instanceof Error ? err.message : 'Failed to save file');
-    } finally {
-      setSaving(false);
-    }
-  }, [editMode, preview, getEffectiveRootPath, editBuffer]);
-
-  const openMergeDialog = () => {
-    const defaultDestination = relativeJoin(currentPath, `merged-${new Date().toISOString().replace(/[:.]/g, '-')}.txt`);
+  const openMergeDialog = useCallback(() => {
     const currentMode = mergeForm.getValues('mode') || 'simple';
     mergeForm.reset({
-      destination: defaultDestination,
+      destination: getDefaultMergeDestination(),
       separator: '\n\n',
       includeHeaders: currentMode === 'simple',
       overwrite: false,
@@ -465,9 +363,9 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
       copyToClipboard: currentMode === 'boundary'
     });
     setMergeDialogOpen(true);
-  };
+  }, [mergeForm, getDefaultMergeDestination]);
 
-  const openSplitDialog = (fromClipboard = false) => {
+  const openSplitDialog = useCallback((fromClipboard = false) => {
     if (!fromClipboard && !preview?.path) return;
     
     if (fromClipboard) {
@@ -495,266 +393,44 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
       });
     }
     setSplitDialogOpen(true);
-  };
+  }, [preview, splitForm]);
 
-  const handleMerge = async (values: MergeFormValues) => {
-    const effectiveRoot = getEffectiveRootPath();
-    if (!effectiveRoot || !window.api?.mergeTextFiles) {
-      setOperationError('Desktop bridge unavailable.');
-      return;
-    }
-
-    const sources = Array.from(selectedFiles);
-    if (sources.length < 2) {
-      setOperationError('Select at least two files to merge.');
-      return;
-    }
-
-    try {
-      const response = await window.api.mergeTextFiles({
-        rootPath: effectiveRoot,
-        sources,
-        destination: values.destination,
-        separator: values.separator,
-        includeHeaders: values.includeHeaders,
-        overwrite: values.overwrite,
-        mode: values.mode,
-        copyToClipboard: values.copyToClipboard
-      });
-      
-      if (!response.ok || !response.destination) {
-        throw new Error(response.error || 'Merge failed');
-      }
-      
-      let message = `Merged into ${response.destination}`;
-      if (values.copyToClipboard) {
-        message += ' (content copied to clipboard)';
-      }
-      setOperationMessage(message);
-      setSelectedFiles(new Set());
-      setMergeDialogOpen(false);
-      await loadDirectory(currentPath);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to merge files';
-      setOperationError(message);
-    }
-  };
-
-  const handleSplit = async (values: SplitFormValues) => {
-    const effectiveRoot = getEffectiveRootPath();
-    if (!effectiveRoot || !window.api?.splitTextFile) {
-      setOperationError('Desktop bridge unavailable.');
-      return;
-    }
-
-    try {
-      let clipboardContent: string | undefined;
-      
-      if (values.sourceMode === 'clipboard') {
-        try {
-          clipboardContent = await navigator.clipboard.readText();
-          if (!clipboardContent || !clipboardContent.trim()) {
-            throw new Error('Clipboard is empty');
-          }
-          
-          if (values.mode === 'boundary') {
-            if (!clipboardContent.includes('---FILE-BOUNDARY---|')) {
-              throw new Error(
-                'Clipboard does not contain boundary-formatted content. ' +
-                'Please merge files with "Boundary" mode first and copy the result.'
-              );
-            }
-          }
-        } catch (err) {
-          if (err instanceof Error) {
-            throw err;
-          }
-          throw new Error('Failed to read clipboard. Please ensure clipboard permissions are granted.');
-        }
-      } else if (!preview?.path) {
-        setOperationError('No file selected for splitting.');
-        return;
-      }
-
-      const response = await window.api.splitTextFile({
-        rootPath: effectiveRoot,
-        source: values.sourceMode === 'file' ? preview?.path : undefined,
-        clipboardContent: values.sourceMode === 'clipboard' ? clipboardContent : undefined,
-        separator: values.separator,
-        prefix: values.prefix,
-        extension: values.extension,
-        overwrite: values.overwrite,
-        preserveOriginal: values.preserveOriginal,
-        mode: values.mode,
-        outputDir: currentPath
-      });
-      
-      if (!response.ok || !response.created) {
-        throw new Error(response.error || 'Split failed');
-      }
-      
-      const message = values.sourceMode === 'clipboard' 
-        ? `Extracted ${response.created.length} files from clipboard`
-        : `Created ${response.created.length} files`;
-      setOperationMessage(message);
-      setSplitDialogOpen(false);
-      await loadDirectory(currentPath);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to split file';
-      setOperationError(message);
-    }
-  };
-
-  const handleRenameEntry = async (entry: WorkspaceDirectoryEntry, newName: string) => {
-    const effectiveRoot = getEffectiveRootPath();
-    if (!effectiveRoot || !window.api?.renameEntry) {
-      setOperationError('Desktop bridge unavailable.');
-      throw new Error('Desktop bridge unavailable');
-    }
-
-    try {
-      const response = await window.api.renameEntry({
-        rootPath: effectiveRoot,
-        oldRelativePath: entry.path,
-        newName
-      });
-
-      if (!response.ok) {
-        throw new Error(response.error || 'Rename failed');
-      }
-
-      setOperationMessage(`Renamed to ${newName}`);
-      await loadDirectory(currentPath);
-
-      if (preview?.path === entry.path) {
-        setPreview(null);
-        setPreviewError(null);
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to rename';
-      setOperationError(message);
-      throw err;
-    }
-  };
-
-  const openDeleteDialog = (pathsToDelete: string[], names: string[]) => {
+  const openDeleteDialog = useCallback((pathsToDelete: string[], names: string[]) => {
     setDeleteTarget({ paths: pathsToDelete, names });
     setDeleteDialogOpen(true);
-  };
+  }, []);
 
-  const handleDeleteSingle = (entry: WorkspaceDirectoryEntry) => {
+  const handleDeleteSingle = useCallback((entry: { path: string; name: string }) => {
     openDeleteDialog([entry.path], [entry.name]);
-  };
+  }, [openDeleteDialog]);
 
-  const handleDeleteBulk = () => {
+  const handleDeleteBulk = useCallback(() => {
     const paths = Array.from(selectedFiles);
     const names = entries
       .filter(e => paths.includes(e.path))
       .map(e => e.name);
     openDeleteDialog(paths, names);
-  };
+  }, [selectedFiles, entries, openDeleteDialog]);
 
-  const handleDeleteConfirm = async () => {
-    const effectiveRoot = getEffectiveRootPath();
-    if (!effectiveRoot || !window.api?.deleteEntries || !deleteTarget) {
-      setOperationError('Desktop bridge unavailable.');
-      return;
-    }
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteTarget) return;
+    await handleDeleteEntries(deleteTarget.paths);
+    setDeleteDialogOpen(false);
+    setDeleteTarget(null);
+  }, [deleteTarget, handleDeleteEntries]);
 
-    try {
-      const response = await window.api.deleteEntries({
-        rootPath: effectiveRoot,
-        relativePaths: deleteTarget.paths
-      });
-
-      if (!response.ok) {
-        throw new Error(response.error || 'Delete failed');
-      }
-
-      const deletedCount = response.deleted?.length || 0;
-      const errorCount = response.errors?.length || 0;
-
-      if (deletedCount > 0) {
-        setOperationMessage(
-          `Deleted ${deletedCount} item${deletedCount > 1 ? 's' : ''}` +
-          (errorCount > 0 ? ` (${errorCount} failed)` : '')
-        );
-      }
-
-      if (errorCount > 0 && deletedCount === 0) {
-        throw new Error(`Failed to delete all items`);
-      }
-
-      setSelectedFiles(new Set());
-      if (preview && deleteTarget.paths.includes(preview.path)) {
-        setPreview(null);
-        setPreviewError(null);
-      }
-
-      await loadDirectory(currentPath);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete';
-      setOperationError(message);
-    }
-  };
-
-  const loadProjects = useCallback(async () => {
-    if (!workspaceId) return;
-    setProjectsLoading(true);
-    try {
-      const response = await fetchWorkspaceProjects(workspaceId);
-      const projectsList = response?.projects || [];
-      setProjects(projectsList);
-      // Update ref immediately so loadDirectory can use it
-      projectsRef.current = projectsList;
-      
-      // Determine which project to select
-      const currentSelectedId = selectedProjectId;
-      let finalProjectId: string | null = null;
-      
-      if (currentSelectedId) {
-        const projectExists = projectsList.some(p => p.id === currentSelectedId);
-        if (projectExists) {
-          finalProjectId = currentSelectedId;
-        } else if (projectsList.length > 0) {
-          finalProjectId = projectsList[0].id;
-          setSelectedProjectId(finalProjectId);
-        } else {
-          setSelectedProjectId(null);
-        }
-      } else if (projectsList.length > 0) {
-        finalProjectId = projectsList[0].id;
-        setSelectedProjectId(finalProjectId);
-      }
-      
-      // After projects are loaded, load directory only if we don't have entries already
-      // (entries would be restored from context or need fresh load)
-      if (finalProjectId && desktopAvailable && entries.length === 0) {
-        // Small delay to ensure state is settled
-        setTimeout(() => void loadDirectory(''), 0);
-      }
-    } catch (err) {
-      console.error('Failed to load projects:', err);
-      setProjects([]);
-      setOperationError('Failed to load projects. The API endpoint may not be implemented yet.');
-    } finally {
-      setProjectsLoading(false);
-      projectsLoaded.current = true;
-    }
-  }, [workspaceId, desktopAvailable, loadDirectory, selectedProjectId, entries.length]);
-
-  useEffect(() => {
-    void loadProjects();
-  }, [loadProjects]);
-
-  const openCreateProjectDialog = () => {
+  // ─────────────────────────────────────────────────────────────────────────
+  // Project dialog handlers
+  // ─────────────────────────────────────────────────────────────────────────
+  
+  const openCreateProjectDialog = useCallback(() => {
     setProjectDialogMode('create');
     setProjectToEdit(null);
     setProjectFormData({ name: '', relativePath: '', description: '' });
     setProjectDialogOpen(true);
-  };
+  }, []);
 
-  const openEditProjectDialog = () => {
+  const openEditProjectDialog = useCallback(() => {
     if (!selectedProjectId) return;
     const project = projects.find(p => p.id === selectedProjectId);
     if (!project) return;
@@ -766,12 +442,13 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
       description: project.description || ''
     });
     setProjectDialogOpen(true);
-  };
+  }, [selectedProjectId, projects]);
 
-  const handleProjectSave = async () => {
+  const handleProjectSave = useCallback(async () => {
     if (!workspaceId) return;
     setProjectSaving(true);
     try {
+      const { createWorkspaceProject, updateWorkspaceProject } = await import('@/api/workspaces');
       if (projectDialogMode === 'create') {
         await createWorkspaceProject(workspaceId, projectFormData);
       } else if (projectToEdit) {
@@ -785,12 +462,13 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
     } finally {
       setProjectSaving(false);
     }
-  };
+  }, [workspaceId, projectDialogMode, projectToEdit, projectFormData, loadProjects, setOperationError]);
 
-  const handleProjectDelete = async () => {
+  const handleProjectDelete = useCallback(async () => {
     if (!workspaceId || !projectToEdit) return;
     if (!confirm('Delete this project? This will not delete files on disk.')) return;
     try {
+      const { deleteWorkspaceProject } = await import('@/api/workspaces');
       await deleteWorkspaceProject(workspaceId, projectToEdit.id);
       setSelectedProjectId(null);
       setProjectDialogOpen(false);
@@ -800,9 +478,9 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
       console.error('Failed to delete project:', err);
       setOperationError(err instanceof Error ? err.message : 'Failed to delete project');
     }
-  };
+  }, [workspaceId, projectToEdit, setSelectedProjectId, loadProjects, setOperationMessage, setOperationError]);
 
-  const handleBrowsePath = async () => {
+  const handleBrowsePath = useCallback(async () => {
     if (!window.api?.selectDirectory) {
       setOperationError('Desktop bridge unavailable for directory selection.');
       return;
@@ -811,17 +489,55 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
     try {
       const result = await window.api.selectDirectory();
       if (!result.canceled && result.path) {
-        setProjectFormData({ ...projectFormData, relativePath: result.path });
+        setProjectFormData(prev => ({ ...prev, relativePath: result.path ?? '' }));
       }
     } catch (err) {
       console.error('Failed to select directory:', err);
       setOperationError('Failed to open directory picker.');
     }
-  };
+  }, [setOperationError]);
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Save handler with message
+  // ─────────────────────────────────────────────────────────────────────────
+  
+  const handleSaveEdit = useCallback(async () => {
+    try {
+      await saveEdit();
+      setOperationMessage('File saved successfully');
+      setTimeout(() => setOperationMessage(null), 3000);
+    } catch {
+      // Error already set by saveEdit
+    }
+  }, [saveEdit, setOperationMessage]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Merge/Split handlers
+  // ─────────────────────────────────────────────────────────────────────────
+  
+  const onMergeSubmit = useCallback(async (values: MergeFormValues) => {
+    await handleMerge(values);
+    setMergeDialogOpen(false);
+  }, [handleMerge]);
+
+  const onSplitSubmit = useCallback(async (values: SplitFormValues) => {
+    await handleSplit(values);
+    setSplitDialogOpen(false);
+  }, [handleSplit]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Computed values
+  // ─────────────────────────────────────────────────────────────────────────
+  
   const canMerge = selectedFiles.size >= 2 && desktopAvailable;
   const refreshDisabled = directoryLoading || !desktopAvailable;
+  const showEmptyProjectState = !selectedProjectId && projects.length > 0;
+  const showNoProjectsState = projects.length === 0 && !projectsLoading;
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Render guards
+  // ─────────────────────────────────────────────────────────────────────────
+  
   if (!desktopAvailable) {
     return <DesktopOnlyBanner />;
   }
@@ -834,119 +550,45 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
     );
   }
 
-  const showEmptyProjectState = !selectedProjectId && projects.length > 0;
-  const showNoProjectsState = projects.length === 0 && !projectsLoading;
-
+  // ─────────────────────────────────────────────────────────────────────────
+  // Main render
+  // ─────────────────────────────────────────────────────────────────────────
+  
   return (
     <div className="space-y-4">
+      {/* Status messages */}
       {directoryError ? <div className="text-sm text-destructive">Error: {directoryError}</div> : null}
       {operationMessage ? <div className="text-sm text-emerald-600">{operationMessage}</div> : null}
       {operationError ? <div className="text-sm text-destructive">{operationError}</div> : null}
 
+      {/* Toolbar */}
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Select value={selectedProjectId || undefined} onValueChange={setSelectedProjectId}>
-            <SelectTrigger className="h-10 w-60">
-              <SelectValue placeholder="Select a project...">
-                {selectedProjectId ? projects.find(p => p.id === selectedProjectId)?.name : 'Select a project...'}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {projects?.length > 0 ? (
-                projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.name}
-                  </SelectItem>
-                ))
-              ) : null}
-            </SelectContent>
-          </Select>
-          
-          <div className="flex items-center gap-2 rounded-md border border-border/40 p-1">
-            <Button 
-              onClick={openCreateProjectDialog} 
-              variant="ghost" 
-              size="sm"
-              className="h-8 gap-2 px-3"
-            >
-              <Plus className="size-4" />
-              <span>New Project</span>
-            </Button>
-            <Button 
-              onClick={openEditProjectDialog} 
-              disabled={!selectedProjectId} 
-              variant="ghost" 
-              size="sm"
-              className="h-8 gap-2 px-3"
-            >
-              <Edit2 className="size-4" />
-              <span>Edit</span>
-            </Button>
-            <Button
-              onClick={() => void loadDirectory(currentPath)}
-              disabled={refreshDisabled}
-              variant="ghost"
-              size="sm"
-              className="h-8 gap-2 px-3"
-            >
-              <RefreshCw className="size-4" />
-              <span>Refresh</span>
-            </Button>
-          </div>
-        </div>
+        <ProjectSelector
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+          onSelectProject={setSelectedProjectId}
+          onCreateProject={openCreateProjectDialog}
+          onEditProject={openEditProjectDialog}
+          onRefresh={() => void loadDirectory(currentPath)}
+          refreshDisabled={refreshDisabled}
+        />
 
-        <div className="flex flex-wrap items-center gap-2">
-          
-          <div className="flex items-center gap-2 rounded-md border border-border/40 p-1">
-            <Button
-              onClick={openMergeDialog}
-              disabled={!canMerge}
-              variant="ghost"
-              size="sm"
-              className="h-8 gap-2 px-3"
-            >
-              <GitMerge className="size-4" />
-              <span>Merge</span>
-              {selectedFiles.size > 0 && (
-                <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
-                  {selectedFiles.size}
-                </span>
-              )}
-            </Button>
-            <Button
-              onClick={() => openSplitDialog(true)}
-              disabled={!desktopAvailable}
-              variant="ghost"
-              size="sm"
-              className="h-8 gap-2 px-3"
-            >
-              <SplitSquareHorizontal className="size-4" />
-              <span>Extract</span>
-            </Button>
-            <Button
-              onClick={handleDeleteBulk}
-              disabled={selectedFiles.size === 0 || !desktopAvailable}
-              variant="ghost"
-              size="sm"
-              className="h-8 gap-2 px-3 text-destructive hover:text-destructive"
-            >
-              <Trash2 className="size-4" />
-              <span>Delete</span>
-              {selectedFiles.size > 0 && (
-                <span className="ml-1 rounded-full bg-destructive/10 px-1.5 py-0.5 text-xs font-medium">
-                  {selectedFiles.size}
-                </span>
-              )}
-            </Button>
-          </div>
-        </div>
+        <FileOperationsToolbar
+          selectedCount={selectedFiles.size}
+          canMerge={canMerge}
+          onMerge={openMergeDialog}
+          onExtract={() => openSplitDialog(true)}
+          onDelete={handleDeleteBulk}
+          disabled={!desktopAvailable}
+        />
       </div>
 
+      {/* Content */}
       {showNoProjectsState ? (
         <div className="rounded-md border border-dashed p-12 text-center">
           <p className="text-muted-foreground">No projects in this workspace. Create one to start browsing files.</p>
           <Button onClick={openCreateProjectDialog} variant="outline" className="mt-4">
-            <Plus className="size-4 mr-2" />
+            <AlertCircle className="size-4 mr-2" />
             Create Project
           </Button>
         </div>
@@ -962,14 +604,10 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
               breadcrumbs={breadcrumbs}
               entries={entries}
               selectedFiles={selectedFiles}
-              onNavigate={(path) => {
-                void loadDirectory(path);
-              }}
-              onEntryClick={(entry) => {
-                void handleEntryClick(entry);
-              }}
+              onNavigate={(path) => void loadDirectory(path)}
+              onEntryClick={(entry) => void handleEntryClick(entry)}
               onToggleEntrySelection={toggleSelection}
-              onToggleAllSelections={handleToggleAllSelections}
+              onToggleAllSelections={handleToggleAllSelections as (state: CheckedState) => void}
               onRenameEntry={handleRenameEntry}
               onDeleteEntry={handleDeleteSingle}
               loading={directoryLoading}
@@ -998,8 +636,9 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
         </div>
       )}
 
-      <MergeDialog form={mergeForm} open={mergeDialogOpen} onOpenChange={setMergeDialogOpen} onSubmit={handleMerge} />
-      <SplitDialog form={splitForm} open={splitDialogOpen} onOpenChange={setSplitDialogOpen} onSubmit={handleSplit} />
+      {/* Dialogs */}
+      <MergeDialog form={mergeForm} open={mergeDialogOpen} onOpenChange={setMergeDialogOpen} onSubmit={onMergeSubmit} />
+      <SplitDialog form={splitForm} open={splitDialogOpen} onOpenChange={setSplitDialogOpen} onSubmit={onSplitSubmit} />
       <DeleteConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
@@ -1008,6 +647,7 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
         onConfirm={handleDeleteConfirm}
       />
 
+      {/* Project Dialog */}
       <Dialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen}>
         <DialogContent>
           <DialogHeader>

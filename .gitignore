@@ -28,3 +28,5 @@ out/
 !build-assets/*.png
 !build-assets/README.md
 !build-assets/.gitkeep
+
+.amazonq/*
