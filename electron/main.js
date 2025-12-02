@@ -131,6 +131,24 @@ ipcMain.handle('workspace:read-text', async (event, payload) => {
   }
 });
 
+ipcMain.handle('workspace:read-binary', async (event, payload) => {
+  try {
+    const result = await workspaceFs.readBinaryFile(payload?.rootPath, payload?.relativePath);
+    return { ok: true, ...result };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
+ipcMain.handle('workspace:get-file-url', async (event, payload) => {
+  try {
+    const result = await workspaceFs.getFileUrl(payload?.rootPath, payload?.relativePath);
+    return { ok: true, ...result };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
 ipcMain.handle('workspace:merge-text', async (event, payload) => {
   console.log('🔍 Electron IPC received merge request with mode:', payload?.mode);
   try {

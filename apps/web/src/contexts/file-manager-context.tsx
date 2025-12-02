@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useCallback, useRef, useMemo, type ReactNode } from 'react';
 
 import type { WorkspaceDirectoryEntry, WorkspaceBreadcrumb, WorkspaceFilePreview } from '@/types/desktop';
 
@@ -8,11 +8,11 @@ interface FileManagerState {
   entries: WorkspaceDirectoryEntry[];
   preview: WorkspaceFilePreview | null;
   selectedFiles: Set<string>;
+  selectedProjectId: string | null;
   workspaceId: string | null;
 }
 
 interface FileManagerContextValue {
-  state: Record<string, FileManagerState>;
   getState: (workspaceId: string) => FileManagerState;
   updateState: (workspaceId: string, updates: Partial<FileManagerState>) => void;
   clearState: (workspaceId: string) => void;
@@ -26,37 +26,45 @@ const createDefaultState = (): FileManagerState => ({
   entries: [],
   preview: null,
   selectedFiles: new Set(),
+  selectedProjectId: null,
   workspaceId: null
 });
 
 export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
-  const [state, setState] = useState<Record<string, FileManagerState>>({});
+  // Use ref to store state - no re-renders when state updates
+  const stateRef = useRef<Record<string, FileManagerState>>({});
 
   const getState = useCallback((workspaceId: string): FileManagerState => {
-    return state[workspaceId] || createDefaultState();
-  }, [state]);
+    return stateRef.current[workspaceId] || createDefaultState();
+  }, []);
 
   const updateState = useCallback((workspaceId: string, updates: Partial<FileManagerState>) => {
-    setState(prev => ({
-      ...prev,
+    stateRef.current = {
+      ...stateRef.current,
       [workspaceId]: {
-        ...prev[workspaceId],
+        ...stateRef.current[workspaceId],
         ...updates,
         workspaceId
       }
-    }));
+    };
+    // Don't trigger re-render - this is just for persistence
   }, []);
 
   const clearState = useCallback((workspaceId: string) => {
-    setState(prev => {
-      const newState = { ...prev };
-      delete newState[workspaceId];
-      return newState;
-    });
+    const newState = { ...stateRef.current };
+    delete newState[workspaceId];
+    stateRef.current = newState;
   }, []);
 
+  // Memoize context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
+    getState,
+    updateState,
+    clearState
+  }), [getState, updateState, clearState]);
+
   return (
-    <FileManagerContext.Provider value={{ state, getState, updateState, clearState }}>
+    <FileManagerContext.Provider value={contextValue}>
       {children}
     </FileManagerContext.Provider>
   );
