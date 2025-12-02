@@ -30,7 +30,8 @@ export class DriveAnalyzerService {
 
     // Group mappings by drive letter
     for (const mapping of driveMappings) {
-      const drive = mapping.driveLetter.toUpperCase();
+      // Normalize to just the letter without colon for consistency
+      const drive = mapping.driveLetter.toUpperCase().replace(':', '');
       usedDrivesSet.add(drive);
 
       if (!driveToScriptsMap.has(drive)) {
@@ -48,8 +49,17 @@ export class DriveAnalyzerService {
 
     // Detect conflicts (drive letters used by multiple scripts)
     const conflicts: DriveConflict[] = [];
+    // All drive usage (including single-script drives)
+    const driveUsage: DriveConflict[] = [];
 
     for (const [driveLetter, scripts] of driveToScriptsMap) {
+      // Add to driveUsage (all drives)
+      driveUsage.push({
+        driveLetter,
+        scripts
+      });
+      
+      // Add to conflicts only if multiple scripts
       if (scripts.length > 1) {
         conflicts.push({
           driveLetter,
@@ -67,7 +77,8 @@ export class DriveAnalyzerService {
       totalMappings: driveMappings.length,
       usedDrives: usedDrives.sort(),
       availableDrives: availableDrives.sort(),
-      conflicts
+      conflicts,
+      driveUsage: driveUsage.sort((a, b) => a.driveLetter.localeCompare(b.driveLetter))
     };
   }
 

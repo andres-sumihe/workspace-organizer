@@ -330,6 +330,8 @@ export interface DriveAnalysis {
   usedDrives: string[];
   availableDrives: string[];
   conflicts: DriveConflict[];
+  /** All drive usage details (including single-script drives) */
+  driveUsage: DriveConflict[];
 }
 
 export interface ScriptStats {
