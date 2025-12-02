@@ -1,4 +1,4 @@
-export type PreviewMode = 'text' | 'hex';
+export type PreviewMode = 'text' | 'hex' | 'media';
 
 export type MergeMode = 'simple' | 'boundary';
 

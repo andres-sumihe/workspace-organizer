@@ -18,6 +18,19 @@ export interface WorkspaceFilePreview {
   size: number;
 }
 
+export interface WorkspaceMediaPreview {
+  path: string;
+  base64: string;
+  mimeType: string;
+  size: number;
+}
+
+export interface WorkspaceFileUrl {
+  path: string;
+  url: string;
+  size: number;
+}
+
 export interface TemplateSummary {
   id: string;
   name: string;
@@ -80,6 +93,21 @@ export interface DesktopApi {
     path?: string;
     content?: string;
     truncated?: boolean;
+    size?: number;
+  }>;
+  readBinaryFile: (payload: { rootPath: string; relativePath: string }) => Promise<{
+    ok: boolean;
+    error?: string;
+    path?: string;
+    base64?: string;
+    mimeType?: string;
+    size?: number;
+  }>;
+  getFileUrl: (payload: { rootPath: string; relativePath: string }) => Promise<{
+    ok: boolean;
+    error?: string;
+    path?: string;
+    url?: string;
     size?: number;
   }>;
   mergeTextFiles: (payload: {

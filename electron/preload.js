@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld('api', {
   selectDirectory: () => ipcRenderer.invoke('select-directory'),
   listDirectory: (payload) => ipcRenderer.invoke('workspace:list-dir', payload),
   readTextFile: (payload) => ipcRenderer.invoke('workspace:read-text', payload),
+  readBinaryFile: (payload) => ipcRenderer.invoke('workspace:read-binary', payload),
+  getFileUrl: (payload) => ipcRenderer.invoke('workspace:get-file-url', payload),
   mergeTextFiles: (payload) => ipcRenderer.invoke('workspace:merge-text', payload),
   splitTextFile: (payload) => ipcRenderer.invoke('workspace:split-text', payload),
   createDirectory: (payload) => ipcRenderer.invoke('workspace:create-dir', payload),

@@ -9,14 +9,14 @@ import { highlightSelectionMatches } from '@codemirror/search';
 import { EditorSelection } from '@codemirror/state';
 import { type EditorView } from '@codemirror/view';
 import CodeMirror from '@uiw/react-codemirror';
-import { Save, Search, SplitSquareHorizontal, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Save, Search, SplitSquareHorizontal, X, ChevronDown, ChevronUp, Image, Film, Music, FileText } from 'lucide-react';
 import { useMemo, useRef, useEffect, useState, useCallback } from 'react';
 
-import { toHex } from '../utils';
+import { toHex, getMediaType, type MediaType } from '../utils';
 import { ValidationResult } from './validation-result';
 
 import type { PreviewMode } from '../types';
-import type { WorkspaceFilePreview } from '@/types/desktop';
+import type { WorkspaceFilePreview, WorkspaceMediaPreview } from '@/types/desktop';
 import type { ISO20022ValidationResult } from '@/utils/iso20022-validator';
 
 import { useTheme } from '@/components/theme-provider';
@@ -39,6 +39,8 @@ interface PreviewPanelProps {
   binaryPreview: boolean;
   desktopAvailable: boolean;
   onOpenSplitDialog: () => void;
+  mediaPreview?: WorkspaceMediaPreview | null;
+  mediaType?: MediaType;
 }
 
 const getLanguageExtension = (filePath: string) => {
@@ -82,11 +84,15 @@ export const PreviewPanel = ({
   saving,
   binaryPreview,
   desktopAvailable,
-  onOpenSplitDialog
+  onOpenSplitDialog,
+  mediaPreview,
+  mediaType
 }: PreviewPanelProps) => {
   const { theme } = useTheme();
   const { isEnabled: validationEnabled, criteria } = useValidationSettings();
   const disablePreviewButtons = !preview || binaryPreview;
+  const disableMediaButtons = !mediaPreview;
+  const isMediaMode = previewMode === 'media';
   const [validationResult, setValidationResult] = useState<ISO20022ValidationResult | null>(null);
   
   const languageExtension = useMemo(
@@ -228,26 +234,36 @@ export const PreviewPanel = ({
       <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border bg-muted/30">
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-muted-foreground">File Preview</span>
-          <Tabs value={editMode ? 'edit' : previewMode} onValueChange={(v) => {
-            if (v === 'edit') {
-              if (!editMode) onToggleEditMode();
-            } else {
-              if (editMode) onToggleEditMode();
-              onModeChange(v as PreviewMode);
-            }
-          }}>
-            <TabsList className="h-7">
-              <TabsTrigger value="text" className="text-xs h-6 px-2" disabled={disablePreviewButtons}>
-                Text
-              </TabsTrigger>
-              <TabsTrigger value="hex" className="text-xs h-6 px-2" disabled={disablePreviewButtons}>
-                Hex
-              </TabsTrigger>
-              <TabsTrigger value="edit" className="text-xs h-6 px-2" disabled={disablePreviewButtons}>
-                Edit
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          {mediaType ? (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              {mediaType === 'image' && <Image className="size-3" />}
+              {mediaType === 'video' && <Film className="size-3" />}
+              {mediaType === 'audio' && <Music className="size-3" />}
+              {mediaType === 'pdf' && <FileText className="size-3" />}
+              <span className="capitalize">{mediaType}</span>
+            </div>
+          ) : (
+            <Tabs value={editMode ? 'edit' : previewMode} onValueChange={(v) => {
+              if (v === 'edit') {
+                if (!editMode) onToggleEditMode();
+              } else {
+                if (editMode) onToggleEditMode();
+                onModeChange(v as PreviewMode);
+              }
+            }}>
+              <TabsList className="h-7">
+                <TabsTrigger value="text" className="text-xs h-6 px-2" disabled={disablePreviewButtons}>
+                  Text
+                </TabsTrigger>
+                <TabsTrigger value="hex" className="text-xs h-6 px-2" disabled={disablePreviewButtons}>
+                  Hex
+                </TabsTrigger>
+                <TabsTrigger value="edit" className="text-xs h-6 px-2" disabled={disablePreviewButtons}>
+                  Edit
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <Button
@@ -289,6 +305,50 @@ export const PreviewPanel = ({
         {previewError ? (
           <div className="p-4">
             <p className="text-sm text-destructive">{previewError}</p>
+          </div>
+        ) : mediaPreview && mediaType ? (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="px-3 py-1 bg-muted/20 border-b border-border flex items-center justify-between gap-2">
+              <p className="font-mono text-xs text-muted-foreground truncate">{mediaPreview.path}</p>
+              <span className="text-xs text-muted-foreground">{(mediaPreview.size / 1024).toFixed(1)} KB</span>
+            </div>
+            <div className="flex-1 overflow-auto flex items-center justify-center p-4 bg-muted/10">
+              {mediaType === 'image' && (
+                <img
+                  src={`data:${mediaPreview.mimeType};base64,${mediaPreview.base64}`}
+                  alt={mediaPreview.path}
+                  className="max-w-full max-h-[500px] object-contain rounded shadow-md"
+                />
+              )}
+              {mediaType === 'video' && (
+                <video
+                  src={`data:${mediaPreview.mimeType};base64,${mediaPreview.base64}`}
+                  controls
+                  className="max-w-full max-h-[500px] rounded shadow-md"
+                >
+                  Your browser does not support the video tag.
+                </video>
+              )}
+              {mediaType === 'audio' && (
+                <div className="flex flex-col items-center gap-4">
+                  <Music className="size-16 text-muted-foreground" />
+                  <audio
+                    src={`data:${mediaPreview.mimeType};base64,${mediaPreview.base64}`}
+                    controls
+                    className="w-full max-w-md"
+                  >
+                    Your browser does not support the audio tag.
+                  </audio>
+                </div>
+              )}
+              {mediaType === 'pdf' && (
+                <iframe
+                  src={`data:${mediaPreview.mimeType};base64,${mediaPreview.base64}`}
+                  className="w-full h-[500px] rounded shadow-md"
+                  title={mediaPreview.path}
+                />
+              )}
+            </div>
           </div>
         ) : preview ? (
           <div className="flex-1 flex flex-col overflow-hidden">

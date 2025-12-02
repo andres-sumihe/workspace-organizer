@@ -1,5 +1,5 @@
 import { ChevronRight, FileText, Folder } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState, useImperativeHandle, forwardRef, useCallback } from 'react';
 
 import { FileContextMenu } from './file-context-menu';
 
@@ -9,13 +9,16 @@ import type { CheckedState } from '@radix-ui/react-checkbox';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
+export interface DirectoryBrowserHandle {
+  setActiveHighlight: (path: string | null) => void;
+}
+
 
 
 interface DirectoryBrowserProps {
   breadcrumbs: WorkspaceBreadcrumb[];
   entries: WorkspaceDirectoryEntry[];
   selectedFiles: Set<string>;
-  activeFilePath?: string | null;
   onNavigate: (path: string) => void;
   onEntryClick: (entry: WorkspaceDirectoryEntry) => void;
   onToggleEntrySelection: (entry: WorkspaceDirectoryEntry) => void;
@@ -25,11 +28,10 @@ interface DirectoryBrowserProps {
   loading: boolean;
 }
 
-export const DirectoryBrowser = ({
+const DirectoryBrowserComponent = forwardRef<DirectoryBrowserHandle, DirectoryBrowserProps>(({
   breadcrumbs,
   entries,
   selectedFiles,
-  activeFilePath,
   onNavigate,
   onEntryClick,
   onToggleEntrySelection,
@@ -37,11 +39,36 @@ export const DirectoryBrowser = ({
   onRenameEntry,
   onDeleteEntry,
   loading
-}: DirectoryBrowserProps) => {
+}, ref) => {
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [renaming, setRenaming] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const tableRef = useRef<HTMLTableSectionElement>(null);
+
+  // Imperative method to update highlight without re-rendering
+  const setActiveHighlight = useCallback((path: string | null) => {
+    if (!tableRef.current) return;
+    
+    // Remove previous highlight
+    const prevActive = tableRef.current.querySelector('tr[data-active="true"]');
+    if (prevActive) {
+      prevActive.removeAttribute('data-active');
+    }
+    
+    // Add new highlight
+    if (path) {
+      const newActive = tableRef.current.querySelector(`tr[data-path="${CSS.escape(path)}"]`);
+      if (newActive) {
+        newActive.setAttribute('data-active', 'true');
+      }
+    }
+  }, []);
+
+  // Expose the setActiveHighlight method via ref
+  useImperativeHandle(ref, () => ({
+    setActiveHighlight
+  }), [setActiveHighlight]);
 
   const selectableEntries = entries.filter((entry) => entry.type === 'file');
   const selectedCount = selectableEntries.filter((entry) => selectedFiles.has(entry.path)).length;
@@ -124,12 +151,15 @@ export const DirectoryBrowser = ({
                 <th className="px-4 py-2 text-left font-medium text-muted-foreground w-[30%]">Modified</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody ref={tableRef} className="divide-y divide-border">
               {entries.map((entry) => {
                 const isRenaming = renamingPath === entry.path;
-                const isActive = entry.type === 'file' && activeFilePath === entry.path;
                 return (
-                  <tr key={entry.path} className={`hover:bg-muted/30 ${isActive ? 'bg-primary/10' : ''}`}>
+                  <tr 
+                    key={entry.path}
+                    data-path={entry.type === 'file' ? entry.path : undefined}
+                    className="hover:bg-muted/30 transition-colors duration-150 data-[active=true]:bg-primary/10"
+                  >
                     <td className="pl-2 py-2">
                       {entry.type === 'file' ? (
                         <Checkbox
@@ -196,4 +226,7 @@ export const DirectoryBrowser = ({
       </ScrollArea>
     </div>
   );
-};
+});
+
+// Memoize to prevent unnecessary re-renders - highlighting is handled imperatively via ref
+export const DirectoryBrowser = memo(DirectoryBrowserComponent);

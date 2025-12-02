@@ -1,16 +1,17 @@
-import { AlertCircle, Edit2, GitMerge, Plus, RefreshCw, SplitSquareHorizontal, Trash, Trash2 } from 'lucide-react';
+import { AlertCircle, Edit2, FolderOpen, GitMerge, Plus, RefreshCw, SplitSquareHorizontal, Trash, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { DeleteConfirmDialog } from './delete-confirm-dialog';
-import { DirectoryBrowser } from './directory-browser';
+import { DirectoryBrowser, type DirectoryBrowserHandle } from './directory-browser';
 import { MergeDialog } from './merge-dialog';
 import { PreviewPanel } from './preview-panel';
 import { SplitDialog } from './split-dialog';
-import { isLikelyBinary, relativeJoin } from '../utils';
+import { getMediaType, isLikelyBinary, relativeJoin } from '../utils';
 
 import type { MergeFormValues, PreviewMode, SplitFormValues } from '../types';
-import type { WorkspaceBreadcrumb, WorkspaceDirectoryEntry, WorkspaceFilePreview } from '@/types/desktop';
+import type { MediaType } from '../utils';
+import type { WorkspaceBreadcrumb, WorkspaceDirectoryEntry, WorkspaceFilePreview, WorkspaceMediaPreview } from '@/types/desktop';
 import type { CheckedState } from '@radix-ui/react-checkbox';
 
 import { fetchWorkspaceProjects, createWorkspaceProject, updateWorkspaceProject, deleteWorkspaceProject } from '@/api/workspaces';
@@ -53,7 +54,15 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
     [workspaceId, workspaces]
   );
 
-  const persistedState = workspaceId ? getState(workspaceId) : null;
+  // Get persisted state ONCE on mount using a ref
+  const initialPersistedState = useRef<ReturnType<typeof getState> | null>(null);
+  if (initialPersistedState.current === null && workspaceId) {
+    initialPersistedState.current = getState(workspaceId);
+  }
+  
+  // Track if this is the initial mount to decide whether to restore or fetch
+  const isInitialMount = useRef(true);
+  const hasInitialized = useRef(false);
 
   const [projects, setProjects] = useState<Project[]>([]);
   const projectsRef = useRef<Project[]>([]);
@@ -69,24 +78,76 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
   useEffect(() => {
     projectsRef.current = projects;
   }, [projects]);
+
+  // Track if projects have been loaded at least once
+  const projectsLoaded = useRef(false);
+
+  // Helper to get the effective root path based on project's path type
+  const getEffectiveRootPath = useCallback(() => {
+    const selectedProject = projectsRef.current.find(p => p.id === selectedProjectId);
+    if (!selectedProject) return activeWorkspace?.rootPath || '';
+    
+    const projectBasePath = selectedProject.relativePath;
+    const isAbsolutePath = /^[a-zA-Z]:[\\/]/.test(projectBasePath) || projectBasePath.startsWith('/');
+    
+    return isAbsolutePath ? projectBasePath : activeWorkspace?.rootPath || '';
+  }, [selectedProjectId, activeWorkspace?.rootPath]);
   
-  const [entries, setEntries] = useState<WorkspaceDirectoryEntry[]>(persistedState?.entries || []);
-  const [breadcrumbs, setBreadcrumbs] = useState<WorkspaceBreadcrumb[]>(
-    persistedState?.breadcrumbs || [{ label: 'Root', path: '' }]
-  );
-  const [currentPath, setCurrentPath] = useState(persistedState?.currentPath || '');
+  const [entries, setEntries] = useState<WorkspaceDirectoryEntry[]>([]);
+  const [breadcrumbs, setBreadcrumbs] = useState<WorkspaceBreadcrumb[]>([{ label: 'Root', path: '' }]);
+  const [currentPath, setCurrentPath] = useState('');
   const [directoryError, setDirectoryError] = useState<string | null>(null);
   const [directoryLoading, setDirectoryLoading] = useState(false);
 
-  const [preview, setPreview] = useState<WorkspaceFilePreview | null>(persistedState?.preview || null);
+  const [preview, setPreview] = useState<WorkspaceFilePreview | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<PreviewMode>('text');
   const [editMode, setEditMode] = useState(false);
   const [editBuffer, setEditBuffer] = useState('');
   const [binaryPreview, setBinaryPreview] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [mediaPreview, setMediaPreview] = useState<WorkspaceMediaPreview | null>(null);
+  const [mediaType, setMediaType] = useState<MediaType>(null);
 
-  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(persistedState?.selectedFiles || new Set());
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+
+  // Ref for DirectoryBrowser to update highlight imperatively
+  const directoryBrowserRef = useRef<DirectoryBrowserHandle>(null);
+
+  // Update highlight when preview changes (imperatively, no re-render)
+  useEffect(() => {
+    const activePath = preview?.path || mediaPreview?.path || null;
+    directoryBrowserRef.current?.setActiveHighlight(activePath);
+  }, [preview?.path, mediaPreview?.path]);
+
+  // Restore state from context on mount (runs once)
+  useEffect(() => {
+    const persistedState = initialPersistedState.current;
+    if (isInitialMount.current && persistedState && !hasInitialized.current) {
+      isInitialMount.current = false;
+      
+      if (persistedState.entries.length > 0) {
+        setEntries(persistedState.entries);
+        setBreadcrumbs(persistedState.breadcrumbs);
+        setCurrentPath(persistedState.currentPath);
+        setPreview(persistedState.preview);
+        setSelectedFiles(persistedState.selectedFiles);
+        setSelectedProjectId(persistedState.selectedProjectId);
+        // Mark as initialized after a microtask to ensure state is set
+        queueMicrotask(() => {
+          hasInitialized.current = true;
+        });
+      } else if (persistedState.selectedProjectId) {
+        setSelectedProjectId(persistedState.selectedProjectId);
+        queueMicrotask(() => {
+          hasInitialized.current = true;
+        });
+      } else {
+        // No persisted state to restore, mark as initialized immediately
+        hasInitialized.current = true;
+      }
+    }
+  }, []); // Empty deps - runs once on mount
 
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const mergeForm = useForm<MergeFormValues>({
@@ -120,28 +181,27 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ paths: string[]; names: string[] } | null>(null);
 
-  const isRestoringState = useRef(false);
-
   useEffect(() => {
     setDesktopAvailable(typeof window !== 'undefined' && typeof window.api?.listDirectory === 'function');
   }, []);
 
-  // Persist state when it changes
+  // Persist state when it changes (but not during initial restore)
   useEffect(() => {
-    if (workspaceId && !isRestoringState.current) {
+    if (workspaceId && hasInitialized.current) {
       updateState(workspaceId, {
         entries,
         breadcrumbs,
         currentPath,
         preview,
-        selectedFiles
+        selectedFiles,
+        selectedProjectId
       });
     }
-  }, [workspaceId, entries, breadcrumbs, currentPath, preview, selectedFiles, updateState]);
+  }, [workspaceId, entries, breadcrumbs, currentPath, preview, selectedFiles, selectedProjectId, updateState]);
 
   const loadDirectory = useCallback(
     async (targetPath: string) => {
-      if (!desktopAvailable || !activeWorkspace?.rootPath || !window.api?.listDirectory) {
+      if (!desktopAvailable || !window.api?.listDirectory) {
         setDirectoryError('Desktop file bridge unavailable.');
         return;
       }
@@ -166,11 +226,25 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
 
       try {
         const projectBasePath = selectedProject.relativePath;
-        const fullPath = targetPath ? `${projectBasePath}/${targetPath}` : projectBasePath;
+        // Check if projectBasePath is an absolute path (starts with drive letter or /)
+        const isAbsolutePath = /^[a-zA-Z]:[\\/]/.test(projectBasePath) || projectBasePath.startsWith('/');
+        
+        let rootPath: string;
+        let relativePath: string;
+        
+        if (isAbsolutePath) {
+          // Use the absolute path as the root
+          rootPath = projectBasePath;
+          relativePath = targetPath || '.';
+        } else {
+          // Use workspace root + relative project path
+          rootPath = activeWorkspace?.rootPath || '';
+          relativePath = targetPath ? `${projectBasePath}/${targetPath}` : projectBasePath;
+        }
 
         const response = await window.api.listDirectory({
-          rootPath: activeWorkspace.rootPath,
-          relativePath: fullPath
+          rootPath,
+          relativePath
         });
         
         if (!response.ok || !response.entries || !response.breadcrumbs) {
@@ -179,7 +253,7 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
         
         setEntries(response.entries);
         setBreadcrumbs(response.breadcrumbs);
-        setCurrentPath(response.path ?? fullPath ?? '');
+        setCurrentPath(response.path ?? relativePath ?? '');
         setSelectedFiles(new Set());
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to read directory';
@@ -192,19 +266,31 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
   );
 
   useEffect(() => {
-    if (activeWorkspace && desktopAvailable && workspaceId) {
-      const persisted = getState(workspaceId);
-      if (!persisted.entries.length && persisted.currentPath === '') {
+    // Skip directory load on initial mount - let restore effect handle it
+    // Only load if we don't have entries and initialization is complete
+    if (!hasInitialized.current) {
+      return;
+    }
+    if (activeWorkspace && desktopAvailable && workspaceId && entries.length === 0 && selectedProjectId) {
+      void loadDirectory('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeWorkspace, desktopAvailable, workspaceId, selectedProjectId]);
+
+  // Track the previous project ID to detect user-initiated changes
+  const prevSelectedProjectId = useRef<string | null>(selectedProjectId);
+  
+  useEffect(() => {
+    // Only trigger directory load when user explicitly changes project selection
+    // (not on initial mount or navigation back)
+    if (selectedProjectId && desktopAvailable && projectsLoaded.current) {
+      const isUserChange = prevSelectedProjectId.current !== null && 
+                          prevSelectedProjectId.current !== selectedProjectId;
+      if (isUserChange) {
         void loadDirectory('');
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeWorkspace, desktopAvailable, workspaceId]);
-
-  useEffect(() => {
-    if (selectedProjectId && desktopAvailable) {
-      void loadDirectory('');
-    }
+    prevSelectedProjectId.current = selectedProjectId;
   }, [selectedProjectId, desktopAvailable, loadDirectory]);
 
   const handleEntryClick = useCallback(async (entry: WorkspaceDirectoryEntry) => {
@@ -213,13 +299,58 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
       return;
     }
 
-    if (!window.api?.readTextFile || !activeWorkspace?.rootPath) {
-      setPreviewError('Desktop bridge unavailable for preview.');
+    const effectiveRoot = getEffectiveRootPath();
+    if (!effectiveRoot) {
+      setPreviewError('No root path available for preview.');
       return;
     }
 
     setPreviewError(null);
     setBinaryPreview(false);
+
+    // Check if it's a media file
+    const detectedMediaType = getMediaType(entry.path);
+    if (detectedMediaType !== null) {
+      if (!window.api?.readBinaryFile) {
+        setPreviewError('Desktop bridge unavailable for media preview.');
+        setMediaPreview(null);
+        setMediaType(null);
+        return;
+      }
+      
+      try {
+        const response = await window.api.readBinaryFile({
+          rootPath: effectiveRoot,
+          relativePath: entry.path
+        });
+        
+        if (!response.ok || !response.base64) {
+          throw new Error(response.error || 'Unable to load media preview');
+        }
+        
+        // Set all media state together to avoid flicker
+        setMediaPreview({
+          path: response.path ?? entry.path,
+          base64: response.base64,
+          mimeType: response.mimeType ?? 'application/octet-stream',
+          size: response.size ?? 0
+        });
+        setMediaType(detectedMediaType);
+        setPreviewMode('media');
+        setPreview(null);
+        setEditMode(false);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to preview media file';
+        setPreviewError(message);
+        setMediaPreview(null);
+        setMediaType(null);
+      }
+      return;
+    }
+    
+    // Not a media file - clear media state
+    setMediaPreview(null);
+    setMediaType(null);
     
     if (isLikelyBinary(entry.path)) {
       setBinaryPreview(true);
@@ -227,9 +358,14 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
       return;
     }
 
+    if (!window.api?.readTextFile) {
+      setPreviewError('Desktop bridge unavailable for preview.');
+      return;
+    }
+
     try {
       const response = await window.api.readTextFile({
-        rootPath: activeWorkspace.rootPath,
+        rootPath: effectiveRoot,
         relativePath: entry.path,
         maxBytes: 512 * 1024
       });
@@ -251,7 +387,7 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
       const message = err instanceof Error ? err.message : 'Failed to preview file';
       setPreviewError(message);
     }
-  }, [loadDirectory, activeWorkspace?.rootPath]);
+  }, [loadDirectory, getEffectiveRootPath]);
 
   const handleToggleEditMode = () => {
     setEditMode((mode) => {
@@ -293,12 +429,13 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
   };
 
   const handleSaveEdit = useCallback(async () => {
-    if (!editMode || !preview || !activeWorkspace?.rootPath || !window.api?.writeTextFile) return;
+    const effectiveRoot = getEffectiveRootPath();
+    if (!editMode || !preview || !effectiveRoot || !window.api?.writeTextFile) return;
     
     setSaving(true);
     try {
       const resp = await window.api.writeTextFile({
-        rootPath: activeWorkspace.rootPath,
+        rootPath: effectiveRoot,
         relativePath: preview.path,
         content: editBuffer
       });
@@ -314,7 +451,7 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
     } finally {
       setSaving(false);
     }
-  }, [editMode, preview, activeWorkspace?.rootPath, editBuffer]);
+  }, [editMode, preview, getEffectiveRootPath, editBuffer]);
 
   const openMergeDialog = () => {
     const defaultDestination = relativeJoin(currentPath, `merged-${new Date().toISOString().replace(/[:.]/g, '-')}.txt`);
@@ -361,7 +498,8 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
   };
 
   const handleMerge = async (values: MergeFormValues) => {
-    if (!activeWorkspace?.rootPath || !window.api?.mergeTextFiles) {
+    const effectiveRoot = getEffectiveRootPath();
+    if (!effectiveRoot || !window.api?.mergeTextFiles) {
       setOperationError('Desktop bridge unavailable.');
       return;
     }
@@ -374,7 +512,7 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
 
     try {
       const response = await window.api.mergeTextFiles({
-        rootPath: activeWorkspace.rootPath,
+        rootPath: effectiveRoot,
         sources,
         destination: values.destination,
         separator: values.separator,
@@ -403,7 +541,8 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
   };
 
   const handleSplit = async (values: SplitFormValues) => {
-    if (!activeWorkspace?.rootPath || !window.api?.splitTextFile) {
+    const effectiveRoot = getEffectiveRootPath();
+    if (!effectiveRoot || !window.api?.splitTextFile) {
       setOperationError('Desktop bridge unavailable.');
       return;
     }
@@ -438,7 +577,7 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
       }
 
       const response = await window.api.splitTextFile({
-        rootPath: activeWorkspace.rootPath,
+        rootPath: effectiveRoot,
         source: values.sourceMode === 'file' ? preview?.path : undefined,
         clipboardContent: values.sourceMode === 'clipboard' ? clipboardContent : undefined,
         separator: values.separator,
@@ -467,14 +606,15 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
   };
 
   const handleRenameEntry = async (entry: WorkspaceDirectoryEntry, newName: string) => {
-    if (!activeWorkspace?.rootPath || !window.api?.renameEntry) {
+    const effectiveRoot = getEffectiveRootPath();
+    if (!effectiveRoot || !window.api?.renameEntry) {
       setOperationError('Desktop bridge unavailable.');
       throw new Error('Desktop bridge unavailable');
     }
 
     try {
       const response = await window.api.renameEntry({
-        rootPath: activeWorkspace.rootPath,
+        rootPath: effectiveRoot,
         oldRelativePath: entry.path,
         newName
       });
@@ -515,14 +655,15 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!activeWorkspace?.rootPath || !window.api?.deleteEntries || !deleteTarget) {
+    const effectiveRoot = getEffectiveRootPath();
+    if (!effectiveRoot || !window.api?.deleteEntries || !deleteTarget) {
       setOperationError('Desktop bridge unavailable.');
       return;
     }
 
     try {
       const response = await window.api.deleteEntries({
-        rootPath: activeWorkspace.rootPath,
+        rootPath: effectiveRoot,
         relativePaths: deleteTarget.paths
       });
 
@@ -564,9 +705,33 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
       const response = await fetchWorkspaceProjects(workspaceId);
       const projectsList = response?.projects || [];
       setProjects(projectsList);
-      // Set default project if none selected and projects exist
-      if (!selectedProjectId && projectsList.length > 0) {
-        setSelectedProjectId(projectsList[0].id);
+      // Update ref immediately so loadDirectory can use it
+      projectsRef.current = projectsList;
+      
+      // Determine which project to select
+      const currentSelectedId = selectedProjectId;
+      let finalProjectId: string | null = null;
+      
+      if (currentSelectedId) {
+        const projectExists = projectsList.some(p => p.id === currentSelectedId);
+        if (projectExists) {
+          finalProjectId = currentSelectedId;
+        } else if (projectsList.length > 0) {
+          finalProjectId = projectsList[0].id;
+          setSelectedProjectId(finalProjectId);
+        } else {
+          setSelectedProjectId(null);
+        }
+      } else if (projectsList.length > 0) {
+        finalProjectId = projectsList[0].id;
+        setSelectedProjectId(finalProjectId);
+      }
+      
+      // After projects are loaded, load directory only if we don't have entries already
+      // (entries would be restored from context or need fresh load)
+      if (finalProjectId && desktopAvailable && entries.length === 0) {
+        // Small delay to ensure state is settled
+        setTimeout(() => void loadDirectory(''), 0);
       }
     } catch (err) {
       console.error('Failed to load projects:', err);
@@ -574,8 +739,9 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
       setOperationError('Failed to load projects. The API endpoint may not be implemented yet.');
     } finally {
       setProjectsLoading(false);
+      projectsLoaded.current = true;
     }
-  }, [workspaceId, selectedProjectId]);
+  }, [workspaceId, desktopAvailable, loadDirectory, selectedProjectId, entries.length]);
 
   useEffect(() => {
     void loadProjects();
@@ -633,6 +799,23 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
     } catch (err) {
       console.error('Failed to delete project:', err);
       setOperationError(err instanceof Error ? err.message : 'Failed to delete project');
+    }
+  };
+
+  const handleBrowsePath = async () => {
+    if (!window.api?.selectDirectory) {
+      setOperationError('Desktop bridge unavailable for directory selection.');
+      return;
+    }
+    
+    try {
+      const result = await window.api.selectDirectory();
+      if (!result.canceled && result.path) {
+        setProjectFormData({ ...projectFormData, relativePath: result.path });
+      }
+    } catch (err) {
+      console.error('Failed to select directory:', err);
+      setOperationError('Failed to open directory picker.');
     }
   };
 
@@ -775,10 +958,10 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
         <div className="grid gap-6 xl:grid-cols-[1fr,1fr] 2xl:grid-cols-[2fr,1fr]">
           <div className="min-w-0">
             <DirectoryBrowser
+              ref={directoryBrowserRef}
               breadcrumbs={breadcrumbs}
               entries={entries}
               selectedFiles={selectedFiles}
-              activeFilePath={preview?.path}
               onNavigate={(path) => {
                 void loadDirectory(path);
               }}
@@ -808,6 +991,8 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
               binaryPreview={binaryPreview}
               desktopAvailable={desktopAvailable}
               onOpenSplitDialog={() => openSplitDialog(false)}
+              mediaPreview={mediaPreview}
+              mediaType={mediaType}
             />
           </div>
         </div>
@@ -844,13 +1029,28 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
               />
             </div>
             <div>
-              <Label htmlFor="project-path">Relative Path</Label>
-              <Input
-                id="project-path"
-                value={projectFormData.relativePath}
-                onChange={(e) => setProjectFormData({ ...projectFormData, relativePath: e.target.value })}
-                placeholder="projects/my-project"
-              />
+              <Label htmlFor="project-path">Path</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="project-path"
+                  value={projectFormData.relativePath}
+                  onChange={(e) => setProjectFormData({ ...projectFormData, relativePath: e.target.value })}
+                  placeholder="C:/path/to/project or relative/path"
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={handleBrowsePath}
+                  title="Browse for folder"
+                >
+                  <FolderOpen className="size-4" />
+                </Button>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Use an absolute path (e.g., C:/Users/...) or a path relative to the workspace root.
+              </p>
             </div>
             <div>
               <Label htmlFor="project-description">Description</Label>

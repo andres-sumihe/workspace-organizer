@@ -1,5 +1,5 @@
 import { FolderGit2, LayoutDashboard, LineChart, Settings, FileCode } from 'lucide-react';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 
 import type { SidebarNavItem } from '@/components/layout/app-sidebar';
@@ -69,6 +69,16 @@ const renderPlaceholder = (page: AppPage) => {
 function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // Store the last visited workspace route so we can return to it
+  const lastWorkspaceRoute = useRef<string>('/workspaces');
+  
+  // Update last workspace route when on a workspace page
+  useEffect(() => {
+    if (location.pathname.startsWith('/workspaces/')) {
+      lastWorkspaceRoute.current = location.pathname;
+    }
+  }, [location.pathname]);
 
   const sidebarItems = useMemo<SidebarNavItem[]>(
     () => [
@@ -96,14 +106,18 @@ function AppContent() {
       sidebarItems={sidebarItems}
       activeSidebarKey={getActiveKey()}
       onNavigate={(key) => {
-        const routes: Record<string, string> = {
-          dashboard: '/',
-          workspaces: '/workspaces',
-          scripts: '/scripts',
-          analytics: '/analytics',
-          settings: '/settings'
-        };
-        navigate(routes[key] || '/');
+        if (key === 'workspaces') {
+          // Navigate to last visited workspace route (or list if none)
+          navigate(lastWorkspaceRoute.current);
+        } else {
+          const routes: Record<string, string> = {
+            dashboard: '/',
+            scripts: '/scripts',
+            analytics: '/analytics',
+            settings: '/settings'
+          };
+          navigate(routes[key] || '/');
+        }
       }}
       connectionLabel="Connected to workspace datastore"
     >

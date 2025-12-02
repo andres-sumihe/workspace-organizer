@@ -30,6 +30,41 @@ export const toHex = (text: string, bytesPerLine = 16) => {
 const CONTROL_WHITELIST = new Set([0x09, 0x0a, 0x0d, 0x01, 0x02, 0x03, 0x04]);
 const SAMPLE_SIZE = 8192;
 
+// Media file extensions
+const IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif']);
+const VIDEO_EXTENSIONS = new Set(['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv']);
+const AUDIO_EXTENSIONS = new Set(['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'wma']);
+const PDF_EXTENSIONS = new Set(['pdf']);
+
+export type MediaType = 'image' | 'video' | 'audio' | 'pdf' | null;
+
+export const getMediaType = (filePath: string): MediaType => {
+  const ext = filePath.split('.').pop()?.toLowerCase() || '';
+  if (IMAGE_EXTENSIONS.has(ext)) return 'image';
+  if (VIDEO_EXTENSIONS.has(ext)) return 'video';
+  if (AUDIO_EXTENSIONS.has(ext)) return 'audio';
+  if (PDF_EXTENSIONS.has(ext)) return 'pdf';
+  return null;
+};
+
+export const isMediaFile = (filePath: string): boolean => {
+  return getMediaType(filePath) !== null;
+};
+
+// Binary file extensions that are NOT media files
+const BINARY_EXTENSIONS = new Set([
+  'exe', 'dll', 'so', 'dylib', 'bin', 'obj', 'o', 'a', 'lib',
+  'zip', 'tar', 'gz', 'rar', '7z', 'bz2', 'xz',
+  'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
+  'woff', 'woff2', 'ttf', 'otf', 'eot',
+  'class', 'pyc', 'pyo'
+]);
+
+export const isBinaryByExtension = (filePath: string): boolean => {
+  const ext = filePath.split('.').pop()?.toLowerCase() || '';
+  return BINARY_EXTENSIONS.has(ext) || isMediaFile(filePath);
+};
+
 export const isLikelyBinary = (content: string) => {
   if (!content) return false;
   const sample = content.slice(0, SAMPLE_SIZE);
