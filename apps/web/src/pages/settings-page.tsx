@@ -1,6 +1,7 @@
-import { Save, Settings as SettingsIcon } from 'lucide-react';
-import { useState } from 'react';
+import { Loader2, Save, Settings as SettingsIcon } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
+import { settingsApi } from '@/api/settings';
 import { PageShell } from '@/components/layout/page-shell';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -8,31 +9,115 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useValidationSettings } from '@/contexts/validation-settings-context';
+import { extractBICFromLT } from '@/utils/swift-mt-validator';
 
 export const SettingsPage = () => {
-  const { criteria, updateCriteria, isEnabled, setIsEnabled } = useValidationSettings();
+  const {
+    criteria,
+    updateCriteria,
+    isEnabled,
+    setIsEnabled,
+    mtCriteria,
+    updateMTCriteria,
+    isMTEnabled,
+    setIsMTEnabled,
+    isLoading: contextLoading,
+    error: contextError,
+    refresh
+  } = useValidationSettings();
 
   const [formData, setFormData] = useState(criteria);
+  const [mtFormData, setMTFormData] = useState(mtCriteria);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSave = () => {
-    updateCriteria(formData);
-    setSaveMessage('Settings saved successfully!');
-    setTimeout(() => setSaveMessage(null), 3000);
+  // Sync form data when context data changes (e.g., after loading from API)
+  useEffect(() => {
+    setFormData(criteria);
+  }, [criteria]);
+
+  useEffect(() => {
+    setMTFormData(mtCriteria);
+  }, [mtCriteria]);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    setErrorMessage(null);
+    
+    try {
+      // Auto-extract BIC from Logical Terminal if 12 characters entered
+      const processedMTFormData = {
+        ...mtFormData,
+        senderBIC: mtFormData.senderBIC.length === 12 
+          ? extractBICFromLT(mtFormData.senderBIC) || mtFormData.senderBIC 
+          : mtFormData.senderBIC,
+        receiverBIC: mtFormData.receiverBIC.length === 12 
+          ? extractBICFromLT(mtFormData.receiverBIC) || mtFormData.receiverBIC 
+          : mtFormData.receiverBIC
+      };
+      
+      await updateCriteria(formData);
+      await updateMTCriteria(processedMTFormData);
+      setMTFormData(processedMTFormData);
+      setSaveMessage('Settings saved successfully!');
+      setTimeout(() => setSaveMessage(null), 3000);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to save settings');
+      setTimeout(() => setErrorMessage(null), 5000);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleReset = () => {
-    const defaults = {
-      senderDN: 'ou=xxx,o=cenaidja,o=swift',
-      senderFullName: 'CENAIDJAXXX',
-      receiverDN: 'ou=xxx,o=cenaidja,o=swift',
-      receiverFullName: 'CENAIDJAXXX'
-    };
-    setFormData(defaults);
-    updateCriteria(defaults);
-    setSaveMessage('Reset to default values');
-    setTimeout(() => setSaveMessage(null), 3000);
+  const handleReset = async () => {
+    setIsSaving(true);
+    setErrorMessage(null);
+    
+    try {
+      await settingsApi.resetValidationSettings();
+      await refresh();
+      setSaveMessage('Reset to default values');
+      setTimeout(() => setSaveMessage(null), 3000);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to reset settings');
+      setTimeout(() => setErrorMessage(null), 5000);
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  const handleToggleEnabled = async (checked: boolean) => {
+    try {
+      await setIsEnabled(checked);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to update setting');
+      setTimeout(() => setErrorMessage(null), 5000);
+    }
+  };
+
+  const handleToggleMTEnabled = async (checked: boolean) => {
+    try {
+      await setIsMTEnabled(checked);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to update setting');
+      setTimeout(() => setErrorMessage(null), 5000);
+    }
+  };
+
+  if (contextLoading) {
+    return (
+      <PageShell
+        title="Settings"
+        description="Configure application settings and validation criteria"
+      >
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="size-8 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-muted-foreground">Loading settings...</span>
+        </div>
+      </PageShell>
+    );
+  }
 
   return (
     <PageShell
@@ -52,6 +137,12 @@ export const SettingsPage = () => {
           </div>
         )}
 
+        {(errorMessage || contextError) && (
+          <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-800">
+            {errorMessage || contextError}
+          </div>
+        )}
+
         <Card className="p-6">
           <div className="space-y-6">
             <div>
@@ -63,8 +154,9 @@ export const SettingsPage = () => {
               <div className="flex items-center gap-3 mb-6">
                 <Switch
                   checked={isEnabled}
-                  onCheckedChange={setIsEnabled}
+                  onCheckedChange={handleToggleEnabled}
                   id="validation-enabled"
+                  disabled={isSaving}
                 />
                 <Label htmlFor="validation-enabled" className="cursor-pointer">
                   Enable automatic validation for ISO20022 files
@@ -137,11 +229,81 @@ export const SettingsPage = () => {
             </div>
 
             <div className="flex gap-3 pt-4">
-              <Button onClick={handleSave} className="flex items-center gap-2">
-                <Save className="size-4" />
+              <Button onClick={handleSave} className="flex items-center gap-2" disabled={isSaving}>
+                {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
                 Save Settings
               </Button>
-              <Button onClick={handleReset} variant="outline">
+              <Button onClick={handleReset} variant="outline" disabled={isSaving}>
+                Reset to Defaults
+              </Button>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-lg font-semibold mb-2">SWIFT MT Validation (ISO 15022)</h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                Configure validation criteria for SWIFT FIN MT messages (MT103, MT202, etc.).
+                Detection is automatic for all text-based files.
+              </p>
+
+              <div className="flex items-center gap-3 mb-6">
+                <Switch
+                  checked={isMTEnabled}
+                  onCheckedChange={handleToggleMTEnabled}
+                  id="mt-validation-enabled"
+                  disabled={isSaving}
+                />
+                <Label htmlFor="mt-validation-enabled" className="cursor-pointer">
+                  Enable automatic validation for SWIFT MT files
+                </Label>
+              </div>
+            </div>
+
+            <div className="space-y-4 pt-4 border-t">
+              <h3 className="font-medium">BIC Criteria</h3>
+              
+              <div className="space-y-2">
+                <Label htmlFor="sender-bic">Sender BIC</Label>
+                <Input
+                  id="sender-bic"
+                  value={mtFormData.senderBIC}
+                  onChange={(e) => setMTFormData({ ...mtFormData, senderBIC: e.target.value.toUpperCase() })}
+                  placeholder="CENAIDJ0XXX"
+                  className="font-mono text-sm uppercase"
+                  maxLength={12}
+                  disabled={isSaving}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Enter BIC8, BIC11, or Logical Terminal (12 chars). BIC will be auto-extracted. Leave empty to skip.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="receiver-bic">Receiver BIC</Label>
+                <Input
+                  id="receiver-bic"
+                  value={mtFormData.receiverBIC}
+                  onChange={(e) => setMTFormData({ ...mtFormData, receiverBIC: e.target.value.toUpperCase() })}
+                  placeholder="CENAIDJ0AXXX"
+                  className="font-mono text-sm uppercase"
+                  maxLength={12}
+                  disabled={isSaving}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Enter BIC8, BIC11, or Logical Terminal (12 chars). BIC will be auto-extracted. Leave empty to skip.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <Button onClick={handleSave} className="flex items-center gap-2" disabled={isSaving}>
+                {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                Save Settings
+              </Button>
+              <Button onClick={handleReset} variant="outline" disabled={isSaving}>
                 Reset to Defaults
               </Button>
             </div>
@@ -151,10 +313,11 @@ export const SettingsPage = () => {
         <Card className="p-6 bg-blue-50 border-blue-200">
           <h3 className="font-medium mb-2 text-blue-900">How it works</h3>
           <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
-            <li>When you open an XML file in the File Manager, it will be automatically checked</li>
-            <li>If it's an ISO20022 message, validation runs against your configured criteria</li>
+            <li>When you open an XML file in the File Manager, it will be automatically checked for ISO20022 format</li>
+            <li>When you open any text file, it will be checked for SWIFT MT format if MT validation is enabled</li>
+            <li>ISO20022 validation checks Sender/Receiver DN and Full Names in MX messages</li>
+            <li>SWIFT MT validation checks Sender/Receiver BIC codes in FIN messages</li>
             <li>Validation results appear in the preview panel with detailed error messages</li>
-            <li>Supported message types: pacs, camt, pain, acmt, admi, auth, and more</li>
           </ul>
         </Card>
       </div>
