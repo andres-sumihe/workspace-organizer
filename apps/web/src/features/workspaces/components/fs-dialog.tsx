@@ -43,9 +43,9 @@ export const FsDialog = ({
       <DialogHeader>
         <DialogTitle>
           {state?.mode === 'folder'
-            ? `Create folder in ${state?.project.name}`
+            ? `Create folder in ${state?.projectPath}`
             : state?.mode === 'file'
-              ? `Create file in ${state?.project.name}`
+              ? `Create file in ${state?.projectPath}`
               : 'Filesystem action'}
         </DialogTitle>
         {!desktopAvailable ? <DialogDescription>Desktop shell required for filesystem operations.</DialogDescription> : null}
@@ -62,7 +62,7 @@ export const FsDialog = ({
           >
             <FormField
               control={folderForm.control}
-              name="folderName"
+              name="name"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Folder name</FormLabel>
@@ -96,7 +96,7 @@ export const FsDialog = ({
           >
             <FormField
               control={fileForm.control}
-              name="fileName"
+              name="name"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>File name</FormLabel>

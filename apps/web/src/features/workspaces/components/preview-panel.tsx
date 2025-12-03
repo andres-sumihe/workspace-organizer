@@ -12,18 +12,18 @@ import CodeMirror from '@uiw/react-codemirror';
 import { Save, Search, SplitSquareHorizontal, X, ChevronDown, ChevronUp, Image, Film, Music, FileText } from 'lucide-react';
 import { useMemo, useRef, useEffect, useState, useCallback } from 'react';
 
-import { toHex, getMediaType, type MediaType } from '../utils';
-import { ValidationResult } from './validation-result';
+import { toHex, type MediaType } from '../utils';
+import { ValidationResult, type ValidationResultData } from './validation-result';
 
 import type { PreviewMode } from '../types';
 import type { WorkspaceFilePreview, WorkspaceMediaPreview } from '@/types/desktop';
-import type { ISO20022ValidationResult } from '@/utils/iso20022-validator';
 
 import { useTheme } from '@/components/theme-provider';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useValidationSettings } from '@/contexts/validation-settings-context';
 import { detectISO20022, validateISO20022 } from '@/utils/iso20022-validator';
+import { detectSwiftMT, validateSwiftMT } from '@/utils/swift-mt-validator';
 
 interface PreviewPanelProps {
   preview: WorkspaceFilePreview | null;
@@ -89,11 +89,14 @@ export const PreviewPanel = ({
   mediaType
 }: PreviewPanelProps) => {
   const { theme } = useTheme();
-  const { isEnabled: validationEnabled, criteria } = useValidationSettings();
+  const {
+    isEnabled: validationEnabled,
+    criteria,
+    isMTEnabled,
+    mtCriteria
+  } = useValidationSettings();
   const disablePreviewButtons = !preview || binaryPreview;
-  const disableMediaButtons = !mediaPreview;
-  const isMediaMode = previewMode === 'media';
-  const [validationResult, setValidationResult] = useState<ISO20022ValidationResult | null>(null);
+  const [validationResult, setValidationResult] = useState<ValidationResultData | null>(null);
   
   const languageExtension = useMemo(
     () => (preview?.path ? getLanguageExtension(preview.path) : undefined),
@@ -213,21 +216,37 @@ export const PreviewPanel = ({
 
   // Run validation when preview changes and validation is enabled
   useEffect(() => {
-    if (!validationEnabled || !preview || binaryPreview || !preview.path.toLowerCase().endsWith('.xml')) {
+    if (!preview || binaryPreview) {
       setValidationResult(null);
       return;
     }
 
     const content = editMode ? editBuffer : preview.content;
-    
-    // Check if it's an ISO20022 file
-    if (detectISO20022(content)) {
-      const result = validateISO20022(content, criteria);
-      setValidationResult(result);
-    } else {
-      setValidationResult(null);
+    const isXmlFile = preview.path.toLowerCase().endsWith('.xml');
+
+    // First, check ISO20022 (MX) validation for XML files
+    if (validationEnabled && isXmlFile) {
+      const detection = detectISO20022(content);
+      if (detection.isISO20022) {
+        const result = validateISO20022(content, criteria);
+        setValidationResult({ ...result, type: 'iso20022' });
+        return;
+      }
     }
-  }, [validationEnabled, preview, binaryPreview, editMode, editBuffer, criteria]);
+
+    // SWIFT MT validation only runs when enabled in settings
+    if (isMTEnabled) {
+      const mtDetection = detectSwiftMT(content);
+      if (mtDetection.isSwiftMT) {
+        const result = validateSwiftMT(content, mtCriteria);
+        setValidationResult({ ...result, type: 'swift-mt' });
+        return;
+      }
+    }
+
+    // No validation matched
+    setValidationResult(null);
+  }, [validationEnabled, preview, binaryPreview, editMode, editBuffer, criteria, isMTEnabled, mtCriteria]);
 
   return (
     <div className="rounded-lg border border-border overflow-hidden flex flex-col">

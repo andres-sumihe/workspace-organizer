@@ -95,10 +95,7 @@ export const ScriptsPage = () => {
 
         <TabsContent value="scripts" className="flex-1 m-0" key={`scripts-${refreshKey}`}>
           <div className="h-full flex flex-col">
-            <ScriptsTab
-              onNewScript={handleNewScript}
-              onScanDirectory={handleScanDirectory}
-            />
+            <ScriptsTab />
           </div>
         </TabsContent>
 

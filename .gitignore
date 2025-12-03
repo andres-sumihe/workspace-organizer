@@ -30,3 +30,5 @@ out/
 !build-assets/.gitkeep
 
 .amazonq/*
+.github/
+docs/
