@@ -10,9 +10,13 @@ import type { BatchScript, BatchScriptDetail, DriveConflict } from '@workspace/s
 
 import { fetchScriptList, fetchScriptDetail, fetchConflicts } from '@/api/scripts';
 
-export const ScriptsTab = () => {
+interface ScriptsTabProps {
+  initialScriptId?: string;
+}
+
+export const ScriptsTab = ({ initialScriptId }: ScriptsTabProps) => {
   const [scripts, setScripts] = useState<BatchScript[]>([]);
-  const [selectedScriptId, setSelectedScriptId] = useState<string | null>(null);
+  const [selectedScriptId, setSelectedScriptId] = useState<string | null>(initialScriptId ?? null);
   const [selectedScript, setSelectedScript] = useState<BatchScriptDetail | null>(null);
   const [conflicts, setConflicts] = useState<DriveConflict[]>([]);
 
@@ -76,6 +80,13 @@ export const ScriptsTab = () => {
     loadScripts();
     loadConflicts();
   }, [loadScripts, loadConflicts]);
+
+  // Update selection when initialScriptId changes (from URL navigation)
+  useEffect(() => {
+    if (initialScriptId) {
+      setSelectedScriptId(initialScriptId);
+    }
+  }, [initialScriptId]);
 
   // Load detail when selection changes
   useEffect(() => {

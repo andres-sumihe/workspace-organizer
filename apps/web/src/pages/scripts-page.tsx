@@ -1,9 +1,11 @@
-import { FileCode, HardDrive, Plus, RefreshCw, FolderSearch } from 'lucide-react';
+import { FileCode, HardDrive, Plus, RefreshCw, FolderSearch, Network } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
 
 import { scanScripts } from '@/api/scripts';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { JobsTab } from '@/features/jobs';
 import {
   ScriptsTab,
   DriveMappingsTab,
@@ -13,7 +15,26 @@ import {
 
 
 export const ScriptsPage = () => {
-  const [activeTab, setActiveTab] = useState('scripts');
+  const { scriptId } = useParams<{ scriptId?: string }>();
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const jobIdParam = searchParams.get('jobId');
+  
+  const [activeTab, setActiveTab] = useState(tabParam === 'jobs' ? 'jobs' : 'scripts');
+  
+  // Switch to scripts tab if navigating with scriptId
+  useEffect(() => {
+    if (scriptId) {
+      setActiveTab('scripts');
+    }
+  }, [scriptId]);
+
+  // Switch to jobs tab if navigating with tab=jobs
+  useEffect(() => {
+    if (tabParam === 'jobs') {
+      setActiveTab('jobs');
+    }
+  }, [tabParam]);
   
   const [dialogOpen, setDialogOpen] = useState(false);
   const [scanDialogOpen, setScanDialogOpen] = useState(false);
@@ -86,6 +107,10 @@ export const ScriptsPage = () => {
               <FileCode className="h-4 w-4" />
               Scripts
             </TabsTrigger>
+            <TabsTrigger value="jobs" className="gap-2">
+              <Network className="h-4 w-4" />
+              Control-M Jobs
+            </TabsTrigger>
             <TabsTrigger value="drive-mappings" className="gap-2">
               <HardDrive className="h-4 w-4" />
               Drive Mappings
@@ -95,8 +120,12 @@ export const ScriptsPage = () => {
 
         <TabsContent value="scripts" className="flex-1 m-0" key={`scripts-${refreshKey}`}>
           <div className="h-full flex flex-col">
-            <ScriptsTab />
+            <ScriptsTab initialScriptId={scriptId} />
           </div>
+        </TabsContent>
+
+        <TabsContent value="jobs" className="flex-1 m-0" key={`jobs-${refreshKey}`}>
+          <JobsTab initialJobId={jobIdParam ?? undefined} />
         </TabsContent>
 
         <TabsContent value="drive-mappings" className="flex-1 m-0 overflow-auto" key={`mappings-${refreshKey}`}>

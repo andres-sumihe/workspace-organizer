@@ -14,8 +14,8 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useWorkspaceContext } from '@/contexts/workspace-context';
-import { WorkspaceFilesTab } from '@/features/workspaces/components/workspace-project-tab';
 import { WorkspaceOverviewTab } from '@/features/workspaces/components/workspace-overview-tab';
+import { WorkspaceFilesTab } from '@/features/workspaces/components/workspace-project-tab';
 import { WorkspaceTemplatesTab } from '@/features/workspaces/components/workspace-templates-tab';
 
 type TabValue = 'overview' | 'projects' | 'templates' | 'settings';
