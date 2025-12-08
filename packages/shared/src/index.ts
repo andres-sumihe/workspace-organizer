@@ -348,6 +348,13 @@ export interface BatchScriptDetail extends BatchScript {
   tags: ScriptTag[];
   dependencies: BatchScript[];
   dependents: BatchScript[];
+  linkedJobs?: Array<{
+    id: string;
+    jobId: number;
+    jobName: string;
+    application: string;
+    nodeId: string;
+  }>;
 }
 
 export type ScriptListResponse = PaginatedData<BatchScript>;
@@ -362,6 +369,124 @@ export interface ScriptStatsResponse {
 
 export interface DriveAnalysisResponse {
   analysis: DriveAnalysis;
+}
+
+// Control-M Job Types (for job dependency visualization)
+export type ControlMTaskType = 'Job' | 'Dummy' | 'Command' | 'FileWatcher';
+
+export interface ControlMJob {
+  id: string;
+  jobId: number; // Original JOB_ID from Control-M
+  application: string;
+  groupName: string;
+  memName: string; // Script/file name
+  jobName: string;
+  description: string;
+  nodeId: string; // Server node
+  owner: string;
+  taskType: ControlMTaskType;
+  isCyclic: boolean;
+  priority: string;
+  isCritical: boolean;
+  // Schedule info
+  daysCalendar?: string;
+  weeksCalendar?: string;
+  fromTime?: string;
+  toTime?: string;
+  interval?: string;
+  // Paths
+  memLib?: string; // Script library path
+  // Metadata
+  author?: string;
+  creationUser?: string;
+  creationDate?: string;
+  changeUserId?: string;
+  changeDate?: string;
+  isActive: boolean;
+  // Linked script reference
+  linkedScriptId?: string;
+  // Parsed from job relations
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ControlMJobDependency {
+  id: string;
+  predecessorJobId: string;
+  successorJobId: string;
+  conditionType: 'OC' | 'NOTOK' | 'ANY'; // OK Completion, Not OK, Any completion
+  createdAt: string;
+}
+
+export interface ControlMJobCondition {
+  id: string;
+  jobId: string;
+  conditionName: string;
+  conditionType: 'IN' | 'OUT'; // Input (requires) or Output (produces)
+  odate?: string;
+  createdAt: string;
+}
+
+export interface ControlMJobStats {
+  totalJobs: number;
+  activeJobs: number;
+  cyclicJobs: number;
+  jobsByServer: Record<string, number>;
+  jobsByApplication: Record<string, number>;
+  jobsByTaskType: Record<string, number>;
+}
+
+export interface ControlMJobDetail extends ControlMJob {
+  predecessors: ControlMJob[];
+  successors: ControlMJob[];
+  conditions: ControlMJobCondition[];
+  linkedScript?: BatchScript; // If linked to a local script
+}
+
+export interface ControlMImportRequest {
+  csvContent: string;
+  replaceExisting?: boolean;
+}
+
+export interface ControlMImportResult {
+  importedCount: number;
+  updatedCount: number;
+  skippedCount: number;
+  errors: string[];
+}
+
+export type ControlMJobListResponse = PaginatedData<ControlMJob>;
+
+export interface ControlMJobDetailResponse {
+  job: ControlMJobDetail;
+}
+
+export interface ControlMJobStatsResponse {
+  stats: ControlMJobStats;
+}
+
+// Job Dependency Graph Types (for visualization)
+export interface JobGraphNode {
+  id: string;
+  jobName: string;
+  nodeId: string;
+  taskType: ControlMTaskType;
+  isActive: boolean;
+  isCyclic: boolean;
+  x?: number;
+  y?: number;
+}
+
+export interface JobGraphEdge {
+  id: string;
+  source: string;
+  target: string;
+  conditionType: string;
+}
+
+export interface JobDependencyGraph {
+  nodes: JobGraphNode[];
+  edges: JobGraphEdge[];
 }
 
 // Template Management Types

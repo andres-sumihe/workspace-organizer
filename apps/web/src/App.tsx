@@ -127,6 +127,7 @@ function AppContent() {
         <Route path="/workspaces/:workspaceId" element={<WorkspaceDetailPage />} />
         <Route path="/workspaces/:workspaceId/:tab" element={<WorkspaceDetailPage />} />
         <Route path="/scripts" element={<ScriptsPage />} />
+        <Route path="/scripts/:scriptId" element={<ScriptsPage />} />
         <Route path="/analytics" element={renderPlaceholder('analytics')} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

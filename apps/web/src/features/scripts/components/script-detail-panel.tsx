@@ -1,4 +1,5 @@
-import { Loader2, FileCode, MapPin, Tag, Link2, AlertTriangle, Trash2, Edit } from 'lucide-react';
+import { Loader2, FileCode, MapPin, Tag, Link2, AlertTriangle, Trash2, Edit, Server, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 import { DriveConflictAlert } from './drive-conflict-alert';
 
@@ -25,6 +26,7 @@ interface ScriptDetailPanelProps {
 }
 
 export const ScriptDetailPanel = ({ script, loading, onEdit, onDelete, conflicts }: ScriptDetailPanelProps) => {
+  const navigate = useNavigate();
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -195,7 +197,7 @@ export const ScriptDetailPanel = ({ script, loading, onEdit, onDelete, conflicts
         <div className="mb-6">
           <div className="mb-3 flex items-center gap-2">
             <Link2 className="h-4 w-4 rotate-180 text-muted-foreground" />
-            <h3 className="text-sm font-semibold text-foreground">Used By</h3>
+            <h3 className="text-sm font-semibold text-foreground">Used By Scripts</h3>
           </div>
           <div className="space-y-2">
             {script.dependents.map((dep) => (
@@ -207,6 +209,54 @@ export const ScriptDetailPanel = ({ script, loading, onEdit, onDelete, conflicts
           </div>
         </div>
       )}
+
+      <Separator className="my-6" />
+
+      {/* Used by Control-M Jobs */}
+      <div className="mb-6">
+        <div className="mb-3 flex items-center gap-2">
+          <Server className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-sm font-semibold text-foreground">Used by Control-M Jobs</h3>
+          {script.linkedJobs && script.linkedJobs.length > 0 && (
+            <Badge variant="secondary">{script.linkedJobs.length}</Badge>
+          )}
+        </div>
+        {!script.linkedJobs || script.linkedJobs.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No Control-M jobs are linked to this script</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Job ID</TableHead>
+                <TableHead>Job Name</TableHead>
+                <TableHead>Application</TableHead>
+                <TableHead>Node</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {script.linkedJobs.map((job) => (
+                <TableRow key={job.id}>
+                  <TableCell className="font-mono text-xs">{job.jobId}</TableCell>
+                  <TableCell className="font-medium">{job.jobName}</TableCell>
+                  <TableCell className="text-muted-foreground">{job.application}</TableCell>
+                  <TableCell className="text-muted-foreground">{job.nodeId}</TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2"
+                      onClick={() => navigate(`/scripts?tab=jobs&jobId=${job.id}`)}
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </div>
 
       <Separator className="my-6" />
 

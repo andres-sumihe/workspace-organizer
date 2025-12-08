@@ -243,6 +243,64 @@ export const countScripts = async (params: Omit<ListScriptsParams, 'limit' | 'of
   return 0;
 };
 
+/**
+ * Find scripts by matching filename pattern.
+ * Matches against script name or filename extracted from file_path.
+ * Used for linking Control-M jobs to scripts via memName field.
+ *
+ * @param filename - The filename to search for (e.g., "SMART_INC.bat")
+ * @returns Array of matching scripts
+ */
+export const findScriptsByFilename = async (filename: string): Promise<BatchScript[]> => {
+  const db = await getDb();
+
+  // Normalize the filename: remove extension and convert to uppercase for comparison
+  const normalizedFilename = filename.replace(/\.[^.]+$/, '').toUpperCase();
+
+  // Search by:
+  // 1. Exact match on name (case-insensitive)
+  // 2. Name matches filename without extension (case-insensitive)
+  // 3. file_path ends with the filename (case-insensitive)
+  const rowsRaw: unknown = await db.all(
+    `SELECT * FROM scripts
+     WHERE UPPER(name) = ?
+        OR UPPER(name) = ?
+        OR UPPER(file_path) LIKE ?
+     ORDER BY name`,
+    [filename.toUpperCase(), normalizedFilename, `%${filename.toUpperCase()}`]
+  );
+
+  const scripts: BatchScript[] = [];
+
+  if (Array.isArray(rowsRaw)) {
+    for (const row of rowsRaw) {
+      if (isScriptRow(row)) {
+        scripts.push(mapRowToScript(row));
+      }
+    }
+  }
+
+  return scripts;
+};
+
+/**
+ * Find a single script by exact name match (case-insensitive).
+ *
+ * @param name - The script name to search for
+ * @returns The matching script or null
+ */
+export const findScriptByName = async (name: string): Promise<BatchScript | null> => {
+  const db = await getDb();
+
+  const row: unknown = await db.get('SELECT * FROM scripts WHERE UPPER(name) = ?', [name.toUpperCase()]);
+
+  if (!isScriptRow(row)) {
+    return null;
+  }
+
+  return mapRowToScript(row);
+};
+
 export const findScriptById = async (id: string): Promise<BatchScriptDetail | null> => {
   const db = await getDb();
   const row: unknown = await db.get('SELECT * FROM scripts WHERE id = ?', [id]);

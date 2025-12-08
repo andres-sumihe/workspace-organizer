@@ -18,6 +18,7 @@ import {
   listAllDriveMappings,
   listAllTags
 } from '../repositories/scripts.repository.js';
+import { getJobsByScriptId } from '../repositories/controlm-jobs.repository.js';
 
 import type { ListScriptsParams } from '../repositories/scripts.repository.js';
 import type {
@@ -79,7 +80,20 @@ export const getScriptDetailById = async (scriptId: string): Promise<BatchScript
     throw new AppError('Script not found.', 404, 'SCRIPT_NOT_FOUND');
   }
 
-  return script;
+  // Fetch linked Control-M jobs
+  const linkedJobsRaw = await getJobsByScriptId(scriptId);
+  const linkedJobs = linkedJobsRaw.map((job) => ({
+    id: job.id,
+    jobId: job.jobId,
+    jobName: job.jobName,
+    application: job.application,
+    nodeId: job.nodeId
+  }));
+
+  return {
+    ...script,
+    linkedJobs
+  };
 };
 
 export const createScript = async (request: ScriptCreateRequest): Promise<BatchScriptDetail> => {
