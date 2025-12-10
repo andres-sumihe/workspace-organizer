@@ -1,40 +1,24 @@
-import { randomUUID } from 'node:crypto';
-
 import { driveAnalyzerService } from './drive-analyzer.service.js';
 import { scriptParserService } from './script-parser.service.js';
 import { AppError } from '../errors/app-error.js';
-import {
-  countScripts,
-  listScripts,
-  findScriptById,
-  createScript as createScriptRepo,
-  updateScript as updateScriptRepo,
-  deleteScript as deleteScriptRepo,
-  createDriveMapping,
-  deleteDriveMappingsByScriptId,
-  findOrCreateTag,
-  attachTagToScript,
-  detachTagsFromScript,
-  listAllDriveMappings,
-  listAllTags
-} from '../repositories/scripts.repository.js';
-import { getJobsByScriptId } from '../repositories/controlm-jobs.repository.js';
+import { scriptsRepository } from '../repositories/scripts.repository.pg.js';
 
-import type { ListScriptsParams } from '../repositories/scripts.repository.js';
 import type {
   ScriptListResponse,
   BatchScriptDetail,
   ScriptCreateRequest,
   ScriptUpdateRequest,
   DriveAnalysis,
+  DriveMapping,
   ScriptStats,
-  BatchScript
+  BatchScript,
+  ScriptType
 } from '@workspace/shared';
 
 interface ScriptListOptions {
   page: number;
   pageSize: number;
-  type?: 'batch' | 'powershell' | 'shell' | 'other';
+  type?: ScriptType;
   isActive?: boolean;
   driveLetter?: string;
   tagId?: string;
@@ -47,17 +31,10 @@ export const getScriptList = async (options: ScriptListOptions): Promise<ScriptL
   const limit = pageSize;
   const offset = (page - 1) * pageSize;
 
-  const params: ListScriptsParams = {
-    limit,
-    offset,
-    type,
-    isActive,
-    driveLetter,
-    tagId,
-    searchQuery
-  };
-
-  const [items, total] = await Promise.all([listScripts(params), countScripts(params)]);
+  const [items, total] = await Promise.all([
+    scriptsRepository.list({ limit, offset, type, isActive, driveLetter, tagId, searchQuery }),
+    scriptsRepository.count({ type, isActive, driveLetter, tagId, searchQuery })
+  ]);
 
   const hasNextPage = page * pageSize < total;
   const hasPreviousPage = page > 1;
@@ -75,83 +52,54 @@ export const getScriptList = async (options: ScriptListOptions): Promise<ScriptL
 };
 
 export const getScriptDetailById = async (scriptId: string): Promise<BatchScriptDetail> => {
-  const script = await findScriptById(scriptId);
-  if (!script) {
+  const detail = await scriptsRepository.getDetail(scriptId);
+  if (!detail) {
     throw new AppError('Script not found.', 404, 'SCRIPT_NOT_FOUND');
   }
 
-  // Fetch linked Control-M jobs
-  const linkedJobsRaw = await getJobsByScriptId(scriptId);
-  const linkedJobs = linkedJobsRaw.map((job) => ({
-    id: job.id,
-    jobId: job.jobId,
-    jobName: job.jobName,
-    application: job.application,
-    nodeId: job.nodeId
-  }));
-
-  return {
-    ...script,
-    linkedJobs
-  };
+  return detail;
 };
 
-export const createScript = async (request: ScriptCreateRequest): Promise<BatchScriptDetail> => {
+export const createScript = async (request: ScriptCreateRequest, userId?: string): Promise<BatchScriptDetail> => {
   const { name, description, filePath, content, type = 'batch', isActive = true, tagIds } = request;
 
   // Parse the script content
   const parsed = scriptParserService.parseScriptContent(content);
 
-  const now = new Date().toISOString();
-  const scriptId = randomUUID();
-
-  // Create the script record
-  await createScriptRepo({
-    id: scriptId,
+  // Create the script in the database
+  const script = await scriptsRepository.create({
     name,
     description,
     filePath,
     content,
     type,
     isActive,
-    hasCredentials: parsed.hasCredentials,
-    createdAt: now,
-    updatedAt: now
-  });
+    tagIds
+  }, userId);
 
-  // Create drive mappings
+  // Add drive mappings
   for (const mapping of parsed.driveMappings) {
-    await createDriveMapping({
-      id: randomUUID(),
-      scriptId,
+    await scriptsRepository.addDriveMapping(script.id, {
       driveLetter: driveAnalyzerService.normalizeDriveLetter(mapping.driveLetter),
       networkPath: mapping.networkPath,
       serverName: mapping.serverName,
       shareName: mapping.shareName,
       hasCredentials: mapping.hasCredentials,
-      username: mapping.username,
-      createdAt: now,
-      updatedAt: now
+      username: mapping.username
     });
   }
 
-  // Attach tags
-  if (tagIds && tagIds.length > 0) {
-    for (const tagId of tagIds) {
-      await attachTagToScript(scriptId, tagId);
-    }
-  }
-
-  const created = await findScriptById(scriptId);
-  if (!created) {
+  // Return the full detail
+  const detail = await scriptsRepository.getDetail(script.id);
+  if (!detail) {
     throw new AppError('Failed to create script.', 500, 'SCRIPT_CREATE_FAILED');
   }
 
-  return created;
+  return detail;
 };
 
-export const updateScript = async (scriptId: string, request: ScriptUpdateRequest): Promise<BatchScriptDetail> => {
-  const existing = await findScriptById(scriptId);
+export const updateScript = async (scriptId: string, request: ScriptUpdateRequest, userId?: string): Promise<BatchScriptDetail> => {
+  const existing = await scriptsRepository.getById(scriptId);
   if (!existing) {
     throw new AppError('Script not found.', 404, 'SCRIPT_NOT_FOUND');
   }
@@ -159,68 +107,53 @@ export const updateScript = async (scriptId: string, request: ScriptUpdateReques
   const { name, description, content, type, isActive, tagIds } = request;
 
   // Re-parse content if it's being updated
-  let hasCredentials = existing.hasCredentials;
   if (content !== undefined) {
     const parsed = scriptParserService.parseScriptContent(content);
-    hasCredentials = parsed.hasCredentials;
 
-    // Re-create drive mappings
-    await deleteDriveMappingsByScriptId(scriptId);
-    const now = new Date().toISOString();
-
+    // Clear and re-create drive mappings
+    await scriptsRepository.clearDriveMappings(scriptId);
     for (const mapping of parsed.driveMappings) {
-      await createDriveMapping({
-        id: randomUUID(),
-        scriptId,
+      await scriptsRepository.addDriveMapping(scriptId, {
         driveLetter: driveAnalyzerService.normalizeDriveLetter(mapping.driveLetter),
         networkPath: mapping.networkPath,
         serverName: mapping.serverName,
         shareName: mapping.shareName,
         hasCredentials: mapping.hasCredentials,
-        username: mapping.username,
-        createdAt: now,
-        updatedAt: now
+        username: mapping.username
       });
     }
   }
 
   // Update script metadata
-  await updateScriptRepo(scriptId, {
+  await scriptsRepository.update(scriptId, {
     name,
     description,
     content,
     type,
     isActive,
-    hasCredentials
-  });
+    tagIds
+  }, userId);
 
-  // Update tags if provided
-  if (tagIds !== undefined) {
-    await detachTagsFromScript(scriptId);
-    for (const tagId of tagIds) {
-      await attachTagToScript(scriptId, tagId);
-    }
-  }
-
-  const updated = await findScriptById(scriptId);
-  if (!updated) {
+  // Return the full detail
+  const detail = await scriptsRepository.getDetail(scriptId);
+  if (!detail) {
     throw new AppError('Failed to update script.', 500, 'SCRIPT_UPDATE_FAILED');
   }
 
-  return updated;
+  return detail;
 };
 
 export const deleteScript = async (scriptId: string): Promise<void> => {
-  const existing = await findScriptById(scriptId);
+  const existing = await scriptsRepository.getById(scriptId);
   if (!existing) {
     throw new AppError('Script not found.', 404, 'SCRIPT_NOT_FOUND');
   }
 
-  await deleteScriptRepo(scriptId);
+  await scriptsRepository.delete(scriptId);
 };
 
 export const getStats = async (): Promise<ScriptStats> => {
-  const allScripts = await listScripts({ limit: 10000, offset: 0 });
+  const allScripts = await scriptsRepository.list({ limit: 10000, offset: 0 });
 
   const totalScripts = allScripts.length;
   const activeScripts = allScripts.filter((s) => s.isActive).length;
@@ -252,10 +185,16 @@ export const getStats = async (): Promise<ScriptStats> => {
 };
 
 export const getDriveAnalysis = async (): Promise<DriveAnalysis> => {
-  const allMappings = await listAllDriveMappings();
-  const allScripts = await listScripts({ limit: 10000, offset: 0 });
-
+  // Get all scripts to build script name map
+  const allScripts = await scriptsRepository.list({ limit: 10000, offset: 0 });
   const scriptNames = new Map<string, string>(allScripts.map((s) => [s.id, s.name]));
+
+  // Collect all drive mappings
+  const allMappings: DriveMapping[] = [];
+  for (const script of allScripts) {
+    const mappings = await scriptsRepository.getDriveMappings(script.id);
+    allMappings.push(...mappings);
+  }
 
   return driveAnalyzerService.analyzeDriveUsage(allMappings, scriptNames);
 };
@@ -266,14 +205,26 @@ export const getConflicts = async () => {
 };
 
 export const createOrFindTag = async (name: string, color?: string) => {
-  return findOrCreateTag(name, randomUUID(), color);
+  // Try to find existing tag
+  const allTags = await scriptsRepository.getAllTags();
+  const existing = allTags.find(t => t.name.toLowerCase() === name.toLowerCase());
+  if (existing) return existing;
+
+  // Create new tag
+  return scriptsRepository.createTag(name, color);
 };
 
 export const getAllTags = async () => {
-  return listAllTags();
+  return scriptsRepository.getAllTags();
 };
 
-export const scanDirectory = async (directoryPath: string, recursive = false, filePattern = '*.bat', replaceExisting = false): Promise<BatchScript[]> => {
+export const scanDirectory = async (
+  directoryPath: string,
+  recursive = false,
+  filePattern = '*.bat',
+  replaceExisting = false,
+  userId?: string
+): Promise<BatchScript[]> => {
   const fs = await import('fs/promises');
   const path = await import('path');
   const { minimatch } = await import('minimatch');
@@ -298,7 +249,7 @@ export const scanDirectory = async (directoryPath: string, recursive = false, fi
               const content = await fs.readFile(fullPath, 'utf-8');
               
               // Detect script type from extension
-              let scriptType: 'batch' | 'powershell' | 'shell' | 'other' = 'other';
+              let scriptType: ScriptType = 'other';
               const ext = path.extname(entry.name).toLowerCase();
               if (ext === '.bat' || ext === '.cmd') {
                 scriptType = 'batch';
@@ -314,18 +265,18 @@ export const scanDirectory = async (directoryPath: string, recursive = false, fi
               // Create tag for credentials if needed
               let tagIds: string[] | undefined;
               if (parsedData.hasCredentials) {
-                const credTag = await findOrCreateTag('credentials', randomUUID(), '#f97316');
+                const credTag = await createOrFindTag('credentials', '#f97316');
                 tagIds = [credTag.id];
               }
 
               // Check if script with same file path exists
               let existingScript: BatchScript | null = null;
               if (replaceExisting) {
-                const allScripts = await listScripts({ limit: 10000, offset: 0 });
+                const allScripts = await scriptsRepository.list({ limit: 10000, offset: 0 });
                 existingScript = allScripts.find((s) => s.filePath === fullPath) || null;
               }
 
-              let resultScript: BatchScript;
+              let resultScript: BatchScriptDetail;
               if (existingScript && replaceExisting) {
                 // Update existing script
                 resultScript = await updateScript(existingScript.id, {
@@ -335,7 +286,7 @@ export const scanDirectory = async (directoryPath: string, recursive = false, fi
                   isActive: true,
                   content,
                   tagIds
-                });
+                }, userId);
               } else {
                 // Create new script
                 resultScript = await createScript({
@@ -346,7 +297,7 @@ export const scanDirectory = async (directoryPath: string, recursive = false, fi
                   isActive: true,
                   content,
                   tagIds
-                });
+                }, userId);
               }
 
               discoveredScripts.push(resultScript);

@@ -1,17 +1,20 @@
-import { Loader2, Save, Settings as SettingsIcon } from 'lucide-react';
+import { Database, Loader2, Save, Settings as SettingsIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { settingsApi } from '@/api/settings';
 import { PageShell } from '@/components/layout/page-shell';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { useInstallation } from '@/contexts/installation-context';
 import { useValidationSettings } from '@/contexts/validation-settings-context';
 import { extractBICFromLT } from '@/utils/swift-mt-validator';
 
 export const SettingsPage = () => {
+  const { status: installationStatus, isLoading: installLoading } = useInstallation();
   const {
     criteria,
     updateCriteria,
@@ -142,6 +145,58 @@ export const SettingsPage = () => {
             {errorMessage || contextError}
           </div>
         )}
+
+        {/* Shared Database Status */}
+        <Card className="p-6">
+          <div className="flex items-start gap-4">
+            <div className="rounded-lg bg-primary/10 p-3">
+              <Database className="size-6 text-primary" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-lg font-semibold mb-1">Shared Database</h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                Connection status for the shared PostgreSQL database used for team collaboration features.
+              </p>
+              {installLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="size-4 animate-spin" />
+                  Checking connection...
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium">Status:</span>
+                    {installationStatus?.sharedDbConnected ? (
+                      <Badge variant="default" className="bg-emerald-500">Connected</Badge>
+                    ) : (
+                      <Badge variant="destructive">Disconnected</Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium">Migrations:</span>
+                    {installationStatus?.migrationsRun ? (
+                      installationStatus.pendingMigrations.length > 0 ? (
+                        <Badge variant="secondary">{installationStatus.pendingMigrations.length} pending</Badge>
+                      ) : (
+                        <Badge variant="default" className="bg-emerald-500">Up to date</Badge>
+                      )
+                    ) : (
+                      <Badge variant="secondary">Not run</Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium">Admin User:</span>
+                    {installationStatus?.adminUserCreated ? (
+                      <Badge variant="default" className="bg-emerald-500">Created</Badge>
+                    ) : (
+                      <Badge variant="secondary">Not created</Badge>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </Card>
 
         <Card className="p-6">
           <div className="space-y-6">

@@ -11,7 +11,7 @@ let app: Express;
 
 beforeEach(async () => {
   await closeDb();
-  app = createApp();
+  app = await createApp();
 });
 
 describe('GET /api/v1/workspaces', () => {

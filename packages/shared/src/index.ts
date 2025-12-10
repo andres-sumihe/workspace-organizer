@@ -547,3 +547,216 @@ export type TemplateListResponse = PaginatedData<TemplateSummaryV2>;
 export interface TemplateDetailResponse {
   template: TemplateManifestV2;
 }
+
+// ============================================================================
+// Authentication Types
+// ============================================================================
+
+export interface User {
+  id: string;
+  username: string;
+  email: string;
+  displayName?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserWithRoles extends User {
+  roles: Role[];
+}
+
+export interface UserCredentials {
+  username: string;
+  password: string;
+}
+
+export interface LoginRequest {
+  username: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  user: UserWithRoles;
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}
+
+export interface RefreshTokenRequest {
+  refreshToken: string;
+}
+
+export interface RefreshTokenResponse {
+  accessToken: string;
+  expiresIn: number;
+}
+
+export interface CreateUserRequest {
+  username: string;
+  email: string;
+  password: string;
+  displayName?: string;
+  roleIds?: string[];
+}
+
+export interface UpdateUserRequest {
+  email?: string;
+  displayName?: string;
+  isActive?: boolean;
+  roleIds?: string[];
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export type UserListResponse = PaginatedData<User>;
+
+export interface UserDetailResponse {
+  user: UserWithRoles;
+}
+
+// ============================================================================
+// RBAC (Role-Based Access Control) Types
+// ============================================================================
+
+export type ResourceType = 'scripts' | 'controlm_jobs' | 'users' | 'roles' | 'audit';
+
+export type ActionType = 'create' | 'read' | 'update' | 'delete' | 'execute' | 'manage';
+
+export interface Permission {
+  id: string;
+  resource: ResourceType;
+  action: ActionType;
+  description?: string;
+  createdAt: string;
+}
+
+export interface Role {
+  id: string;
+  name: string;
+  description?: string;
+  isSystem: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RoleWithPermissions extends Role {
+  permissions: Permission[];
+}
+
+export interface CreateRoleRequest {
+  name: string;
+  description?: string;
+  permissionIds: string[];
+}
+
+export interface UpdateRoleRequest {
+  name?: string;
+  description?: string;
+  permissionIds?: string[];
+}
+
+export interface AssignRoleRequest {
+  userId: string;
+  roleId: string;
+}
+
+export type RoleListResponse = PaginatedData<Role>;
+
+export interface RoleDetailResponse {
+  role: RoleWithPermissions;
+}
+
+export interface PermissionListResponse {
+  permissions: Permission[];
+}
+
+// ============================================================================
+// Audit Log Types
+// ============================================================================
+
+export type AuditAction =
+  | 'CREATE'
+  | 'READ'
+  | 'UPDATE'
+  | 'DELETE'
+  | 'LOGIN'
+  | 'LOGOUT'
+  | 'LOGIN_FAILED'
+  | 'PASSWORD_CHANGED'
+  | 'ROLE_ASSIGNED'
+  | 'ROLE_REVOKED';
+
+export interface AuditLogEntry {
+  id: string;
+  userId?: string;
+  username?: string;
+  action: AuditAction;
+  resourceType: string;
+  resourceId?: string;
+  oldValue?: Record<string, unknown>;
+  newValue?: Record<string, unknown>;
+  ipAddress?: string;
+  userAgent?: string;
+  metadata?: Record<string, unknown>;
+  timestamp: string;
+}
+
+export interface AuditLogFilters {
+  userId?: string;
+  action?: AuditAction;
+  resourceType?: string;
+  resourceId?: string;
+  fromDate?: string;
+  toDate?: string;
+}
+
+export type AuditLogListResponse = PaginatedData<AuditLogEntry>;
+
+// ============================================================================
+// Installation Types
+// ============================================================================
+
+export interface InstallationStatus {
+  isConfigured: boolean;
+  sharedDbConnected: boolean;
+  adminUserCreated: boolean;
+  migrationsRun: boolean;
+  pendingMigrations: string[];
+}
+
+export interface TestConnectionRequest {
+  host: string;
+  port: number;
+  database: string;
+  user: string;
+  password: string;
+  ssl?: boolean;
+}
+
+export interface TestConnectionResponse {
+  success: boolean;
+  message: string;
+  version?: string;
+}
+
+export interface ConfigureInstallationRequest {
+  database: TestConnectionRequest;
+  adminUser: {
+    username: string;
+    email: string;
+    password: string;
+    displayName?: string;
+  };
+}
+
+export interface ConfigureInstallationResponse {
+  success: boolean;
+  message: string;
+  migrationsRun: string[];
+  adminUserId: string;
+}
+
