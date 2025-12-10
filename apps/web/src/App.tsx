@@ -1,14 +1,18 @@
-import { FolderGit2, LayoutDashboard, LineChart, Settings, FileCode } from 'lucide-react';
+import { FolderGit2, LayoutDashboard, LineChart, Settings, FileCode, Loader2 } from 'lucide-react';
 import { useEffect, useMemo, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 
 import type { SidebarNavItem } from '@/components/layout/app-sidebar';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { FileManagerProvider } from '@/contexts/file-manager-context';
+import { InstallationProvider, useInstallation } from '@/contexts/installation-context';
 import { WorkspaceProvider } from '@/contexts/workspace-context';
 import { AuthenticatedLayout } from '@/layouts/authenticated-layout';
 import { DashboardPage } from '@/pages/dashboard-page';
+import { InstallationPage } from '@/pages/installation-page';
+import { LoginPage } from '@/pages/login-page';
 import { ScriptsPage } from '@/pages/scripts-page';
 import { SettingsPage } from '@/pages/settings-page';
 import { WorkspaceDetailPage } from '@/pages/workspace-detail-page';
@@ -65,6 +69,47 @@ const renderPlaceholder = (page: AppPage) => {
     </Card>
   );
 };
+
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="flex flex-col items-center gap-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Loading...</p>
+      </div>
+    </div>
+  );
+}
+
+function ProtectedRoutes() {
+  const location = useLocation();
+  const { isLoading: installLoading, needsInstallation } = useInstallation();
+  const { isLoading: authLoading, isAuthenticated } = useAuth();
+
+  // Show loading while checking installation/auth status
+  if (installLoading || authLoading) {
+    return <LoadingScreen />;
+  }
+
+  // Redirect to installation if not configured
+  if (needsInstallation) {
+    return <Navigate to="/install" state={{ from: location.pathname }} replace />;
+  }
+
+  // Redirect to login if not authenticated
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+  }
+
+  // User is authenticated and app is configured - render protected content
+  return (
+    <WorkspaceProvider>
+      <FileManagerProvider>
+        <AppContent />
+      </FileManagerProvider>
+    </WorkspaceProvider>
+  );
+}
 
 function AppContent() {
   const navigate = useNavigate();
@@ -139,11 +184,17 @@ function AppContent() {
 export function App() {
   return (
     <BrowserRouter>
-      <WorkspaceProvider>
-        <FileManagerProvider>
-          <AppContent />
-        </FileManagerProvider>
-      </WorkspaceProvider>
+      <InstallationProvider>
+        <AuthProvider>
+          <Routes>
+            {/* Public routes - outside of auth protection */}
+            <Route path="/install" element={<InstallationPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            {/* Protected routes - require installation and authentication */}
+            <Route path="/*" element={<ProtectedRoutes />} />
+          </Routes>
+        </AuthProvider>
+      </InstallationProvider>
     </BrowserRouter>
   );
 }

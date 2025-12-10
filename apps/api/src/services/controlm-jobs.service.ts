@@ -21,8 +21,8 @@ import {
   getJobsWithUnlinkedScripts,
   getJobsWithLinkedScripts,
   bulkLinkJobsToScripts
-} from '../repositories/controlm-jobs.repository.js';
-import { findScriptById, findScriptsByFilename } from '../repositories/scripts.repository.js';
+} from '../repositories/controlm-jobs.repository.pg.js';
+import { scriptsRepository, findScriptsByFilename } from '../repositories/scripts.repository.pg.js';
 
 import type {
   ControlMJob,
@@ -227,7 +227,7 @@ export const getJobDetailById = async (id: string): Promise<ControlMJobDetail | 
   // Fetch linked script if linkedScriptId exists
   let linkedScript = undefined;
   if (job.linkedScriptId) {
-    const script = await findScriptById(job.linkedScriptId);
+    const script = await scriptsRepository.getById(job.linkedScriptId);
     if (script) {
       linkedScript = script;
     }
@@ -413,7 +413,7 @@ export const clearAllJobs = async (): Promise<number> => {
 
 export const linkJobToScript = async (jobId: string, scriptId: string): Promise<ControlMJob | null> => {
   // Verify script exists
-  const script = await findScriptById(scriptId);
+  const script = await scriptsRepository.getById(scriptId);
   if (!script) {
     throw new Error('Script not found');
   }

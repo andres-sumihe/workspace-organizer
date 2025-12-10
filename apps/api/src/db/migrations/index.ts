@@ -6,6 +6,8 @@ import * as migration0005 from './0005-fix-workspace-status.js';
 import * as migration0006 from './0006-create-settings.js';
 import * as migration0007 from './0007-create-controlm-jobs.js';
 import * as migration0008 from './0008-fix-controlm-jobs-unique.js';
+import * as migration0009 from './0009-remove-shared-feature-tables.js';
+import * as migration0010 from './0010-create-shared-config.js';
 
 import type { Database } from 'sqlite';
 
@@ -22,7 +24,9 @@ const migrations: Migration[] = [
   { id: migration0005.id, up: migration0005.up },
   { id: migration0006.id, up: migration0006.up },
   { id: migration0007.id, up: migration0007.up },
-  { id: migration0008.id, up: migration0008.up }
+  { id: migration0008.id, up: migration0008.up },
+  { id: migration0009.id, up: migration0009.up },
+  { id: migration0010.id, up: migration0010.up }
 ];
 
 export const runMigrations = async (db: Database) => {
