@@ -1,15 +1,16 @@
-import { authService } from '../services/auth.service.js';
+import { modeAwareAuthProvider } from '../auth/mode-aware-auth.provider.js';
 
-import type { UserWithRoles, Permission } from '@workspace/shared';
+import type { AuthenticatedUser } from '@workspace/shared';
 import type { Request, Response, NextFunction } from 'express';
 
 /**
  * Extended Request interface with authenticated user
  */
 export interface AuthenticatedRequest extends Request {
-  user?: UserWithRoles;
+  user?: AuthenticatedUser;
   userId?: string;
-  permissions?: Permission[];
+  permissions?: string[];
+  appMode?: 'solo' | 'shared';
 }
 
 /**
@@ -45,19 +46,11 @@ export const authMiddleware = async (
 
     const token = parts[1];
 
-    // Verify token
-    const decoded = await authService.verifyToken(token);
+    // Verify token with mode-aware provider
+    const decoded = await modeAwareAuthProvider.verifyToken(token);
 
-    if (decoded.type !== 'access') {
-      res.status(401).json({
-        code: 'UNAUTHORIZED',
-        message: 'Invalid token type'
-      });
-      return;
-    }
-
-    // Get user with roles
-    const user = await authService.getUserById(decoded.userId);
+    // Get user with roles and permissions
+    const user = await modeAwareAuthProvider.getUserById(decoded.userId);
 
     if (!user) {
       res.status(401).json({
@@ -75,13 +68,11 @@ export const authMiddleware = async (
       return;
     }
 
-    // Get user permissions
-    const permissions = await authService.getUserPermissions(user.id);
-
-    // Attach user and permissions to request
+    // Attach user, permissions, and mode to request
     req.user = user;
     req.userId = user.id;
-    req.permissions = permissions;
+    req.permissions = user.permissions;
+    req.appMode = user.mode;
 
     next();
   } catch (error) {
@@ -134,17 +125,15 @@ export const optionalAuthMiddleware = async (
     }
 
     const token = parts[1];
-    const decoded = await authService.verifyToken(token);
+    const decoded = await modeAwareAuthProvider.verifyToken(token);
 
-    if (decoded.type === 'access') {
-      const user = await authService.getUserById(decoded.userId);
+    const user = await modeAwareAuthProvider.getUserById(decoded.userId);
 
-      if (user && user.isActive) {
-        const permissions = await authService.getUserPermissions(user.id);
-        req.user = user;
-        req.userId = user.id;
-        req.permissions = permissions;
-      }
+    if (user && user.isActive) {
+      req.user = user;
+      req.userId = user.id;
+      req.permissions = user.permissions;
+      req.appMode = user.mode;
     }
 
     next();

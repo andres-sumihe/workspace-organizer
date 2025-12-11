@@ -760,3 +760,84 @@ export interface ConfigureInstallationResponse {
   adminUserId: string;
 }
 
+// ============================================================================
+// Mode & Authentication Types (Dual-Mode Architecture)
+// ============================================================================
+
+export type AppMode = 'solo' | 'shared';
+
+export interface ModeConfig {
+  mode: AppMode;
+  sharedEnabled: boolean;
+  sharedDbConnected: boolean;
+  localUserExists: boolean;
+}
+
+export interface ModeStatus {
+  mode: AppMode;
+  sharedEnabled: boolean;
+  sharedDbConnected: boolean;
+}
+
+// Local User (Solo Mode)
+export interface LocalUser {
+  id: string;
+  username: string;
+  email: string;
+  displayName?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Mode-Aware User (extends existing User interface)
+export interface AuthenticatedUser extends User {
+  mode: AppMode;
+  roles: string[];
+  permissions: string[];
+}
+
+// Setup Types
+export interface SetupStatus {
+  needsSetup: boolean;
+  hasSharedDb: boolean;
+  sharedDbConnected: boolean;
+  sharedEnabled: boolean;
+}
+
+export interface CreateAccountRequest {
+  username: string;
+  email: string;
+  password: string;
+  displayName?: string;
+}
+
+// Migration Types
+export interface MigrationMapping {
+  localId: string;
+  sharedId: string;
+  tableName: string;
+  migratedAt: string;
+}
+
+export interface MigrationResult {
+  success: boolean;
+  itemsMigrated: number;
+  errors: string[];
+  dryRun: boolean;
+}
+
+export interface MigrationOptions {
+  migrateScripts?: boolean;
+  migrateJobs?: boolean;
+  dryRun?: boolean;
+}
+
+// Team Configuration Types
+export interface TeamConfigStatus {
+  isConfigured: boolean;
+  connectionString?: string;
+  lastTestSuccessful: boolean;
+  pendingMigration: boolean;
+}
+

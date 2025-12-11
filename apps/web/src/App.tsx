@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { FileManagerProvider } from '@/contexts/file-manager-context';
 import { InstallationProvider, useInstallation } from '@/contexts/installation-context';
+import { ModeProvider, useMode } from '@/contexts/mode-context';
 import { WorkspaceProvider } from '@/contexts/workspace-context';
 import { AuthenticatedLayout } from '@/layouts/authenticated-layout';
 import { DashboardPage } from '@/pages/dashboard-page';
@@ -15,6 +16,7 @@ import { InstallationPage } from '@/pages/installation-page';
 import { LoginPage } from '@/pages/login-page';
 import { ScriptsPage } from '@/pages/scripts-page';
 import { SettingsPage } from '@/pages/settings-page';
+import { SetupPage } from '@/pages/setup-page';
 import { WorkspaceDetailPage } from '@/pages/workspace-detail-page';
 import { WorkspacesPage } from '@/pages/workspaces-page';
 
@@ -85,15 +87,21 @@ function ProtectedRoutes() {
   const location = useLocation();
   const { isLoading: installLoading, needsInstallation } = useInstallation();
   const { isLoading: authLoading, isAuthenticated } = useAuth();
+  const { isLoading: modeLoading, needsSetup } = useMode();
 
-  // Show loading while checking installation/auth status
-  if (installLoading || authLoading) {
+  // Show loading while checking installation/auth/setup status
+  if (installLoading || authLoading || modeLoading) {
     return <LoadingScreen />;
   }
 
   // Redirect to installation if not configured
   if (needsInstallation) {
     return <Navigate to="/install" state={{ from: location.pathname }} replace />;
+  }
+
+  // Redirect to setup if first-time account creation is needed
+  if (needsSetup) {
+    return <Navigate to="/setup" state={{ from: location.pathname }} replace />;
   }
 
   // Redirect to login if not authenticated
@@ -185,15 +193,18 @@ export function App() {
   return (
     <BrowserRouter>
       <InstallationProvider>
-        <AuthProvider>
-          <Routes>
-            {/* Public routes - outside of auth protection */}
-            <Route path="/install" element={<InstallationPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            {/* Protected routes - require installation and authentication */}
-            <Route path="/*" element={<ProtectedRoutes />} />
-          </Routes>
-        </AuthProvider>
+        <ModeProvider>
+          <AuthProvider>
+            <Routes>
+              {/* Public routes - outside of auth protection */}
+              <Route path="/install" element={<InstallationPage />} />
+              <Route path="/setup" element={<SetupPage />} />
+              <Route path="/login" element={<LoginPage />} />
+              {/* Protected routes - require installation and authentication */}
+              <Route path="/*" element={<ProtectedRoutes />} />
+            </Routes>
+          </AuthProvider>
+        </ModeProvider>
       </InstallationProvider>
     </BrowserRouter>
   );
