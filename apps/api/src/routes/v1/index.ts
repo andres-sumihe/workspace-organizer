@@ -6,6 +6,7 @@ import controlmJobsRouter from './controlm-jobs.js';
 import { installationRouter } from './installation.js';
 import { scriptsRouter } from './scripts.js';
 import settingsRouter from './settings.js';
+import setupRouter from './setup.js';
 import templatesRouter from './templates.js';
 import { workspacesRouter } from './workspaces.js';
 import { isSharedDbConnected } from '../../db/shared-client.js';
@@ -15,10 +16,13 @@ import type { Request, Response, NextFunction } from 'express';
 
 export const v1Router = Router();
 
+// Setup routes - always available (no auth required) for first-time setup
+v1Router.use('/setup', setupRouter);
+
 // Installation routes - always available (no auth required)
 v1Router.use('/installation', installationRouter);
 
-// Auth routes - available when shared DB is connected
+// Auth routes - always available (supports both Solo and Shared modes)
 v1Router.use('/auth', authRouter);
 
 // Local database routes - always available (no auth required for now)

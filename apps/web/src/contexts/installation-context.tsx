@@ -47,8 +47,11 @@ export function InstallationProvider({ children }: { children: ReactNode }) {
     checkStatus();
   }, [checkStatus]);
 
+  // In dual-mode architecture, the installation wizard is for SHARED mode only
+  // Solo mode works without any shared database configuration
+  // Users can configure shared DB later via Settings > Team Features
   const isConfigured = status?.isConfigured ?? false;
-  const needsInstallation = !isConfigured || !status?.adminUserCreated;
+  const needsInstallation = false; // Solo-first: no installation required
 
   return (
     <InstallationContext.Provider

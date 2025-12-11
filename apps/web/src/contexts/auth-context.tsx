@@ -1,21 +1,24 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 
-import type { LoginRequest, Permission, UserWithRoles } from '@workspace/shared';
+import type { LoginRequest, Permission, UserWithRoles, AppMode } from '@workspace/shared';
 import type { ReactNode } from 'react';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
 interface AuthState {
   user: UserWithRoles | null;
-  permissions: Permission[];
+  permissions: Permission[] | string[];
   isAuthenticated: boolean;
   isLoading: boolean;
+  mode: AppMode;
 }
 
 interface AuthContextValue extends AuthState {
   login: (credentials: LoginRequest) => Promise<void>;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
+  isSoloMode: boolean;
+  isSharedMode: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -30,6 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     permissions: [],
     isAuthenticated: false,
     isLoading: true,
+    mode: 'solo',
   });
 
   // Get stored tokens
@@ -101,6 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           permissions: data.permissions || [],
           isAuthenticated: true,
           isLoading: false,
+          mode: data.mode || 'solo',
         });
         return true;
       }
@@ -125,6 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 permissions: data.permissions || [],
                 isAuthenticated: true,
                 isLoading: false,
+                mode: data.mode || 'solo',
               });
               return true;
             }
@@ -162,6 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       permissions: data.user.permissions || [],
       isAuthenticated: true,
       isLoading: false,
+      mode: data.mode || 'solo',
     });
   };
 
@@ -187,6 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         permissions: [],
         isAuthenticated: false,
         isLoading: false,
+        mode: 'solo',
       });
     }
   };
@@ -202,6 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         permissions: [],
         isAuthenticated: false,
         isLoading: false,
+        mode: 'solo',
       });
     }
   };
@@ -217,12 +226,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           permissions: [],
           isAuthenticated: false,
           isLoading: false,
+          mode: 'solo',
         });
       }
     };
 
     initAuth();
   }, [fetchCurrentUser]);
+
+  const isSoloMode = state.mode === 'solo';
+  const isSharedMode = state.mode === 'shared';
 
   return (
     <AuthContext.Provider
@@ -231,6 +244,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         refreshAuth,
+        isSoloMode,
+        isSharedMode,
       }}
     >
       {children}
@@ -254,5 +269,12 @@ export function getAuthToken(): string | null {
 // Helper hook to check if user has a specific permission
 export function useHasPermission(resource: string, action: string): boolean {
   const { permissions } = useAuth();
-  return permissions.some((p) => p.resource === resource && p.action === action);
+  return permissions.some((p) => {
+    if (typeof p === 'string') {
+      // Handle string format: "resource:action"
+      return p === `${resource}:${action}`;
+    }
+    // Handle Permission object format
+    return p.resource === resource && p.action === action;
+  });
 }

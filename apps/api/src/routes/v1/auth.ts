@@ -1,8 +1,10 @@
 import { Router } from 'express';
 
+import { modeAwareAuthProvider } from '../../auth/mode-aware-auth.provider.js';
 import { authMiddleware } from '../../middleware/auth.middleware.js';
 import { auditService } from '../../services/audit.service.js';
 import { authService } from '../../services/auth.service.js';
+import { modeService } from '../../services/mode.service.js';
 
 import type { AuthenticatedRequest } from '../../middleware/auth.middleware.js';
 import type { LoginRequest, RefreshTokenRequest, ChangePasswordRequest } from '@workspace/shared';
@@ -12,7 +14,7 @@ export const authRouter = Router();
 
 /**
  * POST /auth/login
- * Authenticate user and return tokens
+ * Authenticate user and return tokens (mode-aware)
  */
 authRouter.post('/login', async (req: Request, res: Response) => {
   try {
@@ -29,28 +31,35 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     const ipAddress = req.ip || req.socket.remoteAddress;
     const userAgent = req.headers['user-agent'];
 
-    const result = await authService.login(body, ipAddress, userAgent);
+    // Use mode-aware auth provider
+    const result = await modeAwareAuthProvider.login(body);
 
-    // Log successful login
-    await auditService.logLogin(result.user.id, true, {
-      ipAddress,
-      userAgent,
-      metadata: { username: body.username }
-    });
+    // Log successful login (only in shared mode)
+    const mode = await modeService.getMode();
+    if (mode === 'shared') {
+      await auditService.logLogin(result.user.id, true, {
+        ipAddress,
+        userAgent,
+        metadata: { username: body.username }
+      });
+    }
 
     res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Login failed';
 
-    // Try to log failed login attempt
+    // Try to log failed login attempt (only in shared mode)
     try {
-      const user = await authService.getUserByUsername(req.body?.username);
-      if (user) {
-        await auditService.logLogin(user.id, false, {
-          ipAddress: req.ip || req.socket.remoteAddress,
-          userAgent: req.headers['user-agent'],
-          metadata: { error: message }
-        });
+      const mode = await modeService.getMode();
+      if (mode === 'shared') {
+        const user = await authService.getUserByUsername(req.body?.username);
+        if (user) {
+          await auditService.logLogin(user.id, false, {
+            ipAddress: req.ip || req.socket.remoteAddress,
+            userAgent: req.headers['user-agent'],
+            metadata: { error: message }
+          });
+        }
       }
     } catch {
       // Ignore logging errors
@@ -65,19 +74,19 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
 /**
  * POST /auth/logout
- * Invalidate current session
+ * Invalidate current session (mode-aware)
  */
 authRouter.post('/logout', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const authHeader = req.headers.authorization;
-    const token = authHeader?.split(' ')[1];
+    const body = req.body as { refreshToken?: string };
+    const mode = req.appMode || 'solo';
 
-    if (token) {
-      await authService.logout(token);
+    if (body.refreshToken) {
+      await modeAwareAuthProvider.logout(body.refreshToken, mode);
     }
 
-    // Log logout
-    if (req.userId) {
+    // Log logout (only in shared mode)
+    if (mode === 'shared' && req.userId) {
       await auditService.logLogout(req.userId, {
         ipAddress: req.ip || req.socket.remoteAddress,
         userAgent: req.headers['user-agent']
@@ -120,11 +129,11 @@ authRouter.get('/me', authMiddleware, async (req: AuthenticatedRequest, res: Res
 
 /**
  * POST /auth/refresh
- * Refresh access token using refresh token
+ * Refresh access token using refresh token (mode-aware)
  */
 authRouter.post('/refresh', async (req: Request, res: Response) => {
   try {
-    const body = req.body as RefreshTokenRequest;
+    const body = req.body as RefreshTokenRequest & { mode?: 'solo' | 'shared' };
 
     if (!body.refreshToken) {
       res.status(400).json({
@@ -134,7 +143,9 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
       return;
     }
 
-    const result = await authService.refreshToken(body.refreshToken);
+    // Determine mode from request or detect from token
+    const mode = body.mode || (await modeService.getMode());
+    const result = await modeAwareAuthProvider.refreshToken(body.refreshToken, mode);
 
     res.json(result);
   } catch (error) {
