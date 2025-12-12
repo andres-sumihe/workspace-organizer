@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { DeleteConfirmDialog } from './delete-confirm-dialog';
 import { DirectoryBrowser, type DirectoryBrowserHandle } from './directory-browser';
 import { FileOperationsToolbar } from './file-operations-toolbar';
-import { MergeDialog } from './merge-dialog';
+import { PayloadDialog } from './payload-dialog';
 import { PreviewPanel } from './preview-panel';
 import { ProjectSelector } from './project-selector';
 import { SplitDialog } from './split-dialog';
@@ -14,7 +14,7 @@ import { useFileOperations } from '../hooks/use-file-operations';
 import { useFilePreview } from '../hooks/use-file-preview';
 import { useProjectManagement, type Project } from '../hooks/use-project-management';
 
-import type { MergeFormValues, SplitFormValues } from '../types';
+import type { SplitFormValues } from '../types';
 import type { CheckedState } from '@radix-ui/react-checkbox';
 
 import { Button } from '@/components/ui/button';
@@ -204,11 +204,9 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
     setOperationError,
     toggleSelection,
     handleToggleAllSelections,
-    handleMerge,
     handleSplit,
     handleRenameEntry,
-    handleDeleteEntries,
-    getDefaultMergeDestination
+    handleDeleteEntries
   } = useFileOperations({
     getEffectiveRootPath,
     currentPath,
@@ -313,17 +311,7 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
   // Dialogs state
   // ─────────────────────────────────────────────────────────────────────────
   
-  const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
-  const mergeForm = useForm<MergeFormValues>({
-    defaultValues: {
-      destination: '',
-      separator: '\\n\\n',
-      includeHeaders: true,
-      overwrite: false,
-      mode: 'simple',
-      copyToClipboard: false
-    }
-  });
+  const [payloadDialogOpen, setPayloadDialogOpen] = useState(false);
 
   const [splitDialogOpen, setSplitDialogOpen] = useState(false);
   const splitForm = useForm<SplitFormValues>({
@@ -352,19 +340,6 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
   // Dialog handlers
   // ─────────────────────────────────────────────────────────────────────────
   
-  const openMergeDialog = useCallback(() => {
-    const currentMode = mergeForm.getValues('mode') || 'simple';
-    mergeForm.reset({
-      destination: getDefaultMergeDestination(),
-      separator: '\n\n',
-      includeHeaders: currentMode === 'simple',
-      overwrite: false,
-      mode: currentMode,
-      copyToClipboard: currentMode === 'boundary'
-    });
-    setMergeDialogOpen(true);
-  }, [mergeForm, getDefaultMergeDestination]);
-
   const openSplitDialog = useCallback((fromClipboard = false) => {
     if (!fromClipboard && !preview?.path) return;
     
@@ -512,14 +487,9 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
   }, [saveEdit, setOperationMessage]);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Merge/Split handlers
+  // Split handler
   // ─────────────────────────────────────────────────────────────────────────
   
-  const onMergeSubmit = useCallback(async (values: MergeFormValues) => {
-    await handleMerge(values);
-    setMergeDialogOpen(false);
-  }, [handleMerge]);
-
   const onSplitSubmit = useCallback(async (values: SplitFormValues) => {
     await handleSplit(values);
     setSplitDialogOpen(false);
@@ -529,10 +499,41 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
   // Computed values
   // ─────────────────────────────────────────────────────────────────────────
   
-  const canMerge = selectedFiles.size >= 2 && desktopAvailable;
   const refreshDisabled = directoryLoading || !desktopAvailable;
   const showEmptyProjectState = !selectedProjectId && projects.length > 0;
   const showNoProjectsState = projects.length === 0 && !projectsLoading;
+
+  // Get selected file info for PayloadDialog
+  const selectedFilesInfo = useMemo(() => {
+    return entries
+      .filter((e) => selectedFiles.has(e.path) && e.type === 'file')
+      .map((e) => ({ name: e.name, path: e.path }));
+  }, [entries, selectedFiles]);
+
+  // Read file content by path (for PayloadDialog)
+  const handleReadFile = useCallback(
+    async (filePath: string): Promise<ArrayBuffer> => {
+      if (!window.api?.readBinaryFile) {
+        throw new Error('Desktop bridge not available');
+      }
+      const rootPath = getEffectiveRootPath();
+      const result = await window.api.readBinaryFile({
+        rootPath,
+        relativePath: filePath
+      });
+      if (!result.ok || !result.base64) {
+        throw new Error(result.error || 'Failed to read file');
+      }
+      // Convert base64 to ArrayBuffer
+      const binaryString = atob(result.base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      return bytes.buffer;
+    },
+    [getEffectiveRootPath]
+  );
 
   // ─────────────────────────────────────────────────────────────────────────
   // Render guards
@@ -575,8 +576,7 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
 
         <FileOperationsToolbar
           selectedCount={selectedFiles.size}
-          canMerge={canMerge}
-          onMerge={openMergeDialog}
+          onTransfer={() => setPayloadDialogOpen(true)}
           onExtract={() => openSplitDialog(true)}
           onDelete={handleDeleteBulk}
           disabled={!desktopAvailable}
@@ -637,7 +637,12 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
       )}
 
       {/* Dialogs */}
-      <MergeDialog form={mergeForm} open={mergeDialogOpen} onOpenChange={setMergeDialogOpen} onSubmit={onMergeSubmit} />
+      <PayloadDialog
+        open={payloadDialogOpen}
+        onOpenChange={setPayloadDialogOpen}
+        selectedFiles={selectedFilesInfo}
+        onReadFile={handleReadFile}
+      />
       <SplitDialog form={splitForm} open={splitDialogOpen} onOpenChange={setSplitDialogOpen} onSubmit={onSplitSubmit} />
       <DeleteConfirmDialog
         open={deleteDialogOpen}
