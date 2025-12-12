@@ -1,14 +1,12 @@
 export type PreviewMode = 'text' | 'hex' | 'media';
 
-export type MergeMode = 'simple' | 'boundary';
+export interface PayloadPackFormValues {
+  sourceFile?: File;
+}
 
-export interface MergeFormValues {
-  destination: string;
-  separator: string;
-  includeHeaders: boolean;
-  overwrite: boolean;
-  mode: MergeMode;
-  copyToClipboard: boolean;
+export interface PayloadUnpackFormValues {
+  source: 'clipboard' | 'file';
+  payloadFile?: File;
 }
 
 export interface SplitFormValues {

@@ -1,8 +1,6 @@
 import { useState, useCallback, type Dispatch, type SetStateAction } from 'react';
 
-import { relativeJoin } from '../utils';
-
-import type { MergeFormValues, SplitFormValues } from '../types';
+import type { SplitFormValues } from '../types';
 import type { WorkspaceDirectoryEntry, WorkspaceFilePreview } from '@/types/desktop';
 
 interface UseFileOperationsProps {
@@ -24,11 +22,9 @@ interface UseFileOperationsReturn {
   toggleSelection: (entry: WorkspaceDirectoryEntry) => void;
   handleToggleAllSelections: (checked: boolean | 'indeterminate') => void;
   clearSelection: () => void;
-  handleMerge: (values: MergeFormValues) => Promise<void>;
   handleSplit: (values: SplitFormValues) => Promise<void>;
   handleRenameEntry: (entry: WorkspaceDirectoryEntry, newName: string) => Promise<void>;
   handleDeleteEntries: (paths: string[]) => Promise<void>;
-  getDefaultMergeDestination: () => string;
 }
 
 export const useFileOperations = ({
@@ -75,52 +71,6 @@ export const useFileOperations = ({
       return next;
     });
   }, [entries]);
-
-  const getDefaultMergeDestination = useCallback(() => {
-    return relativeJoin(currentPath, `merged-${new Date().toISOString().replace(/[:.]/g, '-')}.txt`);
-  }, [currentPath]);
-
-  const handleMerge = useCallback(async (values: MergeFormValues) => {
-    const effectiveRoot = getEffectiveRootPath();
-    if (!effectiveRoot || !window.api?.mergeTextFiles) {
-      setOperationError('Desktop bridge unavailable.');
-      return;
-    }
-
-    const sources = Array.from(selectedFiles);
-    if (sources.length < 2) {
-      setOperationError('Select at least two files to merge.');
-      return;
-    }
-
-    try {
-      const response = await window.api.mergeTextFiles({
-        rootPath: effectiveRoot,
-        sources,
-        destination: values.destination,
-        separator: values.separator,
-        includeHeaders: values.includeHeaders,
-        overwrite: values.overwrite,
-        mode: values.mode,
-        copyToClipboard: values.copyToClipboard
-      });
-      
-      if (!response.ok || !response.destination) {
-        throw new Error(response.error || 'Merge failed');
-      }
-      
-      let message = `Merged into ${response.destination}`;
-      if (values.copyToClipboard) {
-        message += ' (content copied to clipboard)';
-      }
-      setOperationMessage(message);
-      clearSelection();
-      await onRefreshDirectory();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to merge files';
-      setOperationError(message);
-    }
-  }, [getEffectiveRootPath, selectedFiles, clearSelection, onRefreshDirectory]);
 
   const handleSplit = useCallback(async (values: SplitFormValues) => {
     const effectiveRoot = getEffectiveRootPath();
@@ -270,10 +220,8 @@ export const useFileOperations = ({
     toggleSelection,
     handleToggleAllSelections,
     clearSelection,
-    handleMerge,
     handleSplit,
     handleRenameEntry,
-    handleDeleteEntries,
-    getDefaultMergeDestination
+    handleDeleteEntries
   };
 };

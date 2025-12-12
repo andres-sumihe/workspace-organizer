@@ -1,12 +1,11 @@
-import { GitMerge, SplitSquareHorizontal, Trash2 } from 'lucide-react';
+import { Package, SplitSquareHorizontal, Trash2 } from 'lucide-react';
 import { memo } from 'react';
 
 import { Button } from '@/components/ui/button';
 
 interface FileOperationsToolbarProps {
   selectedCount: number;
-  canMerge: boolean;
-  onMerge: () => void;
+  onTransfer: () => void;
   onExtract: () => void;
   onDelete: () => void;
   disabled?: boolean;
@@ -14,22 +13,22 @@ interface FileOperationsToolbarProps {
 
 const FileOperationsToolbarComponent = ({
   selectedCount,
-  canMerge,
-  onMerge,
+  onTransfer,
   onExtract,
   onDelete,
   disabled
 }: FileOperationsToolbarProps) => (
   <div className="flex items-center gap-2 rounded-md border border-border/40 p-1">
     <Button
-      onClick={onMerge}
-      disabled={!canMerge || disabled}
+      onClick={onTransfer}
+      disabled={selectedCount < 1 || disabled}
       variant="ghost"
       size="sm"
       className="h-8 gap-2 px-3"
+      title="Pack selected file(s) for transfer via clipboard"
     >
-      <GitMerge className="size-4" />
-      <span>Merge</span>
+      <Package className="size-4" />
+      <span>Transfer</span>
       {selectedCount > 0 && (
         <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
           {selectedCount}
