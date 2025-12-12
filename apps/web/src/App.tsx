@@ -5,6 +5,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from
 import type { SidebarNavItem } from '@/components/layout/app-sidebar';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { LockScreen } from '@/components/lock-screen';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { FileManagerProvider } from '@/contexts/file-manager-context';
 import { InstallationProvider, useInstallation } from '@/contexts/installation-context';
@@ -86,7 +87,7 @@ function LoadingScreen() {
 function ProtectedRoutes() {
   const location = useLocation();
   const { isLoading: installLoading, needsInstallation } = useInstallation();
-  const { isLoading: authLoading, isAuthenticated } = useAuth();
+  const { isLoading: authLoading, isAuthenticated, isLocked } = useAuth();
   const { isLoading: modeLoading, needsSetup } = useMode();
 
   // Show loading while checking installation/auth/setup status
@@ -109,6 +110,11 @@ function ProtectedRoutes() {
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 
+  // Show lock screen if session is locked due to inactivity
+  if (isLocked) {
+    return <LockScreen />;
+  }
+
   // User is authenticated and app is configured - render protected content
   return (
     <WorkspaceProvider>
@@ -122,6 +128,7 @@ function ProtectedRoutes() {
 function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { isSoloMode } = useAuth();
   
   // Store the last visited workspace route so we can return to it
   const lastWorkspaceRoute = useRef<string>('/workspaces');
@@ -133,15 +140,23 @@ function AppContent() {
     }
   }, [location.pathname]);
 
+  // Build sidebar items based on mode
+  // In Solo mode, Scripts is still shown but leads to a "Team Feature" placeholder
   const sidebarItems = useMemo<SidebarNavItem[]>(
     () => [
       { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { key: 'workspaces', label: 'Workspaces', icon: FolderGit2 },
-      { key: 'scripts', label: 'Scripts', icon: FileCode },
+      { 
+        key: 'scripts', 
+        label: 'Scripts', 
+        icon: FileCode,
+        // Visual hint that this is a team feature
+        badge: isSoloMode ? 'Team' : undefined
+      },
       { key: 'analytics', label: 'Analytics', icon: LineChart },
       { key: 'settings', label: 'Settings', icon: Settings },
     ],
-    []
+    [isSoloMode]
   );
 
   // Determine active key from route

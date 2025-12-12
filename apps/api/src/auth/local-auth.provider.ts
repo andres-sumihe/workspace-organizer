@@ -5,10 +5,11 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDb } from '../db/client.js';
 import { settingsRepository } from '../repositories/settings.repository.js';
 
-import type { LoginRequest, LoginResponse, LocalUser, CreateAccountRequest } from '@workspace/shared';
+import type { LoginRequest, LoginResponse, LocalUser, CreateAccountRequest, LoginContext } from '@workspace/shared';
 
 const BCRYPT_ROUNDS = 12;
 const ACCESS_TOKEN_EXPIRY = '15m';
+const REFRESH_TOKEN_EXPIRY_DAYS = 7;
 
 interface LocalUserRow {
   id: string;
@@ -27,6 +28,9 @@ interface LocalSessionRow {
   refresh_token: string;
   expires_at: string;
   created_at: string;
+  last_activity_at: string | null;
+  ip_address: string | null;
+  user_agent: string | null;
 }
 
 const isLocalUserRow = (value: unknown): value is LocalUserRow => {
@@ -79,9 +83,17 @@ const getJwtSecret = async (): Promise<string> => {
 export const localAuthProvider = {
   /**
    * Create a new local user (Solo mode)
+   * SECURITY: Only one user is allowed per device
    */
   async createUser(request: CreateAccountRequest): Promise<LocalUser> {
     const db = await getDb();
+    
+    // SECURITY: Check if a user already exists (single user enforcement)
+    const existingCount = await db.get('SELECT COUNT(*) as count FROM local_users');
+    if ((existingCount as { count: number })?.count > 0) {
+      throw new Error('USER_ALREADY_EXISTS');
+    }
+
     const userId = uuidv4();
     const passwordHash = await bcrypt.hash(request.password, BCRYPT_ROUNDS);
     const now = new Date().toISOString();
@@ -102,8 +114,9 @@ export const localAuthProvider = {
 
   /**
    * Authenticate user with username/password
+   * Enforces single session per device - invalidates existing sessions
    */
-  async login(request: LoginRequest): Promise<LoginResponse> {
+  async login(request: LoginRequest, context?: LoginContext): Promise<LoginResponse> {
     const db = await getDb();
     const row = await db.get(
       'SELECT * FROM local_users WHERE username = ? OR email = ?',
@@ -123,6 +136,9 @@ export const localAuthProvider = {
       throw new Error('INVALID_CREDENTIALS');
     }
 
+    // SECURITY: Invalidate all existing sessions (single session enforcement)
+    await db.run('DELETE FROM local_sessions WHERE user_id = ?', [row.id]);
+
     // Generate tokens
     const secret = await getJwtSecret();
     const accessToken = jwt.sign(
@@ -133,13 +149,14 @@ export const localAuthProvider = {
 
     const refreshToken = uuidv4();
     const sessionId = uuidv4();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days
+    const now = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
-    // Store refresh token
+    // Store refresh token with session metadata
     await db.run(
-      `INSERT INTO local_sessions (id, user_id, refresh_token, expires_at, created_at)
-       VALUES (?, ?, ?, ?, ?)`,
-      [sessionId, row.id, refreshToken, expiresAt, new Date().toISOString()]
+      `INSERT INTO local_sessions (id, user_id, refresh_token, expires_at, created_at, last_activity_at, ip_address, user_agent)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [sessionId, row.id, refreshToken, expiresAt, now, now, context?.ipAddress ?? null, context?.userAgent ?? null]
     );
 
     return {
@@ -276,5 +293,37 @@ export const localAuthProvider = {
     const db = await getDb();
     const row = await db.get('SELECT COUNT(*) as count FROM local_users');
     return (row as { count: number })?.count > 0;
+  },
+
+  /**
+   * Get the count of local users
+   */
+  async getUserCount(): Promise<number> {
+    const db = await getDb();
+    const row = await db.get('SELECT COUNT(*) as count FROM local_users');
+    return (row as { count: number })?.count ?? 0;
+  },
+
+  /**
+   * Reset all local user data (DESTRUCTIVE)
+   * SECURITY: Requires confirmation phrase to prevent accidental deletion
+   */
+  async resetLocalData(confirmPhrase: string): Promise<void> {
+    if (confirmPhrase !== 'RESET ALL DATA') {
+      throw new Error('INVALID_CONFIRMATION');
+    }
+
+    const db = await getDb();
+    
+    // Delete all sessions first (foreign key constraint)
+    await db.run('DELETE FROM local_sessions');
+    
+    // Delete all local users
+    await db.run('DELETE FROM local_users');
+    
+    // Clear team binding if exists
+    await settingsRepository.delete('team_binding');
+    await settingsRepository.delete('shared_db_connection');
+    await settingsRepository.delete('shared_enabled');
   }
 };

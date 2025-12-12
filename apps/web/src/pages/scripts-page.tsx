@@ -1,10 +1,12 @@
-import { FileCode, HardDrive, Plus, RefreshCw, FolderSearch, Network } from 'lucide-react';
+import { FileCode, HardDrive, Plus, RefreshCw, FolderSearch, Network, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 
 import { scanScripts } from '@/api/scripts';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAuth } from '@/contexts/auth-context';
 import { JobsTab } from '@/features/jobs';
 import {
   ScriptsTab,
@@ -13,8 +15,43 @@ import {
   ScanDirectoryDialog
 } from '@/features/scripts';
 
+/**
+ * Team Feature Placeholder
+ * Shown when user is in Solo mode and tries to access Scripts
+ */
+function TeamFeaturePlaceholder() {
+  const navigate = useNavigate();
+  
+  return (
+    <div className="absolute inset-0 flex items-center justify-center bg-background p-8">
+      <Card className="max-w-md">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+            <Users className="h-8 w-8 text-primary" />
+          </div>
+          <CardTitle>Team Feature</CardTitle>
+          <CardDescription>
+            Scripts management is a team feature that requires a shared database connection.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="text-center space-y-4">
+          <p className="text-sm text-muted-foreground">
+            To use Scripts, Control-M Jobs, and Drive Mappings, you need to join or create a team
+            and connect to a shared PostgreSQL database.
+          </p>
+          <div className="flex flex-col gap-2">
+            <Button onClick={() => navigate('/settings')}>
+              Configure Team Settings
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 export const ScriptsPage = () => {
+  const { isSoloMode } = useAuth();
   const { scriptId } = useParams<{ scriptId?: string }>();
   const [searchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
@@ -70,6 +107,11 @@ export const ScriptsPage = () => {
     handleRefresh();
     return { count: result.count };
   };
+
+  // In Solo mode, show the team feature placeholder
+  if (isSoloMode) {
+    return <TeamFeaturePlaceholder />;
+  }
 
   return (
     <div className="absolute inset-0 flex flex-col bg-background">
