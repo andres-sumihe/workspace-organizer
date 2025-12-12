@@ -576,6 +576,11 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface LoginContext {
+  ipAddress?: string;
+  userAgent?: string;
+}
+
 export interface LoginResponse {
   user: UserWithRoles;
   accessToken: string;
@@ -841,3 +846,114 @@ export interface TeamConfigStatus {
   pendingMigration: boolean;
 }
 
+// ============================================================================
+// Session Management Types
+// ============================================================================
+
+export interface SessionConfig {
+  accessTokenExpiryMinutes: number;
+  refreshTokenExpiryDays: number;
+  inactivityTimeoutMinutes: number;
+  maxConcurrentSessions: number;
+  heartbeatIntervalSeconds: number;
+}
+
+export interface SessionInfo {
+  id: string;
+  userId: string;
+  createdAt: string;
+  expiresAt: string;
+  lastActivityAt: string;
+  ipAddress?: string;
+  userAgent?: string;
+  isActive: boolean;
+}
+
+export interface SessionHeartbeatResponse {
+  valid: boolean;
+  expiresAt: string;
+  shouldRefresh: boolean;
+}
+
+// ============================================================================
+// Team Attestation Types (Security)
+// ============================================================================
+
+/**
+ * App Info stored in shared PostgreSQL database.
+ * Contains server identity and public key for attestation.
+ */
+export interface AppInfo {
+  serverId: string;
+  teamId: string;
+  teamName: string;
+  publicKey: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Attestation payload signed by the server.
+ * Used to verify that the app is connected to the correct team database.
+ */
+export interface AttestationPayload {
+  serverId: string;
+  teamId: string;
+  userId: string;
+  timestamp: string;
+  nonce: string;
+}
+
+/**
+ * Signed attestation response from /auth/team-attest endpoint.
+ */
+export interface AttestationResponse {
+  payload: AttestationPayload;
+  signature: string;
+  tlsFingerprint?: string;
+}
+
+/**
+ * Local binding stored in SQLite settings.
+ * Used to verify reconnections to the same team.
+ */
+export interface TeamBinding {
+  serverId: string;
+  teamId: string;
+  teamName: string;
+  publicKey: string;
+  tlsFingerprint?: string;
+  boundAt: string;
+}
+
+/**
+ * Team join/create request
+ */
+export interface TeamJoinRequest {
+  connectionString: string;
+  createNew?: boolean;
+  teamName?: string;
+}
+
+export interface TeamJoinResponse {
+  success: boolean;
+  teamId: string;
+  teamName: string;
+  attestation: AttestationResponse;
+}
+
+// ============================================================================
+// Device Security Types
+// ============================================================================
+
+export interface DeviceInfo {
+  deviceId: string;
+  userId: string;
+  deviceName: string;
+  lastSeenAt: string;
+  isCurrentDevice: boolean;
+}
+
+export interface LocalUserResetRequest {
+  confirmPhrase: string; // Must type "RESET ALL DATA" to confirm
+}

@@ -2,7 +2,7 @@ import { localAuthProvider } from './local-auth.provider.js';
 import { authService } from '../services/auth.service.js';
 import { modeService } from '../services/mode.service.js';
 
-import type { LoginRequest, LoginResponse, AuthenticatedUser } from '@workspace/shared';
+import type { LoginRequest, LoginResponse, AuthenticatedUser, LoginContext } from '@workspace/shared';
 
 /**
  * Mode-Aware Auth Provider
@@ -18,14 +18,14 @@ export const modeAwareAuthProvider = {
   /**
    * Login with mode-aware delegation
    */
-  async login(request: LoginRequest): Promise<LoginResponse> {
+  async login(request: LoginRequest, context?: LoginContext): Promise<LoginResponse> {
     const mode = await modeService.getMode();
     
     if (mode === 'shared') {
       return authService.login(request);
     }
     
-    return localAuthProvider.login(request);
+    return localAuthProvider.login(request, context);
   },
 
   /**

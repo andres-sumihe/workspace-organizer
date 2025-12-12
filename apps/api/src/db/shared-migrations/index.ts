@@ -4,6 +4,7 @@ import * as migration0002 from './0002-create-rbac.js';
 import * as migration0003 from './0003-create-audit-log.js';
 import * as migration0004 from './0004-create-scripts.js';
 import * as migration0005 from './0005-create-controlm-jobs.js';
+import * as migration0006 from './0006-create-app-info.js';
 
 import type { Pool, PoolClient } from 'pg';
 
@@ -17,7 +18,8 @@ const migrations: SharedMigration[] = [
   { id: migration0002.id, up: migration0002.up },
   { id: migration0003.id, up: migration0003.up },
   { id: migration0004.id, up: migration0004.up },
-  { id: migration0005.id, up: migration0005.up }
+  { id: migration0005.id, up: migration0005.up },
+  { id: migration0006.id, up: migration0006.up }
 ];
 
 /**

@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 
-import type { LoginRequest, Permission, UserWithRoles, AppMode } from '@workspace/shared';
+import type { LoginRequest, Permission, UserWithRoles, AppMode, SessionConfig } from '@workspace/shared';
 import type { ReactNode } from 'react';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
@@ -11,12 +11,18 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   mode: AppMode;
+  /** Session is locked due to inactivity */
+  isLocked: boolean;
+  /** Session config from server */
+  sessionConfig: SessionConfig | null;
 }
 
 interface AuthContextValue extends AuthState {
   login: (credentials: LoginRequest) => Promise<void>;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
+  /** Unlock the session (re-authenticate after timeout) */
+  unlock: (password: string) => Promise<void>;
   isSoloMode: boolean;
   isSharedMode: boolean;
 }
@@ -27,6 +33,15 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const ACCESS_TOKEN_KEY = 'auth_access_token';
 const REFRESH_TOKEN_KEY = 'auth_refresh_token';
 
+// Default session config if not retrieved from server
+const DEFAULT_SESSION_CONFIG: SessionConfig = {
+  accessTokenExpiryMinutes: 15,
+  refreshTokenExpiryDays: 7,
+  inactivityTimeoutMinutes: 30,
+  maxConcurrentSessions: 1,
+  heartbeatIntervalSeconds: 60,
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
     user: null,
@@ -34,7 +49,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated: false,
     isLoading: true,
     mode: 'solo',
+    isLocked: false,
+    sessionConfig: null,
   });
+
+  // Refs for tracking activity
+  const lastActivityRef = useRef<number>(Date.now());
+  const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const inactivityCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Get stored tokens
   const getAccessToken = () => localStorage.getItem(ACCESS_TOKEN_KEY);
@@ -51,6 +73,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
   };
+
+  // Record user activity
+  const recordActivity = useCallback(() => {
+    lastActivityRef.current = Date.now();
+  }, []);
+
+  // Fetch session config from server
+  const fetchSessionConfig = useCallback(async (): Promise<SessionConfig | null> => {
+    try {
+      const response = await fetch(`${API_URL}/api/v1/auth/session-config`);
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch (error) {
+      console.warn('Failed to fetch session config:', error);
+    }
+    return null;
+  }, []);
+
+  // Send heartbeat to server (Solo mode only)
+  const sendHeartbeat = useCallback(async () => {
+    const token = getAccessToken();
+    if (!token || state.mode !== 'solo') return;
+
+    try {
+      const response = await fetch(`${API_URL}/api/v1/auth/heartbeat`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.status === 401) {
+        const data = await response.json();
+        if (data.code === 'SESSION_EXPIRED') {
+          // Session expired due to inactivity on server side
+          setState((prev) => ({ ...prev, isLocked: true }));
+        }
+      }
+    } catch (error) {
+      console.warn('Heartbeat failed:', error);
+    }
+  }, [state.mode]);
+
+  // Check for inactivity timeout on client side
+  const checkInactivity = useCallback(() => {
+    const config = state.sessionConfig || DEFAULT_SESSION_CONFIG;
+    const timeoutMs = config.inactivityTimeoutMinutes * 60 * 1000;
+    const timeSinceActivity = Date.now() - lastActivityRef.current;
+
+    if (timeSinceActivity > timeoutMs && state.isAuthenticated && !state.isLocked) {
+      setState((prev) => ({ ...prev, isLocked: true }));
+    }
+  }, [state.sessionConfig, state.isAuthenticated, state.isLocked]);
 
   // Try to refresh the access token
   const tryRefreshToken = useCallback(async (): Promise<boolean> => {
@@ -100,13 +177,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (response.ok) {
         const data = await response.json();
-        setState({
+        setState((prev) => ({
+          ...prev,
           user: data.user,
           permissions: data.permissions || [],
           isAuthenticated: true,
           isLoading: false,
           mode: data.mode || 'solo',
-        });
+        }));
         return true;
       }
 
@@ -125,13 +203,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             if (retryResponse.ok) {
               const data = await retryResponse.json();
-              setState({
+              setState((prev) => ({
+                ...prev,
                 user: data.user,
                 permissions: data.permissions || [],
                 isAuthenticated: true,
                 isLoading: false,
                 mode: data.mode || 'solo',
-              });
+              }));
               return true;
             }
           }
@@ -163,18 +242,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await response.json();
     setTokens(data.accessToken, data.refreshToken);
 
-    setState({
+    // Reset activity timer
+    lastActivityRef.current = Date.now();
+
+    setState((prev) => ({
+      ...prev,
       user: data.user,
       permissions: data.user.permissions || [],
       isAuthenticated: true,
       isLoading: false,
       mode: data.mode || 'solo',
+      isLocked: false,
+    }));
+  };
+
+  // Unlock (re-authenticate after inactivity timeout)
+  const unlock = async (password: string): Promise<void> => {
+    if (!state.user) {
+      throw new Error('No user to unlock');
+    }
+
+    // Re-authenticate with stored username
+    await login({
+      username: state.user.username,
+      password,
     });
   };
 
   // Logout
   const logout = async (): Promise<void> => {
     const token = getAccessToken();
+
+    // Clear intervals
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current);
+      heartbeatIntervalRef.current = null;
+    }
+    if (inactivityCheckRef.current) {
+      clearInterval(inactivityCheckRef.current);
+      inactivityCheckRef.current = null;
+    }
 
     try {
       if (token) {
@@ -195,6 +302,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: false,
         isLoading: false,
         mode: 'solo',
+        isLocked: false,
+        sessionConfig: null,
       });
     }
   };
@@ -211,6 +320,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: false,
         isLoading: false,
         mode: 'solo',
+        isLocked: false,
+        sessionConfig: null,
       });
     }
   };
@@ -218,6 +329,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Initialize auth state on mount
   useEffect(() => {
     const initAuth = async () => {
+      // Fetch session config first
+      const config = await fetchSessionConfig();
+      if (config) {
+        setState((prev) => ({ ...prev, sessionConfig: config }));
+      }
+
       const success = await fetchCurrentUser();
       if (!success) {
         clearTokens();
@@ -227,12 +344,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           isAuthenticated: false,
           isLoading: false,
           mode: 'solo',
+          isLocked: false,
+          sessionConfig: config,
         });
       }
     };
 
     initAuth();
-  }, [fetchCurrentUser]);
+  }, [fetchCurrentUser, fetchSessionConfig]);
+
+  // Setup heartbeat and inactivity check when authenticated
+  useEffect(() => {
+    if (state.isAuthenticated && !state.isLocked && state.mode === 'solo') {
+      const config = state.sessionConfig || DEFAULT_SESSION_CONFIG;
+
+      // Setup heartbeat interval
+      heartbeatIntervalRef.current = setInterval(
+        sendHeartbeat,
+        config.heartbeatIntervalSeconds * 1000
+      );
+
+      // Setup inactivity check (check every 10 seconds)
+      inactivityCheckRef.current = setInterval(checkInactivity, 10000);
+
+      // Setup activity listeners
+      const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
+      events.forEach((event) => {
+        document.addEventListener(event, recordActivity, { passive: true });
+      });
+
+      return () => {
+        if (heartbeatIntervalRef.current) {
+          clearInterval(heartbeatIntervalRef.current);
+          heartbeatIntervalRef.current = null;
+        }
+        if (inactivityCheckRef.current) {
+          clearInterval(inactivityCheckRef.current);
+          inactivityCheckRef.current = null;
+        }
+        events.forEach((event) => {
+          document.removeEventListener(event, recordActivity);
+        });
+      };
+    }
+  }, [
+    state.isAuthenticated,
+    state.isLocked,
+    state.mode,
+    state.sessionConfig,
+    sendHeartbeat,
+    checkInactivity,
+    recordActivity,
+  ]);
 
   const isSoloMode = state.mode === 'solo';
   const isSharedMode = state.mode === 'shared';
@@ -244,6 +407,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         refreshAuth,
+        unlock,
         isSoloMode,
         isSharedMode,
       }}
