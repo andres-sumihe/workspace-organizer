@@ -66,6 +66,9 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
     [workspaceId, workspaces]
   );
 
+  // Track workspace changes to clear selections
+  const prevWorkspaceId = useRef<string | null>(workspaceId);
+
   // ─────────────────────────────────────────────────────────────────────────
   // Desktop availability
   // ─────────────────────────────────────────────────────────────────────────
@@ -272,6 +275,17 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
   }, [loadProjects]);
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Clear selections when workspace changes
+  // ─────────────────────────────────────────────────────────────────────────
+  
+  useEffect(() => {
+    if (prevWorkspaceId.current !== null && prevWorkspaceId.current !== workspaceId) {
+      setSelectedFiles(new Set());
+    }
+    prevWorkspaceId.current = workspaceId;
+  }, [workspaceId, setSelectedFiles]);
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Auto-load directory when project changes
   // ─────────────────────────────────────────────────────────────────────────
   
@@ -289,11 +303,12 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
       const isUserChange = prevSelectedProjectId.current !== null && 
                           prevSelectedProjectId.current !== selectedProjectId;
       if (isUserChange) {
+        setSelectedFiles(new Set()); // Clear selections when changing projects
         void loadDirectory('');
       }
     }
     prevSelectedProjectId.current = selectedProjectId;
-  }, [selectedProjectId, desktopAvailable, projectsLoaded, loadDirectory]);
+  }, [selectedProjectId, desktopAvailable, projectsLoaded, loadDirectory, setSelectedFiles]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Entry click handler
@@ -301,11 +316,12 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
   
   const handleEntryClick = useCallback(async (entry: { type: string; path: string }) => {
     if (entry.type === 'directory') {
+      setSelectedFiles(new Set()); // Clear selections when navigating
       await loadDirectory(entry.path);
       return;
     }
     await loadPreview(entry.path);
-  }, [loadDirectory, loadPreview]);
+  }, [loadDirectory, loadPreview, setSelectedFiles]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Dialogs state
@@ -570,7 +586,10 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
           onSelectProject={setSelectedProjectId}
           onCreateProject={openCreateProjectDialog}
           onEditProject={openEditProjectDialog}
-          onRefresh={() => void loadDirectory(currentPath)}
+          onRefresh={() => {
+            setSelectedFiles(new Set());
+            void loadDirectory(currentPath);
+          }}
           refreshDisabled={refreshDisabled}
         />
 
@@ -604,7 +623,10 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
               breadcrumbs={breadcrumbs}
               entries={entries}
               selectedFiles={selectedFiles}
-              onNavigate={(path) => void loadDirectory(path)}
+              onNavigate={(path) => {
+                setSelectedFiles(new Set());
+                void loadDirectory(path);
+              }}
               onEntryClick={(entry) => void handleEntryClick(entry)}
               onToggleEntrySelection={toggleSelection}
               onToggleAllSelections={handleToggleAllSelections as (state: CheckedState) => void}
