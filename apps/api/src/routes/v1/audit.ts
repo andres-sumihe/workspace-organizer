@@ -115,8 +115,10 @@ auditRouter.get(
 
 /**
  * GET /audit/user/:userId
- * Get audit log entries for a specific user
+ * Get audit log entries for a specific user/member (by email)
  * Requires: audit:read permission
+ * 
+ * Note: Since auth is local, userId should be treated as an email
  */
 auditRouter.get(
   '/user/:userId',
@@ -127,7 +129,8 @@ auditRouter.get(
       const page = parseInt(req.query.page as string, 10) || 1;
       const pageSize = Math.min(parseInt(req.query.pageSize as string, 10) || 50, 100);
 
-      const result = await auditService.getByUser(userId, page, pageSize);
+      // userId is now treated as email (member_email in shared DB)
+      const result = await auditService.getByMember(userId, page, pageSize);
       res.json(result);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to get user audit logs';

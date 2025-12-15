@@ -1,7 +1,8 @@
-import { Database, Loader2, Save, Settings as SettingsIcon, Server, Link2, Unlink, AlertTriangle } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Database, Loader2, Save, Settings as SettingsIcon, Server, Link2, Unlink, AlertTriangle, RefreshCw, Play, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { settingsApi } from '@/api/settings';
+import { schemaValidationApi, type ValidationResponse } from '@/api/schema-validation';
 import { PageShell } from '@/components/layout/page-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,9 +17,56 @@ import { useMode } from '@/contexts/mode-context';
 import { useValidationSettings } from '@/contexts/validation-settings-context';
 import { extractBICFromLT } from '@/utils/swift-mt-validator';
 
+type ConnectionFormState = {
+  host: string;
+  port: string;
+  database: string;
+  user: string;
+  password: string;
+  ssl: boolean;
+};
+
+const defaultConnectionForm: ConnectionFormState = {
+  host: '',
+  port: '5432',
+  database: '',
+  user: '',
+  password: '',
+  ssl: false
+};
+
+const buildConnectionStringFromForm = (form: ConnectionFormState): string => {
+  const host = form.host.trim();
+  const port = form.port.trim() || '5432';
+  const database = form.database.trim();
+  const user = form.user.trim();
+  const password = form.password;
+
+  if (!host || !database || !user) {
+    return '';
+  }
+
+  const encodedUser = encodeURIComponent(user);
+  const authSegment = password ? `${encodedUser}:${encodeURIComponent(password)}` : encodedUser;
+  const portSegment = port ? `:${port}` : '';
+  const sslSegment = form.ssl ? '?ssl=true' : '';
+
+  return `postgresql://${authSegment}@${host}${portSegment}/${database}${sslSegment}`;
+};
+
+const hasConnectionRequiredFields = (form: ConnectionFormState): boolean => {
+  return Boolean(
+    form.host.trim() &&
+    form.port.trim() &&
+    form.database.trim() &&
+    form.user.trim() &&
+    form.password.trim()
+  );
+};
+
 export const SettingsPage = () => {
-  const { status: installationStatus, isLoading: installLoading } = useInstallation();
-  const { isSoloMode, isSharedMode } = useAuth();
+  const { status: installationStatus, isLoading: installLoading, checkStatus } = useInstallation();
+  const { isSoloMode, isSharedMode, refreshAuth } = useAuth();
   const { refreshStatus } = useMode();
   const {
     criteria,
@@ -41,11 +89,28 @@ export const SettingsPage = () => {
   const [isSaving, setIsSaving] = useState(false);
   
   // Team config state
-  const [connectionString, setConnectionString] = useState('');
+  const [connectionForm, setConnectionForm] = useState<ConnectionFormState>(defaultConnectionForm);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [connectionTestResult, setConnectionTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [isConfiguringTeam, setIsConfiguringTeam] = useState(false);
   const [isDisablingTeam, setIsDisablingTeam] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  const [isRunningMigrations, setIsRunningMigrations] = useState(false);
+  const [teamActionMessage, setTeamActionMessage] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Schema validation state
+  const [validationResult, setValidationResult] = useState<ValidationResponse | null>(null);
+  const [isValidating, setIsValidating] = useState(false);
+  const [isResettingDb, setIsResettingDb] = useState(false);
+  const [showValidationDetails, setShowValidationDetails] = useState(false);
+
+  const connectionString = useMemo(() => buildConnectionStringFromForm(connectionForm), [connectionForm]);
+  const isConnectionFormValid = useMemo(() => hasConnectionRequiredFields(connectionForm), [connectionForm]);
+
+  const updateConnectionForm = (field: keyof ConnectionFormState, value: string | boolean) => {
+    setConnectionForm((prev) => ({ ...prev, [field]: value }));
+    setConnectionTestResult(null);
+  };
 
   const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -124,8 +189,8 @@ export const SettingsPage = () => {
 
   // Team config handlers
   const handleTestConnection = async () => {
-    if (!connectionString.trim()) {
-      setConnectionTestResult({ success: false, message: 'Connection string is required' });
+    if (!isConnectionFormValid || !connectionString) {
+      setConnectionTestResult({ success: false, message: 'All connection fields are required' });
       return;
     }
 
@@ -153,8 +218,8 @@ export const SettingsPage = () => {
   };
 
   const handleConfigureTeam = async () => {
-    if (!connectionString.trim()) {
-      setErrorMessage('Connection string is required');
+    if (!isConnectionFormValid || !connectionString) {
+      setErrorMessage('Please complete all connection fields');
       setTimeout(() => setErrorMessage(null), 5000);
       return;
     }
@@ -173,9 +238,9 @@ export const SettingsPage = () => {
       if (response.ok && data.success) {
         setSaveMessage('Shared mode enabled successfully!');
         setTimeout(() => setSaveMessage(null), 3000);
-        setConnectionString('');
+        setConnectionForm(defaultConnectionForm);
         setConnectionTestResult(null);
-        await refreshStatus();
+        await Promise.all([refreshStatus(), refreshAuth(), checkStatus()]);
       } else {
         setErrorMessage(data.message || 'Failed to configure shared mode');
         setTimeout(() => setErrorMessage(null), 5000);
@@ -206,7 +271,7 @@ export const SettingsPage = () => {
       if (response.ok && data.success) {
         setSaveMessage('Shared mode disabled. Returning to Solo mode.');
         setTimeout(() => setSaveMessage(null), 3000);
-        await refreshStatus();
+        await Promise.all([refreshStatus(), refreshAuth(), checkStatus()]);
       } else {
         setErrorMessage(data.message || 'Failed to disable shared mode');
         setTimeout(() => setErrorMessage(null), 5000);
@@ -216,6 +281,121 @@ export const SettingsPage = () => {
       setTimeout(() => setErrorMessage(null), 5000);
     } finally {
       setIsDisablingTeam(false);
+    }
+  };
+
+  const handleReconnect = async () => {
+    setIsReconnecting(true);
+    setTeamActionMessage(null);
+
+    try {
+      const response = await fetch(`${API_URL}/api/v1/team-config/reconnect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setTeamActionMessage({ success: true, message: data.message || 'Reconnected successfully' });
+        await Promise.all([refreshStatus(), refreshAuth(), checkStatus()]);
+        setTimeout(() => setTeamActionMessage(null), 5000);
+      } else {
+        setTeamActionMessage({ success: false, message: data.message || 'Failed to reconnect' });
+        setTimeout(() => setTeamActionMessage(null), 5000);
+      }
+    } catch (err) {
+      setTeamActionMessage({ success: false, message: err instanceof Error ? err.message : 'Failed to reconnect' });
+      setTimeout(() => setTeamActionMessage(null), 5000);
+    } finally {
+      setIsReconnecting(false);
+    }
+  };
+
+  const handleRunMigrations = async () => {
+    setIsRunningMigrations(true);
+    setTeamActionMessage(null);
+
+    try {
+      const response = await fetch(`${API_URL}/api/v1/team-config/run-migrations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setTeamActionMessage({ success: true, message: data.message || 'Migrations completed' });
+        await Promise.all([refreshStatus(), refreshAuth(), checkStatus()]);
+        setTimeout(() => setTeamActionMessage(null), 5000);
+      } else {
+        setTeamActionMessage({ success: false, message: data.message || 'Failed to run migrations' });
+        setTimeout(() => setTeamActionMessage(null), 5000);
+      }
+    } catch (err) {
+      setTeamActionMessage({ success: false, message: err instanceof Error ? err.message : 'Failed to run migrations' });
+      setTimeout(() => setTeamActionMessage(null), 5000);
+    } finally {
+      setIsRunningMigrations(false);
+    }
+  };
+
+  const handleValidateSchema = async () => {
+    setIsValidating(true);
+    setTeamActionMessage(null);
+
+    try {
+      const result = await schemaValidationApi.validate();
+      setValidationResult(result);
+      
+      if (result.valid) {
+        setTeamActionMessage({ success: true, message: '✓ All schemas valid!' });
+      } else {
+        setTeamActionMessage({ 
+          success: false, 
+          message: `⚠ Schema validation failed: ${result.summary.invalid} invalid, ${result.summary.missing} missing` 
+        });
+      }
+      
+      setTimeout(() => setTeamActionMessage(null), 5000);
+    } catch (err) {
+      setTeamActionMessage({ success: false, message: err instanceof Error ? err.message : 'Schema validation failed' });
+      setTimeout(() => setTeamActionMessage(null), 5000);
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  const handleResetAndMigrate = async () => {
+    const confirmed = window.confirm(
+      '⚠️ WARNING: This will DELETE ALL team data (scripts, jobs, audit logs) and re-create tables from scratch.\n\n' +
+      'This operation is IRREVERSIBLE.\n\n' +
+      'Are you absolutely sure you want to continue?'
+    );
+
+    if (!confirmed) return;
+
+    setIsResettingDb(true);
+    setTeamActionMessage(null);
+
+    try {
+      const result = await schemaValidationApi.resetAndMigrate();
+      
+      if (result.success) {
+        setValidationResult(result.validation);
+        setTeamActionMessage({ 
+          success: true, 
+          message: `✓ Reset complete: Dropped ${result.reset.tablesDropped.length} tables, ran ${result.migrations.count} migrations` 
+        });
+        await Promise.all([refreshStatus(), refreshAuth(), checkStatus()]);
+      } else {
+        setTeamActionMessage({ success: false, message: result.message || 'Reset and migrate failed' });
+      }
+      
+      setTimeout(() => setTeamActionMessage(null), 8000);
+    } catch (err) {
+      setTeamActionMessage({ success: false, message: err instanceof Error ? err.message : 'Reset and migrate failed' });
+      setTimeout(() => setTeamActionMessage(null), 5000);
+    } finally {
+      setIsResettingDb(false);
     }
   };
 
@@ -542,18 +722,84 @@ export const SettingsPage = () => {
                           </div>
                         </div>
 
-                        <div className="space-y-3">
-                          <Label htmlFor="connection-string">PostgreSQL Connection String</Label>
-                          <Input
-                            id="connection-string"
-                            type="password"
-                            value={connectionString}
-                            onChange={(e) => setConnectionString(e.target.value)}
-                            placeholder="postgresql://user:password@host:5432/database"
-                            className="font-mono text-sm"
-                          />
+                        <div className="space-y-4">
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <div className="space-y-2">
+                              <Label htmlFor="db-host">Host</Label>
+                              <Input
+                                id="db-host"
+                                value={connectionForm.host}
+                                onChange={(e) => updateConnectionForm('host', e.target.value)}
+                                placeholder="db.company.com"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="db-port">Port</Label>
+                              <Input
+                                id="db-port"
+                                type="number"
+                                min="1"
+                                value={connectionForm.port}
+                                onChange={(e) => updateConnectionForm('port', e.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="db-name">Database</Label>
+                              <Input
+                                id="db-name"
+                                value={connectionForm.database}
+                                onChange={(e) => updateConnectionForm('database', e.target.value)}
+                                placeholder="workspace_organizer"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="db-user">Username</Label>
+                              <Input
+                                id="db-user"
+                                value={connectionForm.user}
+                                onChange={(e) => updateConnectionForm('user', e.target.value)}
+                                placeholder="workspace_admin"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="db-password">Password</Label>
+                            <Input
+                              id="db-password"
+                              type="password"
+                              value={connectionForm.password}
+                              onChange={(e) => updateConnectionForm('password', e.target.value)}
+                              placeholder="••••••••"
+                            />
+                          </div>
+
+                          <div className="flex items-center justify-between rounded-md border p-3">
+                            <div>
+                              <Label htmlFor="db-ssl" className="text-sm font-medium">Require SSL</Label>
+                              <p className="text-xs text-muted-foreground">Enable if your database requires SSL/TLS connections.</p>
+                            </div>
+                            <Switch
+                              id="db-ssl"
+                              checked={connectionForm.ssl}
+                              onCheckedChange={(checked) => updateConnectionForm('ssl', checked)}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="connection-string-preview">Connection String Preview</Label>
+                            <Input
+                              id="connection-string-preview"
+                              type="text"
+                              value={connectionString}
+                              readOnly
+                              placeholder="Complete all fields to generate connection string"
+                              className="font-mono text-xs"
+                            />
+                          </div>
+
                           <p className="text-xs text-muted-foreground">
-                            Enter the connection string for your shared PostgreSQL database.
+                            Enter the connection details for your shared PostgreSQL database. Credentials are only used to configure the connection.
                           </p>
                         </div>
 
@@ -571,7 +817,7 @@ export const SettingsPage = () => {
                           <Button 
                             variant="outline" 
                             onClick={handleTestConnection}
-                            disabled={isTestingConnection || !connectionString.trim()}
+                            disabled={isTestingConnection || !isConnectionFormValid}
                             className="flex items-center gap-2"
                           >
                             {isTestingConnection ? (
@@ -583,7 +829,7 @@ export const SettingsPage = () => {
                           </Button>
                           <Button 
                             onClick={handleConfigureTeam}
-                            disabled={isConfiguringTeam || !connectionString.trim() || !connectionTestResult?.success}
+                            disabled={isConfiguringTeam || !isConnectionFormValid || !connectionTestResult?.success}
                             className="flex items-center gap-2"
                           >
                             {isConfiguringTeam ? (
@@ -602,9 +848,19 @@ export const SettingsPage = () => {
                           <div className="text-sm text-emerald-800">
                             <p className="font-medium mb-1">Shared Mode Active</p>
                             <p>You are connected to a shared PostgreSQL database. Team features including 
-                               user management, role-based access control, and audit logging are enabled.</p>
+                               scripts management, Control-M jobs, and audit logging are enabled.</p>
                           </div>
                         </div>
+
+                        {teamActionMessage && (
+                          <div className={`rounded-md px-4 py-3 text-sm ${
+                            teamActionMessage.success 
+                              ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' 
+                              : 'bg-red-50 border border-red-200 text-red-800'
+                          }`}>
+                            {teamActionMessage.message}
+                          </div>
+                        )}
 
                         <div className="space-y-3">
                           <div className="flex items-center gap-3">
@@ -615,21 +871,184 @@ export const SettingsPage = () => {
                               <Badge variant="destructive">Disconnected</Badge>
                             )}
                           </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-medium">Migrations:</span>
+                            {installationStatus?.migrationsRun ? (
+                              installationStatus.pendingMigrations.length > 0 ? (
+                                <Badge variant="secondary">{installationStatus.pendingMigrations.length} pending</Badge>
+                              ) : (
+                                <Badge variant="default" className="bg-emerald-500">Up to date</Badge>
+                              )
+                            ) : (
+                              <Badge variant="secondary">Not run</Badge>
+                            )}
+                          </div>
                         </div>
 
-                        <Button 
-                          variant="destructive"
-                          onClick={handleDisableSharedMode}
-                          disabled={isDisablingTeam}
-                          className="flex items-center gap-2"
-                        >
-                          {isDisablingTeam ? (
-                            <Loader2 className="size-4 animate-spin" />
-                          ) : (
-                            <Unlink className="size-4" />
+                        <div className="flex flex-wrap gap-3">
+                          {!installationStatus?.sharedDbConnected && (
+                            <Button 
+                              variant="outline"
+                              onClick={handleReconnect}
+                              disabled={isReconnecting}
+                              className="flex items-center gap-2"
+                            >
+                              {isReconnecting ? (
+                                <Loader2 className="size-4 animate-spin" />
+                              ) : (
+                                <RefreshCw className="size-4" />
+                              )}
+                              Reconnect
+                            </Button>
                           )}
-                          Disable Shared Mode
-                        </Button>
+                          
+                          {installationStatus?.sharedDbConnected && (!installationStatus?.migrationsRun || installationStatus?.pendingMigrations?.length > 0) && (
+                            <Button 
+                              variant="outline"
+                              onClick={handleRunMigrations}
+                              disabled={isRunningMigrations}
+                              className="flex items-center gap-2"
+                            >
+                              {isRunningMigrations ? (
+                                <Loader2 className="size-4 animate-spin" />
+                              ) : (
+                                <Play className="size-4" />
+                              )}
+                              Run Migrations
+                            </Button>
+                          )}
+
+                          {installationStatus?.sharedDbConnected && (
+                            <>
+                              <Button 
+                                variant="outline"
+                                onClick={handleValidateSchema}
+                                disabled={isValidating}
+                                className="flex items-center gap-2"
+                              >
+                                {isValidating ? (
+                                  <Loader2 className="size-4 animate-spin" />
+                                ) : (
+                                  <CheckCircle2 className="size-4" />
+                                )}
+                                Validate Schema
+                              </Button>
+
+                              <Button 
+                                variant="destructive"
+                                onClick={handleResetAndMigrate}
+                                disabled={isResettingDb}
+                                className="flex items-center gap-2"
+                              >
+                                {isResettingDb ? (
+                                  <Loader2 className="size-4 animate-spin" />
+                                ) : (
+                                  <AlertTriangle className="size-4" />
+                                )}
+                                Reset & Re-migrate
+                              </Button>
+                            </>
+                          )}
+
+                          <Button 
+                            variant="destructive"
+                            onClick={handleDisableSharedMode}
+                            disabled={isDisablingTeam}
+                            className="flex items-center gap-2"
+                          >
+                            {isDisablingTeam ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : (
+                              <Unlink className="size-4" />
+                            )}
+                            Disable Shared Mode
+                          </Button>
+                        </div>
+
+                        {validationResult && (
+                          <div className="space-y-3 pt-4 border-t">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-sm font-medium">Schema Validation Results</h4>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setShowValidationDetails(!showValidationDetails)}
+                              >
+                                {showValidationDetails ? 'Hide Details' : 'Show Details'}
+                              </Button>
+                            </div>
+
+                            <div className="grid grid-cols-4 gap-2 text-sm">
+                              <div className="p-2 border rounded-md">
+                                <div className="text-xs text-muted-foreground">Total Tables</div>
+                                <div className="text-lg font-semibold">{validationResult.summary.total}</div>
+                              </div>
+                              <div className="p-2 border rounded-md bg-emerald-50">
+                                <div className="text-xs text-emerald-700">Valid</div>
+                                <div className="text-lg font-semibold text-emerald-800">{validationResult.summary.valid}</div>
+                              </div>
+                              <div className="p-2 border rounded-md bg-amber-50">
+                                <div className="text-xs text-amber-700">Invalid</div>
+                                <div className="text-lg font-semibold text-amber-800">{validationResult.summary.invalid}</div>
+                              </div>
+                              <div className="p-2 border rounded-md bg-red-50">
+                                <div className="text-xs text-red-700">Missing</div>
+                                <div className="text-lg font-semibold text-red-800">{validationResult.summary.missing}</div>
+                              </div>
+                            </div>
+
+                            {showValidationDetails && (
+                              <div className="space-y-2 max-h-96 overflow-y-auto">
+                                {Object.entries(validationResult.tables).map(([tableName, result]) => (
+                                  <div
+                                    key={tableName}
+                                    className={`p-3 border rounded-md ${
+                                      !result.exists
+                                        ? 'bg-red-50 border-red-200'
+                                        : result.valid
+                                        ? 'bg-emerald-50 border-emerald-200'
+                                        : 'bg-amber-50 border-amber-200'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 mb-1">
+                                      {!result.exists ? (
+                                        <XCircle className="size-4 text-red-600" />
+                                      ) : result.valid ? (
+                                        <CheckCircle2 className="size-4 text-emerald-600" />
+                                      ) : (
+                                        <AlertCircle className="size-4 text-amber-600" />
+                                      )}
+                                      <span className="font-mono text-sm font-medium">{tableName}</span>
+                                      <Badge variant={result.valid ? 'default' : 'destructive'} className="ml-auto">
+                                        {!result.exists ? 'Missing' : result.valid ? 'Valid' : 'Invalid'}
+                                      </Badge>
+                                    </div>
+                                    
+                                    {result.errors.length > 0 && (
+                                      <div className="mt-2 text-xs">
+                                        {result.errors.map((error, idx) => (
+                                          <div key={idx} className="text-red-700">{error}</div>
+                                        ))}
+                                      </div>
+                                    )}
+                                    
+                                    {result.missingColumns && result.missingColumns.length > 0 && (
+                                      <div className="mt-2 text-xs">
+                                        <span className="font-medium">Missing columns:</span> {result.missingColumns.join(', ')}
+                                      </div>
+                                    )}
+                                    
+                                    {result.extraColumns && result.extraColumns.length > 0 && (
+                                      <div className="mt-1 text-xs text-muted-foreground">
+                                        <span className="font-medium">Extra columns:</span> {result.extraColumns.join(', ')}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

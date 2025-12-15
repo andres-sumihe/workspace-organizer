@@ -1,11 +1,20 @@
-import { query, queryOne, execute } from '../db/shared-client.js';
+import { query, queryOne, execute, isSharedDbConnected } from '../db/shared-client.js';
 
 import type { AuditLogEntry, AuditAction, AuditLogFilters, PaginatedData } from '@workspace/shared';
 
+/**
+ * Audit Log Service
+ * 
+ * Logs all changes to shared resources in PostgreSQL.
+ * NOTE: Uses member_email to identify users since authentication
+ * is always local (SQLite). The email links to team_members table.
+ */
+
 interface AuditLogRow {
   id: string;
-  user_id: string | null;
-  username: string | null;
+  team_id: string | null;
+  member_email: string | null;
+  member_display_name: string | null;
   action: string;
   resource_type: string;
   resource_id: string | null;
@@ -19,8 +28,8 @@ interface AuditLogRow {
 
 const mapRowToEntry = (row: AuditLogRow): AuditLogEntry => ({
   id: row.id,
-  userId: row.user_id ?? undefined,
-  username: row.username ?? undefined,
+  userId: undefined, // No longer used - auth is local
+  username: row.member_display_name ?? row.member_email ?? undefined,
   action: row.action as AuditAction,
   resourceType: row.resource_type,
   resourceId: row.resource_id ?? undefined,
@@ -28,12 +37,21 @@ const mapRowToEntry = (row: AuditLogRow): AuditLogEntry => ({
   newValue: row.new_value ?? undefined,
   ipAddress: row.ip_address ?? undefined,
   userAgent: row.user_agent ?? undefined,
-  metadata: row.metadata ?? undefined,
+  metadata: {
+    ...row.metadata,
+    teamId: row.team_id ?? undefined,
+    memberEmail: row.member_email ?? undefined
+  },
   timestamp: row.timestamp
 });
 
 export interface LogAuditParams {
-  userId?: string;
+  /** Email of the member performing the action (from local user) */
+  memberEmail?: string;
+  /** Display name of the member */
+  memberDisplayName?: string;
+  /** Team ID if action is team-scoped */
+  teamId?: string;
   action: AuditAction;
   resourceType: string;
   resourceId?: string;
@@ -48,13 +66,20 @@ export const auditService = {
   /**
    * Log an audit entry
    */
-  async log(params: LogAuditParams): Promise<AuditLogEntry> {
+  async log(params: LogAuditParams): Promise<AuditLogEntry | null> {
+    // Only log if shared DB is connected (team features)
+    if (!isSharedDbConnected()) {
+      return null;
+    }
+
     const result = await query<AuditLogRow>(
-      `INSERT INTO audit_log (user_id, action, resource_type, resource_id, old_value, new_value, ip_address, user_agent, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO audit_log (team_id, member_email, member_display_name, action, resource_type, resource_id, old_value, new_value, ip_address, user_agent, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
       [
-        params.userId ?? null,
+        params.teamId ?? null,
+        params.memberEmail ?? null,
+        params.memberDisplayName ?? null,
         params.action,
         params.resourceType,
         params.resourceId ?? null,
@@ -66,18 +91,6 @@ export const auditService = {
       ]
     );
 
-    // Fetch username if userId was provided
-    if (params.userId) {
-      const row = result[0];
-      const userResult = await queryOne<{ username: string }>(
-        'SELECT username FROM users WHERE id = $1',
-        [params.userId]
-      );
-      if (userResult) {
-        row.username = userResult.username;
-      }
-    }
-
     return mapRowToEntry(result[0]);
   },
 
@@ -85,14 +98,16 @@ export const auditService = {
    * Log a create action
    */
   async logCreate(
-    userId: string | undefined,
+    memberEmail: string | undefined,
     resourceType: string,
     resourceId: string,
     newValue: Record<string, unknown>,
-    context?: { ipAddress?: string; userAgent?: string }
-  ): Promise<AuditLogEntry> {
+    context?: { ipAddress?: string; userAgent?: string; teamId?: string; memberDisplayName?: string }
+  ): Promise<AuditLogEntry | null> {
     return this.log({
-      userId,
+      memberEmail,
+      memberDisplayName: context?.memberDisplayName,
+      teamId: context?.teamId,
       action: 'CREATE',
       resourceType,
       resourceId,
@@ -106,15 +121,17 @@ export const auditService = {
    * Log an update action
    */
   async logUpdate(
-    userId: string | undefined,
+    memberEmail: string | undefined,
     resourceType: string,
     resourceId: string,
     oldValue: Record<string, unknown>,
     newValue: Record<string, unknown>,
-    context?: { ipAddress?: string; userAgent?: string }
-  ): Promise<AuditLogEntry> {
+    context?: { ipAddress?: string; userAgent?: string; teamId?: string; memberDisplayName?: string }
+  ): Promise<AuditLogEntry | null> {
     return this.log({
-      userId,
+      memberEmail,
+      memberDisplayName: context?.memberDisplayName,
+      teamId: context?.teamId,
       action: 'UPDATE',
       resourceType,
       resourceId,
@@ -129,14 +146,16 @@ export const auditService = {
    * Log a delete action
    */
   async logDelete(
-    userId: string | undefined,
+    memberEmail: string | undefined,
     resourceType: string,
     resourceId: string,
     oldValue: Record<string, unknown>,
-    context?: { ipAddress?: string; userAgent?: string }
-  ): Promise<AuditLogEntry> {
+    context?: { ipAddress?: string; userAgent?: string; teamId?: string; memberDisplayName?: string }
+  ): Promise<AuditLogEntry | null> {
     return this.log({
-      userId,
+      memberEmail,
+      memberDisplayName: context?.memberDisplayName,
+      teamId: context?.teamId,
       action: 'DELETE',
       resourceType,
       resourceId,
@@ -147,15 +166,17 @@ export const auditService = {
   },
 
   /**
-   * Log a login action
+   * Log a login action (for team-related auditing only)
    */
   async logLogin(
-    userId: string,
+    memberEmail: string,
     success: boolean,
-    context?: { ipAddress?: string; userAgent?: string; metadata?: Record<string, unknown> }
-  ): Promise<AuditLogEntry> {
+    context?: { ipAddress?: string; userAgent?: string; metadata?: Record<string, unknown>; teamId?: string; memberDisplayName?: string }
+  ): Promise<AuditLogEntry | null> {
     return this.log({
-      userId,
+      memberEmail,
+      memberDisplayName: context?.memberDisplayName,
+      teamId: context?.teamId,
       action: success ? 'LOGIN' : 'LOGIN_FAILED',
       resourceType: 'session',
       ipAddress: context?.ipAddress,
@@ -168,11 +189,13 @@ export const auditService = {
    * Log a logout action
    */
   async logLogout(
-    userId: string,
-    context?: { ipAddress?: string; userAgent?: string }
-  ): Promise<AuditLogEntry> {
+    memberEmail: string,
+    context?: { ipAddress?: string; userAgent?: string; teamId?: string; memberDisplayName?: string }
+  ): Promise<AuditLogEntry | null> {
     return this.log({
-      userId,
+      memberEmail,
+      memberDisplayName: context?.memberDisplayName,
+      teamId: context?.teamId,
       action: 'LOGOUT',
       resourceType: 'session',
       ipAddress: context?.ipAddress,
@@ -189,6 +212,10 @@ export const auditService = {
     page = 1,
     pageSize = 50
   ): Promise<PaginatedData<AuditLogEntry>> {
+    if (!isSharedDbConnected()) {
+      return { items: [], meta: { total: 0, page, pageSize, hasNextPage: false, hasPreviousPage: false } };
+    }
+
     const offset = (page - 1) * pageSize;
 
     const countResult = await queryOne<{ count: string }>(
@@ -200,11 +227,10 @@ export const auditService = {
     const total = countResult ? parseInt(countResult.count, 10) : 0;
 
     const rows = await query<AuditLogRow>(
-      `SELECT al.*, u.username
-       FROM audit_log al
-       LEFT JOIN users u ON al.user_id = u.id
-       WHERE al.resource_type = $1 AND al.resource_id = $2
-       ORDER BY al.timestamp DESC
+      `SELECT *
+       FROM audit_log
+       WHERE resource_type = $1 AND resource_id = $2
+       ORDER BY timestamp DESC
        LIMIT $3 OFFSET $4`,
       [resourceType, resourceId, pageSize, offset]
     );
@@ -222,30 +248,33 @@ export const auditService = {
   },
 
   /**
-   * Get audit log entries by user
+   * Get audit log entries by member email
    */
-  async getByUser(
-    userId: string,
+  async getByMember(
+    memberEmail: string,
     page = 1,
     pageSize = 50
   ): Promise<PaginatedData<AuditLogEntry>> {
+    if (!isSharedDbConnected()) {
+      return { items: [], meta: { total: 0, page, pageSize, hasNextPage: false, hasPreviousPage: false } };
+    }
+
     const offset = (page - 1) * pageSize;
 
     const countResult = await queryOne<{ count: string }>(
-      'SELECT COUNT(*) as count FROM audit_log WHERE user_id = $1',
-      [userId]
+      'SELECT COUNT(*) as count FROM audit_log WHERE member_email = $1',
+      [memberEmail]
     );
 
     const total = countResult ? parseInt(countResult.count, 10) : 0;
 
     const rows = await query<AuditLogRow>(
-      `SELECT al.*, u.username
-       FROM audit_log al
-       LEFT JOIN users u ON al.user_id = u.id
-       WHERE al.user_id = $1
-       ORDER BY al.timestamp DESC
+      `SELECT *
+       FROM audit_log
+       WHERE member_email = $1
+       ORDER BY timestamp DESC
        LIMIT $2 OFFSET $3`,
-      [userId, pageSize, offset]
+      [memberEmail, pageSize, offset]
     );
 
     return {
@@ -268,13 +297,19 @@ export const auditService = {
     page = 1,
     pageSize = 50
   ): Promise<PaginatedData<AuditLogEntry>> {
+    if (!isSharedDbConnected()) {
+      return { items: [], meta: { total: 0, page, pageSize, hasNextPage: false, hasPreviousPage: false } };
+    }
+
     const offset = (page - 1) * pageSize;
     const conditions: string[] = [];
     const params: unknown[] = [];
     let paramIndex = 1;
 
+    // Support both userId (legacy) and memberEmail for filtering
     if (filters.userId) {
-      conditions.push(`user_id = $${paramIndex++}`);
+      // Legacy: treat as email search
+      conditions.push(`member_email = $${paramIndex++}`);
       params.push(filters.userId);
     }
 
@@ -313,11 +348,10 @@ export const auditService = {
     const total = countResult ? parseInt(countResult.count, 10) : 0;
 
     const rows = await query<AuditLogRow>(
-      `SELECT al.*, u.username
-       FROM audit_log al
-       LEFT JOIN users u ON al.user_id = u.id
+      `SELECT *
+       FROM audit_log
        ${whereClause}
-       ORDER BY al.timestamp DESC
+       ORDER BY timestamp DESC
        LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
       [...params, pageSize, offset]
     );
@@ -338,12 +372,15 @@ export const auditService = {
    * Get recent audit log entries (last 24 hours)
    */
   async getRecent(limit = 100): Promise<AuditLogEntry[]> {
+    if (!isSharedDbConnected()) {
+      return [];
+    }
+
     const rows = await query<AuditLogRow>(
-      `SELECT al.*, u.username
-       FROM audit_log al
-       LEFT JOIN users u ON al.user_id = u.id
-       WHERE al.timestamp > NOW() - INTERVAL '24 hours'
-       ORDER BY al.timestamp DESC
+      `SELECT *
+       FROM audit_log
+       WHERE timestamp > NOW() - INTERVAL '24 hours'
+       ORDER BY timestamp DESC
        LIMIT $1`,
       [limit]
     );
@@ -355,6 +392,10 @@ export const auditService = {
    * Clean up old audit log entries (older than specified days)
    */
   async cleanup(daysToKeep = 90): Promise<number> {
+    if (!isSharedDbConnected()) {
+      return 0;
+    }
+
     const result = await execute(
       `DELETE FROM audit_log WHERE timestamp < NOW() - INTERVAL '${daysToKeep} days'`
     );

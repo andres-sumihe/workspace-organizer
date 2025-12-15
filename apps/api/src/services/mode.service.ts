@@ -1,5 +1,5 @@
 import { getDb } from '../db/client.js';
-import { isSharedDbConnected } from '../db/shared-client.js';
+import { ensureSharedDbConnection, isSharedDbConnected } from '../db/shared-client.js';
 import { settingsRepository } from '../repositories/settings.repository.js';
 
 import type { AppMode, ModeStatus, ModeConfig } from '@workspace/shared';
@@ -21,7 +21,12 @@ export const modeService = {
    */
   async getMode(): Promise<AppMode> {
     const setting = await settingsRepository.get<boolean>('shared_enabled');
-    return setting?.value === true ? 'shared' : 'solo';
+    if (setting?.value !== true) {
+      return 'solo';
+    }
+
+    const connected = await ensureSharedDbConnection();
+    return connected ? 'shared' : 'solo';
   },
 
   /**
@@ -37,8 +42,13 @@ export const modeService = {
    */
   async getStatus(): Promise<ModeStatus> {
     const sharedEnabled = await this.isSharedEnabled();
-    const sharedDbConnected = await isSharedDbConnected();
-    const mode = sharedEnabled ? 'shared' : 'solo';
+    let sharedDbConnected = await isSharedDbConnected();
+
+    if (sharedEnabled && !sharedDbConnected) {
+      sharedDbConnected = await ensureSharedDbConnection();
+    }
+
+    const mode: AppMode = sharedEnabled && sharedDbConnected ? 'shared' : 'solo';
 
     return {
       mode,

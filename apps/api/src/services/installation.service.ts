@@ -1,6 +1,5 @@
 import { Pool } from 'pg';
 
-import { authService } from './auth.service.js';
 import {
   initializeSharedDb,
   testConnection,
@@ -19,6 +18,15 @@ import type {
   TestConnectionResponse
 } from '@workspace/shared';
 
+/**
+ * Installation Service
+ * 
+ * Manages the configuration of the shared PostgreSQL database connection.
+ * 
+ * IMPORTANT: This service does NOT create users - authentication is always local (SQLite).
+ * It only configures the PostgreSQL connection for shared team DATA (scripts, jobs, etc.).
+ */
+
 export const installationService = {
   /**
    * Check if the application has been installed/configured
@@ -35,7 +43,7 @@ export const installationService = {
     const isConfigured = await this.isConfigured();
 
     let sharedDbConnected = false;
-    let adminUserCreated = false;
+    let adminUserCreated = false; // No longer relevant - auth is local
     let migrationsRun = false;
     let pendingMigrations: string[] = [];
 
@@ -55,9 +63,9 @@ export const installationService = {
       }
     }
 
-    // Check if admin user exists
-    const adminUserIdSetting = await settingsRepository.get<string>('admin_user_id');
-    adminUserCreated = !!adminUserIdSetting?.value;
+    // Admin user is now local - check if local user exists
+    const localUserSetting = await settingsRepository.get<string>('local_user_exists');
+    adminUserCreated = localUserSetting?.value === 'true';
 
     return {
       isConfigured,
@@ -117,10 +125,12 @@ export const installationService = {
    * - Store connection string
    * - Initialize shared database
    * - Run migrations
-   * - Create admin user
+   * 
+   * NOTE: This no longer creates users - authentication is local only.
+   * The adminUser field in the request is ignored.
    */
   async configure(request: ConfigureInstallationRequest): Promise<ConfigureInstallationResponse> {
-    const { database, adminUser } = request;
+    const { database } = request;
 
     // Build and store connection string
     const connectionString = buildConnectionString({
@@ -148,52 +158,32 @@ export const installationService = {
     const pool = getSharedPool();
     const migrationsRun = await runSharedMigrations(pool);
 
-    // Validate admin user data
-    const validation = authService.validatePassword(adminUser.password);
-    if (!validation.valid) {
-      throw new Error(`Password validation failed: ${validation.errors.join('. ')}`);
-    }
-
-    // Get admin role
-    const adminRole = await authService.getRoleByName('admin');
-    if (!adminRole) {
-      throw new Error('Admin role not found. Migrations may have failed.');
-    }
-
-    // Create admin user
-    const user = await authService.createUser({
-      username: adminUser.username,
-      email: adminUser.email,
-      password: adminUser.password,
-      displayName: adminUser.displayName,
-      roleIds: [adminRole.id]
-    });
-
-    // Store admin user ID and mark installation as complete
-    await settingsRepository.set('admin_user_id', user.id);
+    // Mark installation as complete
     await settingsRepository.set('installation_completed', true);
 
     return {
       success: true,
-      message: 'Installation completed successfully',
+      message: 'Shared database configured successfully',
       migrationsRun,
-      adminUserId: user.id
+      adminUserId: undefined // No longer created - auth is local
     };
   },
 
   /**
    * Initialize shared database connection on app startup
-   * Only if already configured
+   * Connects if connection string is configured (regardless of installation status)
    */
   async initializeOnStartup(): Promise<boolean> {
-    const isConfigured = await this.isConfigured();
+    // Check if connection string exists
+    const { getSharedDbConnectionString } = await import('../db/shared-client.js');
+    const connString = await getSharedDbConnectionString();
 
-    if (!isConfigured) {
+    if (!connString) {
       return false;
     }
 
     try {
-      await initializeSharedDb();
+      await initializeSharedDb(connString);
       return true;
     } catch (error) {
       console.error('Failed to initialize shared database:', error);

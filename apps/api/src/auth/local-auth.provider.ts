@@ -163,6 +163,7 @@ export const localAuthProvider = {
       accessToken,
       refreshToken,
       expiresIn: 900, // 15 minutes
+      mode: 'solo',
       user: {
         id: row.id,
         username: row.username,
@@ -219,6 +220,7 @@ export const localAuthProvider = {
       accessToken,
       refreshToken,
       expiresIn: 900,
+      mode: 'solo',
       user: {
         id: userRow.id,
         username: userRow.username,

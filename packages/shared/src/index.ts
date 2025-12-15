@@ -586,6 +586,7 @@ export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
+  mode: AppMode;
 }
 
 export interface RefreshTokenRequest {
@@ -762,7 +763,8 @@ export interface ConfigureInstallationResponse {
   success: boolean;
   message: string;
   migrationsRun: string[];
-  adminUserId: string;
+  /** @deprecated Auth is now local-only. This field may be undefined. */
+  adminUserId?: string;
 }
 
 // ============================================================================
