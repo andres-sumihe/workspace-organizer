@@ -1,6 +1,7 @@
 import { Pool } from 'pg';
 
 import { settingsRepository } from '../repositories/settings.repository.js';
+import { SHARED_SCHEMA, getSearchPath } from './shared-schema.js';
 
 import type { PoolClient } from 'pg';
 
@@ -16,10 +17,15 @@ import type { PoolClient } from 'pg';
  * - Audit Logs
  *
  * Connection string is stored in local SQLite settings table.
+ * All connections use `search_path = workspace_organizer, public` so that
+ * unqualified table names resolve into the shared schema.
  */
 
 let pool: Pool | null = null;
 let connectionString: string | null = null;
+
+// Re-export schema utilities for convenience
+export { SHARED_SCHEMA, getSearchPath } from './shared-schema.js';
 
 export interface SharedDbConfig {
   host: string;
@@ -91,6 +97,7 @@ export const testConnection = async (connStr: string): Promise<boolean> => {
 
 /**
  * Initialize the shared database connection pool
+ * Sets search_path to the shared schema on every connection.
  */
 export const initializeSharedDb = async (connStr?: string): Promise<void> => {
   if (pool) {
@@ -104,6 +111,9 @@ export const initializeSharedDb = async (connStr?: string): Promise<void> => {
   }
 
   connectionString = connString;
+
+  // Build pool with search_path set on every connection
+  const searchPath = getSearchPath();
   pool = new Pool({
     connectionString: connString,
     max: 20, // Maximum number of clients in the pool
@@ -111,10 +121,41 @@ export const initializeSharedDb = async (connStr?: string): Promise<void> => {
     connectionTimeoutMillis: 10000 // Timeout for acquiring a connection
   });
 
-  // Verify connection works
+  // Set search_path on each new connection
+  pool.on('connect', (client) => {
+    client.query(`SET search_path TO ${searchPath}`);
+  });
+
+  // Verify connection works and schema can be created/accessed
   const client = await pool.connect();
-  await client.query('SELECT 1');
-  client.release();
+  try {
+    // Ensure schema exists (idempotent)
+    await client.query(`CREATE SCHEMA IF NOT EXISTS ${SHARED_SCHEMA}`);
+    // Set search_path for this client explicitly (in case 'connect' event was missed)
+    await client.query(`SET search_path TO ${searchPath}`);
+    await client.query('SELECT 1');
+  } finally {
+    client.release();
+  }
+};
+
+/**
+ * Ensure the shared database connection is ready.
+ * Attempts to initialize using the stored connection string when needed.
+ * @returns true when the pool is ready, false otherwise
+ */
+export const ensureSharedDbConnection = async (): Promise<boolean> => {
+  if (isSharedDbConnected()) {
+    return true;
+  }
+
+  try {
+    await initializeSharedDb();
+    return true;
+  } catch (error) {
+    console.error('Failed to initialize shared database connection:', error);
+    return false;
+  }
 };
 
 /**

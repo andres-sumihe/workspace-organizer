@@ -1,146 +1,73 @@
 import { localAuthProvider } from './local-auth.provider.js';
-import { authService } from '../services/auth.service.js';
 import { modeService } from '../services/mode.service.js';
 
 import type { LoginRequest, LoginResponse, AuthenticatedUser, LoginContext } from '@workspace/shared';
 
 /**
- * Mode-Aware Auth Provider
+ * Auth Provider
  * 
- * Delegates authentication operations to either local or shared providers
- * based on the current application mode.
+ * Authentication ALWAYS uses local SQLite database regardless of mode.
+ * Shared mode only affects data storage (scripts, jobs, etc.), NOT authentication.
  * 
- * - Solo Mode: Uses localAuthProvider (SQLite)
- * - Shared Mode: Uses authService (PostgreSQL)
+ * This ensures users can always log in with their local credentials even when
+ * shared mode is enabled or the shared database is unavailable.
  */
 
 export const modeAwareAuthProvider = {
   /**
-   * Login with mode-aware delegation
+   * Login - always uses local auth
    */
   async login(request: LoginRequest, context?: LoginContext): Promise<LoginResponse> {
-    const mode = await modeService.getMode();
-    
-    if (mode === 'shared') {
-      return authService.login(request);
-    }
-    
     return localAuthProvider.login(request, context);
   },
 
   /**
-   * Get user by ID with roles and permissions
+   * Get user by ID - always from local database
+   * Mode is reported for UI to know which features are available
    */
   async getUserById(id: string): Promise<AuthenticatedUser | null> {
-    const mode = await modeService.getMode();
-    
-    if (mode === 'shared') {
-      const user = await authService.getUserById(id);
-      if (!user) return null;
-
-      const roles = await authService.getUserRoles(id);
-      const permissions = await authService.getUserPermissions(id);
-
-      return {
-        ...user,
-        mode: 'shared',
-        roles: roles.map(r => r.name),
-        permissions: permissions.map(p => `${p.resource}:${p.action}`)
-      };
-    }
-
-    // Solo mode
     const user = await localAuthProvider.getUserById(id);
     if (!user) return null;
 
+    // Get mode for UI display purposes only
+    const mode = await modeService.getMode();
+
     return {
       ...user,
-      mode: 'solo',
+      mode,
       roles: [],
       permissions: []
     };
   },
 
   /**
-   * Verify JWT token (tries both providers)
+   * Verify JWT token - always local
    */
   async verifyToken(token: string): Promise<{ userId: string; mode: 'solo' | 'shared' }> {
-    // Try local auth first (faster, no network)
-    try {
-      const localDecoded = await localAuthProvider.verifyToken(token);
-      if (localDecoded?.mode === 'solo') {
-        return { userId: localDecoded.userId, mode: 'solo' };
-      }
-    } catch {
-      // Not a local token, try shared
-    }
-
-    // Try shared auth
-    try {
-      const sharedDecoded = await authService.verifyToken(token);
-      return { userId: sharedDecoded.userId, mode: 'shared' };
-    } catch {
-      throw new Error('INVALID_TOKEN');
-    }
+    const decoded = await localAuthProvider.verifyToken(token);
+    const mode = await modeService.getMode();
+    return { userId: decoded.userId, mode };
   },
 
   /**
-   * Refresh access token
+   * Refresh access token - always local
    */
-  async refreshToken(refreshToken: string, mode: 'solo' | 'shared'): Promise<LoginResponse> {
-    if (mode === 'shared') {
-      // Shared mode returns partial response, need to get user
-      const tokenResult = await authService.refreshToken(refreshToken);
-      const decoded = await authService.verifyToken(tokenResult.accessToken);
-      const user = await this.getUserById(decoded.userId);
-      
-      if (!user) {
-        throw new Error('USER_NOT_FOUND');
-      }
-
-      return {
-        accessToken: tokenResult.accessToken,
-        refreshToken,
-        expiresIn: tokenResult.expiresIn,
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          displayName: user.displayName,
-          isActive: user.isActive,
-          roles: user.roles.map(r => ({ id: '', name: r, description: undefined, isSystem: false, createdAt: '', updatedAt: '' })),
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt
-        }
-      };
-    }
-    
+  async refreshToken(refreshToken: string): Promise<LoginResponse> {
     return localAuthProvider.refreshToken(refreshToken);
   },
 
   /**
    * Check if user has permission
-   * In Solo mode, always returns true (no RBAC)
-   * In Shared mode, checks actual permissions
+   * Currently always returns true (no RBAC implemented for local auth)
    */
-  async hasPermission(userId: string, resource: string, action: string): Promise<boolean> {
-    const mode = await modeService.getMode();
-    
-    if (mode === 'solo') {
-      return true; // No RBAC in Solo mode
-    }
-    
-    return authService.hasPermission(userId, resource, action);
+  async hasPermission(_userId: string, _resource: string, _action: string): Promise<boolean> {
+    return true;
   },
 
   /**
-   * Logout
+   * Logout - always local
    */
-  async logout(refreshToken: string, mode: 'solo' | 'shared'): Promise<void> {
-    if (mode === 'shared') {
-      return authService.logout(refreshToken);
-    }
-    
+  async logout(refreshToken: string): Promise<void> {
     return localAuthProvider.logout(refreshToken);
   }
 };

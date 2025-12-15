@@ -7,8 +7,10 @@ import { installationRouter } from './installation.js';
 import { scriptsRouter } from './scripts.js';
 import settingsRouter from './settings.js';
 import setupRouter from './setup.js';
+import teamConfigRouter from './team-config.js';
 import templatesRouter from './templates.js';
 import { workspacesRouter } from './workspaces.js';
+import schemaValidationRouter from './schema-validation.js';
 import { isSharedDbConnected } from '../../db/shared-client.js';
 import { installationService } from '../../services/installation.service.js';
 
@@ -21,6 +23,7 @@ v1Router.use('/setup', setupRouter);
 
 // Installation routes - always available (no auth required)
 v1Router.use('/installation', installationRouter);
+v1Router.use('/team-config', teamConfigRouter);
 
 // Auth routes - always available (supports both Solo and Shared modes)
 v1Router.use('/auth', authRouter);
@@ -37,7 +40,7 @@ const requireSharedDb = async (_req: Request, res: Response, next: NextFunction)
     if (!isConfigured) {
       res.status(503).json({
         code: 'NOT_CONFIGURED',
-        message: 'Application not configured. Please complete the installation first.'
+        message: 'Team features not configured. Please configure shared database in Settings.'
       });
       return;
     }
@@ -54,4 +57,5 @@ const requireSharedDb = async (_req: Request, res: Response, next: NextFunction)
 v1Router.use('/scripts', requireSharedDb, scriptsRouter);
 v1Router.use('/controlm-jobs', requireSharedDb, controlmJobsRouter);
 v1Router.use('/audit', requireSharedDb, auditRouter);
+v1Router.use('/schema-validation', requireSharedDb, schemaValidationRouter);
 
