@@ -1,4 +1,4 @@
-import { Plus, Loader2 } from 'lucide-react';
+import { Plus, Loader2, FolderOpen } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
@@ -32,6 +32,7 @@ export function WorkspacesPage() {
   const [localError, setLocalError] = useState<string | null>(null);
   const [openNew, setOpenNew] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [selectingWorkspaceRoot, setSelectingWorkspaceRoot] = useState(false);
   const [page, setPage] = useState(1);
   const pageSize = 6;
 
@@ -73,6 +74,24 @@ export function WorkspacesPage() {
   useEffect(() => {
     setDesktopAvailable(typeof window !== 'undefined' && typeof window.api?.listTemplates === 'function');
   }, []);
+
+  const canSelectFolder = typeof window !== 'undefined' && typeof window.api?.selectDirectory === 'function';
+
+  const pickWorkspaceRootFolder = async () => {
+    if (!canSelectFolder) return;
+    setSelectingWorkspaceRoot(true);
+    try {
+      const result = await window.api?.selectDirectory?.();
+      if (!result || result.canceled || !result.path) return;
+      workspaceForm.setValue('rootPath', result.path, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true
+      });
+    } finally {
+      setSelectingWorkspaceRoot(false);
+    }
+  };
 
   const loadTemplates = useCallback(async () => {
     if (!desktopAvailable) return;
@@ -376,11 +395,29 @@ export function WorkspacesPage() {
 
             <div>
               <Label htmlFor="rootPath">Root Path</Label>
-              <Input
-                id="rootPath"
-                {...workspaceForm.register('rootPath', { required: true })}
-                placeholder="C:\Projects\MyWorkspace"
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="rootPath"
+                  {...workspaceForm.register('rootPath', { required: true })}
+                  placeholder="C:\Projects\MyWorkspace"
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void pickWorkspaceRootFolder()}
+                  disabled={!canSelectFolder || selectingWorkspaceRoot}
+                  className="shrink-0 gap-2"
+                >
+                  {selectingWorkspaceRoot ? <Loader2 className="size-4 animate-spin" /> : <FolderOpen className="size-4" />}
+                  {canSelectFolder ? 'Choose' : 'Desktop only'}
+                </Button>
+              </div>
+              {!canSelectFolder ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Folder picker currently requires the desktop shell; enter the path manually when running in the browser.
+                </p>
+              ) : null}
             </div>
 
             <div>

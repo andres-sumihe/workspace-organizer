@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Layers, FolderTree, Settings as SettingsIcon, BarChart3, ArrowLeft } from 'lucide-react';
+import { Layers, FolderTree, Settings as SettingsIcon, BarChart3, ArrowLeft, FolderOpen, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -33,6 +33,8 @@ export const WorkspaceDetailPage = () => {
 
   const [activeTab, setActiveTab] = useState<TabValue>((tab as TabValue) || 'overview');
   const [saving, setSaving] = useState(false);
+  const [selectingFolder, setSelectingFolder] = useState(false);
+  const [canSelectFolder, setCanSelectFolder] = useState(false);
 
   const workspace = workspaces.find((w) => w.id === workspaceId);
 
@@ -50,6 +52,10 @@ export const WorkspaceDetailPage = () => {
       setActiveWorkspaceId(workspaceId);
     }
   }, [workspaceId, setActiveWorkspaceId]);
+
+  useEffect(() => {
+    setCanSelectFolder(typeof window !== 'undefined' && typeof window.api?.selectDirectory === 'function');
+  }, []);
 
   useEffect(() => {
     if (tab && ['overview', 'projects', 'templates', 'settings'].includes(tab)) {
@@ -83,6 +89,22 @@ export const WorkspaceDetailPage = () => {
       console.error('Failed to update workspace:', error);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const pickRootFolder = async () => {
+    if (!canSelectFolder) return;
+    setSelectingFolder(true);
+    try {
+      const result = await window.api?.selectDirectory?.();
+      if (!result || result.canceled || !result.path) return;
+      editForm.setValue('rootPath', result.path, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true
+      });
+    } finally {
+      setSelectingFolder(false);
     }
   };
 
@@ -174,11 +196,29 @@ export const WorkspaceDetailPage = () => {
 
                 <div>
                   <Label htmlFor="workspace-rootPath">Root Path</Label>
-                  <Input
-                    id="workspace-rootPath"
-                    {...editForm.register('rootPath', { required: true })}
-                    placeholder="C:\Projects\MyWorkspace"
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      id="workspace-rootPath"
+                      {...editForm.register('rootPath', { required: true })}
+                      placeholder="C:\Projects\MyWorkspace"
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => void pickRootFolder()}
+                      disabled={!canSelectFolder || selectingFolder}
+                      className="shrink-0 gap-2"
+                    >
+                      {selectingFolder ? <Loader2 className="size-4 animate-spin" /> : <FolderOpen className="size-4" />}
+                      {canSelectFolder ? 'Choose' : 'Desktop only'}
+                    </Button>
+                  </div>
+                  {!canSelectFolder ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Folder picker currently requires the desktop shell; enter the path manually when running in the browser.
+                    </p>
+                  ) : null}
                   {editForm.formState.errors.rootPath && (
                     <p className="text-sm text-destructive mt-1">{editForm.formState.errors.rootPath.message}</p>
                   )}
