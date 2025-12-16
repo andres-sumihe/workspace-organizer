@@ -9,6 +9,7 @@ import type { TemplateManifest, TemplateSummary, TemplateTokenEntry } from '@/ty
 
 import { createWorkspace } from '@/api/workspaces';
 import { PageShell } from '@/components/layout/page-shell';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -414,9 +415,11 @@ export function WorkspacesPage() {
 
           <div className="mt-6 space-y-4">
             {!desktopAvailable ? (
-              <div className="rounded-md border border-dashed border-amber-500 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                Templates require the desktop shell. Launch via <code>npm run dev:desktop</code> to design, capture, and apply them.
-              </div>
+              <Alert variant="warning">
+                <AlertDescription>
+                  Templates require the desktop shell. Launch via <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">npm run dev:desktop</code> to design, capture, and apply them.
+                </AlertDescription>
+              </Alert>
             ) : null}
             
             {templatesError ? <p className="text-sm text-destructive">{templatesError}</p> : null}

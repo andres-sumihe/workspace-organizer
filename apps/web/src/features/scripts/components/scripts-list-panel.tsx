@@ -139,7 +139,7 @@ export const ScriptsListPanel = ({
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-semibold text-foreground truncate">{script.name}</p>
                       {script.isActive ? (
-                        <CheckCircle className="h-3.5 w-3.5 shrink-0 text-green-600" />
+                        <CheckCircle className="h-3.5 w-3.5 shrink-0 text-success" />
                       ) : (
                         <AlertCircle className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                       )}

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { settingsApi } from '@/api/settings';
 import { schemaValidationApi, type ValidationResponse } from '@/api/schema-validation';
 import { PageShell } from '@/components/layout/page-shell';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -429,15 +430,15 @@ export const SettingsPage = () => {
     >
       <div className="max-w-3xl space-y-6">
         {saveMessage && (
-          <div className="rounded-md bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800">
-            {saveMessage}
-          </div>
+          <Alert variant="success">
+            <AlertDescription>{saveMessage}</AlertDescription>
+          </Alert>
         )}
 
         {(errorMessage || contextError) && (
-          <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-800">
-            {errorMessage || contextError}
-          </div>
+          <Alert variant="destructive">
+            <AlertDescription>{errorMessage || contextError}</AlertDescription>
+          </Alert>
         )}
 
         <Tabs defaultValue="general" className="w-full">
@@ -475,14 +476,14 @@ export const SettingsPage = () => {
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-medium">Local Database:</span>
-                        <Badge variant="default" className="bg-emerald-500">Connected</Badge>
+                        <Badge variant="success">Connected</Badge>
                       </div>
                       {isSharedMode && (
                         <>
                           <div className="flex items-center gap-3">
                             <span className="text-sm font-medium">Shared Database:</span>
                             {installationStatus?.sharedDbConnected ? (
-                              <Badge variant="default" className="bg-emerald-500">Connected</Badge>
+                              <Badge variant="success">Connected</Badge>
                             ) : (
                               <Badge variant="destructive">Disconnected</Badge>
                             )}
@@ -493,7 +494,7 @@ export const SettingsPage = () => {
                               installationStatus.pendingMigrations.length > 0 ? (
                                 <Badge variant="secondary">{installationStatus.pendingMigrations.length} pending</Badge>
                               ) : (
-                                <Badge variant="default" className="bg-emerald-500">Up to date</Badge>
+                                <Badge variant="success">Up to date</Badge>
                               )
                             ) : (
                               <Badge variant="secondary">Not run</Badge>
@@ -677,16 +678,19 @@ export const SettingsPage = () => {
               </div>
             </Card>
 
-            <Card className="p-6 bg-blue-50 border-blue-200">
-              <h3 className="font-medium mb-2 text-blue-900">How it works</h3>
-              <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
-                <li>When you open an XML file in the File Manager, it will be automatically checked for ISO20022 format</li>
-                <li>When you open any text file, it will be checked for SWIFT MT format if MT validation is enabled</li>
-                <li>ISO20022 validation checks Sender/Receiver DN and Full Names in MX messages</li>
-                <li>SWIFT MT validation checks Sender/Receiver BIC codes in FIN messages</li>
-                <li>Validation results appear in the preview panel with detailed error messages</li>
-              </ul>
-            </Card>
+            <Alert variant="info">
+              <AlertCircle className="size-4" />
+              <AlertDescription>
+                <h3 className="font-medium mb-2">How it works</h3>
+                <ul className="text-sm space-y-1 list-disc list-inside">
+                  <li>When you open an XML file in the File Manager, it will be automatically checked for ISO20022 format</li>
+                  <li>When you open any text file, it will be checked for SWIFT MT format if MT validation is enabled</li>
+                  <li>ISO20022 validation checks Sender/Receiver DN and Full Names in MX messages</li>
+                  <li>SWIFT MT validation checks Sender/Receiver BIC codes in FIN messages</li>
+                  <li>Validation results appear in the preview panel with detailed error messages</li>
+                </ul>
+              </AlertDescription>
+            </Alert>
           </TabsContent>
 
           {/* Team Features Tab */}
@@ -713,14 +717,14 @@ export const SettingsPage = () => {
 
                     {isSoloMode ? (
                       <div className="space-y-4 pt-4 border-t">
-                        <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-md">
-                          <AlertTriangle className="size-5 text-amber-600 shrink-0 mt-0.5" />
-                          <div className="text-sm text-amber-800">
+                        <Alert variant="warning">
+                          <AlertTriangle className="size-4" />
+                          <AlertDescription>
                             <p className="font-medium mb-1">Solo Mode Active</p>
                             <p>You are currently running in solo mode with local authentication. 
                                To enable team features, configure a PostgreSQL connection below.</p>
-                          </div>
-                        </div>
+                          </AlertDescription>
+                        </Alert>
 
                         <div className="space-y-4">
                           <div className="grid gap-4 md:grid-cols-2">
@@ -804,13 +808,9 @@ export const SettingsPage = () => {
                         </div>
 
                         {connectionTestResult && (
-                          <div className={`rounded-md px-4 py-3 text-sm ${
-                            connectionTestResult.success 
-                              ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' 
-                              : 'bg-red-50 border border-red-200 text-red-800'
-                          }`}>
-                            {connectionTestResult.message}
-                          </div>
+                          <Alert variant={connectionTestResult.success ? 'success' : 'destructive'}>
+                            <AlertDescription>{connectionTestResult.message}</AlertDescription>
+                          </Alert>
                         )}
 
                         <div className="flex gap-3">
@@ -843,30 +843,26 @@ export const SettingsPage = () => {
                       </div>
                     ) : (
                       <div className="space-y-4 pt-4 border-t">
-                        <div className="flex items-start gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-md">
-                          <Server className="size-5 text-emerald-600 shrink-0 mt-0.5" />
-                          <div className="text-sm text-emerald-800">
+                        <Alert variant="success">
+                          <Server className="size-4" />
+                          <AlertDescription>
                             <p className="font-medium mb-1">Shared Mode Active</p>
                             <p>You are connected to a shared PostgreSQL database. Team features including 
                                scripts management, Control-M jobs, and audit logging are enabled.</p>
-                          </div>
-                        </div>
+                          </AlertDescription>
+                        </Alert>
 
                         {teamActionMessage && (
-                          <div className={`rounded-md px-4 py-3 text-sm ${
-                            teamActionMessage.success 
-                              ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' 
-                              : 'bg-red-50 border border-red-200 text-red-800'
-                          }`}>
-                            {teamActionMessage.message}
-                          </div>
+                          <Alert variant={teamActionMessage.success ? 'success' : 'destructive'}>
+                            <AlertDescription>{teamActionMessage.message}</AlertDescription>
+                          </Alert>
                         )}
 
                         <div className="space-y-3">
                           <div className="flex items-center gap-3">
                             <span className="text-sm font-medium">Shared Database:</span>
                             {installationStatus?.sharedDbConnected ? (
-                              <Badge variant="default" className="bg-emerald-500">Connected</Badge>
+                              <Badge variant="success">Connected</Badge>
                             ) : (
                               <Badge variant="destructive">Disconnected</Badge>
                             )}
@@ -877,7 +873,7 @@ export const SettingsPage = () => {
                               installationStatus.pendingMigrations.length > 0 ? (
                                 <Badge variant="secondary">{installationStatus.pendingMigrations.length} pending</Badge>
                               ) : (
-                                <Badge variant="default" className="bg-emerald-500">Up to date</Badge>
+                                <Badge variant="success">Up to date</Badge>
                               )
                             ) : (
                               <Badge variant="secondary">Not run</Badge>
@@ -983,17 +979,17 @@ export const SettingsPage = () => {
                                 <div className="text-xs text-muted-foreground">Total Tables</div>
                                 <div className="text-lg font-semibold">{validationResult.summary.total}</div>
                               </div>
-                              <div className="p-2 border rounded-md bg-emerald-50">
-                                <div className="text-xs text-emerald-700">Valid</div>
-                                <div className="text-lg font-semibold text-emerald-800">{validationResult.summary.valid}</div>
+                              <div className="p-2 border rounded-md bg-success-muted">
+                                <div className="text-xs text-success">Valid</div>
+                                <div className="text-lg font-semibold text-success">{validationResult.summary.valid}</div>
                               </div>
-                              <div className="p-2 border rounded-md bg-amber-50">
-                                <div className="text-xs text-amber-700">Invalid</div>
-                                <div className="text-lg font-semibold text-amber-800">{validationResult.summary.invalid}</div>
+                              <div className="p-2 border rounded-md bg-warning-muted">
+                                <div className="text-xs text-warning-foreground">Invalid</div>
+                                <div className="text-lg font-semibold text-warning-foreground">{validationResult.summary.invalid}</div>
                               </div>
-                              <div className="p-2 border rounded-md bg-red-50">
-                                <div className="text-xs text-red-700">Missing</div>
-                                <div className="text-lg font-semibold text-red-800">{validationResult.summary.missing}</div>
+                              <div className="p-2 border rounded-md bg-destructive/10">
+                                <div className="text-xs text-destructive">Missing</div>
+                                <div className="text-lg font-semibold text-destructive">{validationResult.summary.missing}</div>
                               </div>
                             </div>
 
@@ -1004,22 +1000,22 @@ export const SettingsPage = () => {
                                     key={tableName}
                                     className={`p-3 border rounded-md ${
                                       !result.exists
-                                        ? 'bg-red-50 border-red-200'
+                                        ? 'bg-destructive/10 border-destructive/30'
                                         : result.valid
-                                        ? 'bg-emerald-50 border-emerald-200'
-                                        : 'bg-amber-50 border-amber-200'
+                                        ? 'bg-success-muted border-success/30'
+                                        : 'bg-warning-muted border-warning/30'
                                     }`}
                                   >
                                     <div className="flex items-center gap-2 mb-1">
                                       {!result.exists ? (
-                                        <XCircle className="size-4 text-red-600" />
+                                        <XCircle className="size-4 text-destructive" />
                                       ) : result.valid ? (
-                                        <CheckCircle2 className="size-4 text-emerald-600" />
+                                        <CheckCircle2 className="size-4 text-success" />
                                       ) : (
-                                        <AlertCircle className="size-4 text-amber-600" />
+                                        <AlertCircle className="size-4 text-warning" />
                                       )}
                                       <span className="font-mono text-sm font-medium">{tableName}</span>
-                                      <Badge variant={result.valid ? 'default' : 'destructive'} className="ml-auto">
+                                      <Badge variant={!result.exists ? 'destructive' : result.valid ? 'success' : 'warning'} className="ml-auto">
                                         {!result.exists ? 'Missing' : result.valid ? 'Valid' : 'Invalid'}
                                       </Badge>
                                     </div>
@@ -1027,7 +1023,7 @@ export const SettingsPage = () => {
                                     {result.errors.length > 0 && (
                                       <div className="mt-2 text-xs">
                                         {result.errors.map((error, idx) => (
-                                          <div key={idx} className="text-red-700">{error}</div>
+                                          <div key={idx} className="text-destructive">{error}</div>
                                         ))}
                                       </div>
                                     )}
@@ -1056,16 +1052,19 @@ export const SettingsPage = () => {
               </div>
             </Card>
 
-            <Card className="p-6 bg-blue-50 border-blue-200">
-              <h3 className="font-medium mb-2 text-blue-900">About Team Features</h3>
-              <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
-                <li><strong>Solo Mode:</strong> All data stored locally in SQLite, single user, no network required</li>
-                <li><strong>Shared Mode:</strong> Team data stored in PostgreSQL, multi-user with RBAC</li>
-                <li>Scripts can be migrated from local to shared when switching modes</li>
-                <li>Audit logs track all changes in shared mode for compliance</li>
-                <li>User roles determine access to different features and resources</li>
-              </ul>
-            </Card>
+            <Alert variant="info">
+              <AlertCircle className="size-4" />
+              <AlertDescription>
+                <h3 className="font-medium mb-2">About Team Features</h3>
+                <ul className="text-sm space-y-1 list-disc list-inside">
+                  <li><strong>Solo Mode:</strong> All data stored locally in SQLite, single user, no network required</li>
+                  <li><strong>Shared Mode:</strong> Team data stored in PostgreSQL, multi-user with RBAC</li>
+                  <li>Scripts can be migrated from local to shared when switching modes</li>
+                  <li>Audit logs track all changes in shared mode for compliance</li>
+                  <li>User roles determine access to different features and resources</li>
+                </ul>
+              </AlertDescription>
+            </Alert>
           </TabsContent>
         </Tabs>
       </div>

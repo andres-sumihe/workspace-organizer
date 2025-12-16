@@ -5,6 +5,7 @@ import type { BuilderMeta, CaptureFormValues, EditableFile, EditableFolder, Edit
 import type { TemplateManifest, TemplateSummary, TemplateTokenEntry } from '@/types/desktop';
 
 import { PageShell } from '@/components/layout/page-shell';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { TemplateBuilderDialog, TemplateGrid, TemplatesToolbar, makeId, normalizePathInput } from '@/features/templates';
 
 export const TemplatesPage = () => {
@@ -291,9 +292,11 @@ export const TemplatesPage = () => {
       }
     >
       {!desktopAvailable ? (
-        <div className="rounded-md border border-dashed border-amber-500 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          Templates require the desktop shell. Launch via <code>npm run dev:desktop</code> to design, capture, and apply them.
-        </div>
+        <Alert variant="warning">
+          <AlertDescription>
+            Templates require the desktop shell. Launch via <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">npm run dev:desktop</code> to design, capture, and apply them.
+          </AlertDescription>
+        </Alert>
       ) : null}
       {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
 

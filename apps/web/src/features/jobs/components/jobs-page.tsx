@@ -125,7 +125,7 @@ export const JobsTab = ({ initialJobId }: JobsTabProps) => {
           {stats && stats.totalJobs > 0 && (
             <div className="flex items-center gap-4 text-sm">
               <span><strong>{stats.totalJobs}</strong> jobs</span>
-              <span className="text-green-600"><strong>{stats.activeJobs}</strong> active</span>
+              <span className="text-success"><strong>{stats.activeJobs}</strong> active</span>
               <span className="text-pink-600"><strong>{stats.cyclicJobs}</strong> cyclic</span>
             </div>
           )}

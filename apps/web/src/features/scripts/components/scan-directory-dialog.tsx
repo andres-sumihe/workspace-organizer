@@ -171,7 +171,7 @@ export const ScanDirectoryDialog = ({ open, onOpenChange, onScan, canSelectFolde
           </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
-          {scanResult && <p className="text-sm text-green-600">✓ Scan completed! Found {scanResult.count} scripts</p>}
+          {scanResult && <p className="text-sm text-success">✓ Scan completed! Found {scanResult.count} scripts</p>}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={scanning}>

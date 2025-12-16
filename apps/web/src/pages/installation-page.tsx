@@ -318,10 +318,10 @@ export const InstallationPage = () => {
               </div>
 
               {connectionTested && (
-                <Alert variant={connectionSuccess ? 'default' : 'destructive'}>
+                <Alert variant={connectionSuccess ? 'success' : 'destructive'}>
                   {connectionSuccess ? (
                     <>
-                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <CheckCircle className="h-4 w-4" />
                       <AlertTitle>Connection Successful</AlertTitle>
                       <AlertDescription>Successfully connected to the PostgreSQL database.</AlertDescription>
                     </>
@@ -421,8 +421,8 @@ export const InstallationPage = () => {
           {/* Complete Step */}
           {currentStep === 'complete' && (
             <div className="space-y-6 text-center">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-                <CheckCircle className="h-8 w-8 text-green-600" />
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-success-muted">
+                <CheckCircle className="h-8 w-8 text-success" />
               </div>
               <div className="space-y-2">
                 <h3 className="text-lg font-semibold">Setup Complete!</h3>

@@ -209,11 +209,11 @@ export const PayloadDialog = ({ open, onOpenChange, selectedFiles = [], onReadFi
             <div className="space-y-3">
               {/* Option 1: Pack pre-selected files */}
               {hasPreselectedFiles && (
-                <div className="bg-blue-50 border border-blue-200 rounded p-3 space-y-2">
-                  <p className="text-sm text-blue-900 font-medium">
+                <div className="bg-info-muted border border-info/30 rounded p-3 space-y-2">
+                  <p className="text-sm text-foreground font-medium">
                     Selected files ({selectedFiles.length}):
                   </p>
-                  <ul className="text-xs text-blue-800 list-disc list-inside max-h-24 overflow-auto">
+                  <ul className="text-xs text-foreground list-disc list-inside max-h-24 overflow-auto">
                     {selectedFiles.map(({ name, path }) => (
                       <li key={path} title={path}>{name}</li>
                     ))}
@@ -312,8 +312,8 @@ export const PayloadDialog = ({ open, onOpenChange, selectedFiles = [], onReadFi
 
           {/* Success message */}
           {successMessage && (
-            <Alert className="bg-green-50 border-green-200">
-              <AlertDescription className="text-green-800">{successMessage}</AlertDescription>
+            <Alert variant="success">
+              <AlertDescription>{successMessage}</AlertDescription>
             </Alert>
           )}
         </div>

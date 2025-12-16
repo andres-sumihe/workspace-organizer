@@ -11,9 +11,9 @@ interface WorkspaceOverviewTabProps {
 
 export const WorkspaceOverviewTab = ({ workspace }: WorkspaceOverviewTabProps) => {
   const statusColor = {
-    healthy: 'bg-green-500',
-    degraded: 'bg-yellow-500',
-    offline: 'bg-red-500'
+    healthy: 'bg-success',
+    degraded: 'bg-warning',
+    offline: 'bg-destructive'
   }[workspace.status];
 
   const statusLabel = {

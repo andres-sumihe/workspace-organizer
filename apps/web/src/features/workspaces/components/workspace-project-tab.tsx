@@ -30,7 +30,7 @@ import { useWorkspaceContext } from '@/contexts/workspace-context';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const DesktopOnlyBanner = () => (
-  <div className="flex items-start gap-2 rounded-md border border-dashed border-amber-500 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/20 dark:text-amber-400">
+  <div className="flex items-start gap-2 rounded-md border border-dashed border-warning bg-warning-muted px-3 py-2 text-sm text-warning-foreground">
     <AlertCircle className="mt-0.5 size-4 shrink-0" />
     <p>
       File management actions require the desktop shell. Launch via <code>npm run dev:desktop</code> to enable browsing,
@@ -575,7 +575,7 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
     <div className="space-y-4">
       {/* Status messages */}
       {directoryError ? <div className="text-sm text-destructive">Error: {directoryError}</div> : null}
-      {operationMessage ? <div className="text-sm text-emerald-600">{operationMessage}</div> : null}
+      {operationMessage ? <div className="text-sm text-success">{operationMessage}</div> : null}
       {operationError ? <div className="text-sm text-destructive">{operationError}</div> : null}
 
       {/* Toolbar */}

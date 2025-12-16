@@ -157,8 +157,8 @@ export const JobImportDialog = ({ onImportComplete }: JobImportDialogProps) => {
           {/* Result */}
           {result && (
             <div className="space-y-3">
-              <Alert variant={result.errors.length > 0 ? 'default' : 'default'}>
-                <CheckCircle className="h-4 w-4 text-green-500" />
+              <Alert variant="success">
+                <CheckCircle className="h-4 w-4" />
                 <AlertDescription>
                   <div className="space-y-1">
                     <div className="font-medium">
