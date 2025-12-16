@@ -46,7 +46,7 @@ export const JobDetailPanel = ({ job, loading }: JobDetailPanelProps) => {
         </div>
         <div className="flex items-center gap-2">
           {job.isActive ? (
-            <Badge variant="default" className="bg-green-500">
+            <Badge variant="success">
               <PlayCircle className="h-3 w-3 mr-1" />
               Active
             </Badge>
@@ -115,13 +115,13 @@ export const JobDetailPanel = ({ job, loading }: JobDetailPanelProps) => {
                 
                 {/* Linked Script - Show if linked */}
                 {job.linkedScript ? (
-                  <div className="flex items-center gap-2 p-2 rounded-md bg-green-500/10 border border-green-500/20">
-                    <Link2 className="h-4 w-4 text-green-500" />
-                    <span className="text-sm text-green-600 dark:text-green-400">Linked to:</span>
+                  <div className="flex items-center gap-2 p-2 rounded-md bg-success-muted border border-success/30">
+                    <Link2 className="h-4 w-4 text-success" />
+                    <span className="text-sm text-success">Linked to:</span>
                     <Button
                       variant="link"
                       size="sm"
-                      className="h-auto p-0 text-sm font-medium text-green-600 dark:text-green-400 hover:text-green-700"
+                      className="h-auto p-0 text-sm font-medium text-success hover:text-success/80"
                       onClick={() => navigate(`/scripts/${job.linkedScript!.id}`)}
                     >
                       {job.linkedScript.name}
@@ -129,9 +129,9 @@ export const JobDetailPanel = ({ job, loading }: JobDetailPanelProps) => {
                     </Button>
                   </div>
                 ) : job.linkedScriptId ? (
-                  <div className="flex items-center gap-2 p-2 rounded-md bg-yellow-500/10 border border-yellow-500/20">
-                    <Link2 className="h-4 w-4 text-yellow-500" />
-                    <span className="text-sm text-yellow-600 dark:text-yellow-400">
+                  <div className="flex items-center gap-2 p-2 rounded-md bg-warning-muted border border-warning/30">
+                    <Link2 className="h-4 w-4 text-warning" />
+                    <span className="text-sm text-warning-foreground">
                       Script linked but not found
                     </span>
                   </div>

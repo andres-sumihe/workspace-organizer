@@ -561,8 +561,8 @@ export const PreviewPanel = ({
               )}
             </div>
             {preview.truncated && (
-              <div className="px-3 py-1 bg-amber-50 border-t border-amber-200">
-                <p className="text-xs text-amber-800">Preview truncated to 512KB</p>
+              <div className="px-3 py-1 bg-warning-muted border-t border-warning/30">
+                <p className="text-xs text-warning-foreground">Preview truncated to 512KB</p>
               </div>
             )}
           </div>

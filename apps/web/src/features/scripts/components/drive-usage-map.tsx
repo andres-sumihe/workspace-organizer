@@ -11,7 +11,7 @@ interface DriveUsageMapProps {
 
 /**
  * Get color classes based on usage count
- * Uses a heat map color scheme: green (low) → yellow → orange → red (high)
+ * Uses a heat map color scheme: neutral (0) → success (1) → warning gradient (2-3) → destructive (4+)
  */
 const getUsageColorClasses = (count: number): string => {
   if (count === 0) {
@@ -19,19 +19,19 @@ const getUsageColorClasses = (count: number): string => {
     return 'border-slate-400 bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400';
   }
   if (count === 1) {
-    // Low usage - green
-    return 'border-green-500 bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300';
+    // Low usage - success (green)
+    return 'border-success bg-success-muted text-success dark:bg-success-muted';
   }
   if (count === 2) {
-    // Medium-low - yellow/lime
-    return 'border-yellow-500 bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-300';
+    // Medium-low - warning (yellow/amber)
+    return 'border-warning bg-warning-muted text-warning-foreground dark:bg-warning-muted';
   }
   if (count === 3) {
-    // Medium-high - orange
+    // Medium-high - orange (between warning and destructive)
     return 'border-orange-500 bg-orange-200 text-orange-900 dark:bg-orange-950 dark:text-orange-300';
   }
-  // 4+ scripts - high usage - red
-  return 'border-red-500 bg-red-200 text-red-900 dark:bg-red-950 dark:text-red-300';
+  // 4+ scripts - high usage - destructive (red)
+  return 'border-destructive bg-destructive/20 text-destructive dark:bg-destructive/30';
 };
 
 export const DriveUsageMap = ({ 
@@ -133,11 +133,11 @@ export const DriveUsageMap = ({
           <span className="text-muted-foreground">Not Used</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="h-3 w-3 rounded border border-green-500 bg-green-100 dark:bg-green-950" />
+          <div className="h-3 w-3 rounded border border-success bg-success-muted" />
           <span className="text-muted-foreground">1 Script</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="h-3 w-3 rounded border border-yellow-500 bg-yellow-100 dark:bg-yellow-950" />
+          <div className="h-3 w-3 rounded border border-warning bg-warning-muted" />
           <span className="text-muted-foreground">2 Scripts</span>
         </div>
         <div className="flex items-center gap-1">
@@ -145,7 +145,7 @@ export const DriveUsageMap = ({
           <span className="text-muted-foreground">3 Scripts</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="h-3 w-3 rounded border border-red-500 bg-red-200 dark:bg-red-950" />
+          <div className="h-3 w-3 rounded border border-destructive bg-destructive/20" />
           <span className="text-muted-foreground">4+ Scripts</span>
         </div>
         <div className="flex items-center gap-1">

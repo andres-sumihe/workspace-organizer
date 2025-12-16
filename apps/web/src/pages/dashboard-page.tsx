@@ -67,10 +67,10 @@ const initiatives: InitiativeSummary[] = [
   },
 ];
 
-const statusVariant: Record<InitiativeStatus, string> = {
-  Active: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
-  Completed: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
-  Planned: 'bg-muted text-muted-foreground',
+const statusVariant: Record<InitiativeStatus, 'warning' | 'success' | 'secondary'> = {
+  Active: 'warning',
+  Completed: 'success',
+  Planned: 'secondary',
 };
 
 export const DashboardPage = () => {
@@ -119,7 +119,7 @@ export const DashboardPage = () => {
                 <CardTitle>{initiative.name}</CardTitle>
                 <CardDescription>{initiative.goal}</CardDescription>
               </div>
-              <Badge className={statusVariant[initiative.status]}>{initiative.status}</Badge>
+              <Badge variant={statusVariant[initiative.status]}>{initiative.status}</Badge>
             </CardHeader>
             <CardContent>
               <p className="text-sm font-medium text-foreground">Next steps</p>

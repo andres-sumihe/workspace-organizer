@@ -127,7 +127,7 @@ export const WorkspaceDetailPanel = ({
         </Button>
       </div>
       {projectError ? <p className="text-xs text-destructive">{projectError}</p> : null}
-      {templateApplyMessage ? <p className="text-xs text-emerald-600">{templateApplyMessage}</p> : null}
+      {templateApplyMessage ? <p className="text-xs text-success">{templateApplyMessage}</p> : null}
       {projectLoading ? (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Loader2 className="size-4 animate-spin" /> Loading projects...

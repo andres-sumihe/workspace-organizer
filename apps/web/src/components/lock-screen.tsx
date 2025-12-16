@@ -43,8 +43,8 @@ export function LockScreen() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/10">
-            <Lock className="h-8 w-8 text-amber-500" />
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-warning-muted">
+            <Lock className="h-8 w-8 text-warning" />
           </div>
           <CardTitle className="text-xl">Session Locked</CardTitle>
           <CardDescription>

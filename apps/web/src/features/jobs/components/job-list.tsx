@@ -177,9 +177,9 @@ export const JobList = ({ onJobSelect, selectedJobId, refreshKey = 0 }: JobListP
                   <TableCell>
                     <div className="flex items-center justify-center">
                       {job.isActive ? (
-                        <PlayCircle className="h-5 w-5 text-green-500" />
+                        <PlayCircle className="h-5 w-5 text-success" />
                       ) : (
-                        <PauseCircle className="h-5 w-5 text-red-500" />
+                        <PauseCircle className="h-5 w-5 text-destructive" />
                       )}
                     </div>
                   </TableCell>
