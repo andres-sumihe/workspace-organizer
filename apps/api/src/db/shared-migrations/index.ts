@@ -4,7 +4,6 @@ import * as migration0002 from './0002-create-audit-log.js';
 import * as migration0003 from './0003-create-scripts.js';
 import * as migration0004 from './0004-create-controlm-jobs.js';
 import * as migration0005 from './0005-create-app-info.js';
-
 import { SHARED_SCHEMA, getSearchPath, qualifyTable } from '../shared-schema.js';
 
 import type { Pool, PoolClient } from 'pg';

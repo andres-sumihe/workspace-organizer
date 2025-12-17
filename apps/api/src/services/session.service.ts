@@ -276,6 +276,46 @@ export const sessionService = {
   },
 
   /**
+   * Clean up inactive sessions (beyond inactivity timeout)
+   * This is more aggressive than expiration check - removes sessions that haven't been used
+   */
+  async cleanupInactiveSessions(): Promise<number> {
+    const db = await getDb();
+    const config = await this.getConfig();
+    
+    const inactivityMs = config.inactivityTimeoutMinutes * 60 * 1000;
+    const cutoffTime = new Date(Date.now() - inactivityMs).toISOString();
+    
+    const result = await db.run(
+      'DELETE FROM local_sessions WHERE last_activity_at < ?',
+      [cutoffTime]
+    );
+    return result.changes ?? 0;
+  },
+
+  /**
+   * Start periodic cleanup task (runs every hour)
+   * Returns cleanup interval ID
+   */
+  startPeriodicCleanup(): NodeJS.Timeout {
+    const CLEANUP_INTERVAL = 60 * 60 * 1000; // 1 hour
+    
+    return setInterval(async () => {
+      try {
+        const expired = await this.cleanupExpiredSessions();
+        const inactive = await this.cleanupInactiveSessions();
+        
+        // Only log if sessions were actually cleaned up
+        if (expired > 0 || inactive > 0) {
+          console.log(`Session cleanup: ${expired} expired, ${inactive} inactive`);
+        }
+      } catch (error) {
+        console.error('Session cleanup failed:', error);
+      }
+    }, CLEANUP_INTERVAL);
+  },
+
+  /**
    * Generate a new session ID
    */
   generateSessionId(): string {

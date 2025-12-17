@@ -625,9 +625,141 @@ export interface UserDetailResponse {
 }
 
 // ============================================================================
-// RBAC (Role-Based Access Control) Types
+// Team Types
 // ============================================================================
 
+/**
+ * Team entity stored in shared PostgreSQL database.
+ */
+export interface Team {
+  id: string;
+  name: string;
+  description?: string;
+  createdByEmail: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Team role hierarchy: owner > admin > member
+ * - owner: Full control, can delete team, manage all members
+ * - admin: Can manage members (except owner), full CRUD on resources
+ * - member: Can CRUD their own resources, read all team resources
+ */
+export type TeamRole = 'owner' | 'admin' | 'member';
+
+/**
+ * Team member entity - links local users to teams via email.
+ * This is the core of RBAC in the team-centric model.
+ */
+export interface TeamMember {
+  id: string;
+  teamId: string;
+  email: string;
+  displayName?: string;
+  role: TeamRole;
+  joinedAt: string;
+  updatedAt: string;
+}
+
+export interface TeamWithMembers extends Team {
+  members: TeamMember[];
+  memberCount: number;
+}
+
+export interface CreateTeamRequest {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateTeamRequest {
+  name?: string;
+  description?: string;
+}
+
+export interface UpdateMemberRoleRequest {
+  role: TeamRole;
+}
+
+export interface TeamListResponse {
+  teams: Team[];
+}
+
+export interface TeamDetailResponse {
+  team: TeamWithMembers;
+}
+
+export interface TeamMemberListResponse {
+  members: TeamMember[];
+}
+
+// ============================================================================
+// Team-Based RBAC (Role-Based Access Control) Types
+// ============================================================================
+
+/**
+ * Resources that can be accessed in a team context.
+ */
+export type TeamResource = 'teams' | 'team_members' | 'scripts' | 'controlm_jobs' | 'audit';
+
+/**
+ * Actions that can be performed on team resources.
+ */
+export type TeamAction = 'create' | 'read' | 'update' | 'delete' | 'manage';
+
+/**
+ * Role permission matrix - defines what each role can do.
+ * Used by rbacService to check permissions.
+ */
+export const TEAM_ROLE_PERMISSIONS: Record<TeamRole, Record<TeamResource, TeamAction[]>> = {
+  owner: {
+    teams: ['read', 'update', 'delete', 'manage'],
+    team_members: ['create', 'read', 'update', 'delete', 'manage'],
+    scripts: ['create', 'read', 'update', 'delete'],
+    controlm_jobs: ['create', 'read', 'update', 'delete'],
+    audit: ['read']
+  },
+  admin: {
+    teams: ['read'],
+    team_members: ['create', 'read', 'update', 'delete'],
+    scripts: ['create', 'read', 'update', 'delete'],
+    controlm_jobs: ['create', 'read', 'update', 'delete'],
+    audit: ['read']
+  },
+  member: {
+    teams: ['read'],
+    team_members: ['read'],
+    scripts: ['create', 'read', 'update', 'delete'], // Own items only (enforced at service level)
+    controlm_jobs: ['create', 'read', 'update', 'delete'], // Own items only
+    audit: ['read'] // Own actions only
+  }
+};
+
+/**
+ * Role hierarchy for comparison (higher index = more permissions)
+ */
+export const TEAM_ROLE_HIERARCHY: TeamRole[] = ['member', 'admin', 'owner'];
+
+/**
+ * Check if a role has at least the minimum required role level.
+ */
+export const hasMinimumRole = (userRole: TeamRole, requiredRole: TeamRole): boolean => {
+  return TEAM_ROLE_HIERARCHY.indexOf(userRole) >= TEAM_ROLE_HIERARCHY.indexOf(requiredRole);
+};
+
+/**
+ * Check if a role has permission for an action on a resource.
+ */
+export const roleHasPermission = (
+  role: TeamRole,
+  resource: TeamResource,
+  action: TeamAction
+): boolean => {
+  const permissions = TEAM_ROLE_PERMISSIONS[role]?.[resource] ?? [];
+  return permissions.includes(action);
+};
+
+// Legacy RBAC types (kept for backward compatibility, will be deprecated)
 export type ResourceType = 'scripts' | 'controlm_jobs' | 'users' | 'roles' | 'audit';
 
 export type ActionType = 'create' | 'read' | 'update' | 'delete' | 'execute' | 'manage';
@@ -684,6 +816,10 @@ export interface PermissionListResponse {
 // Audit Log Types
 // ============================================================================
 
+/**
+ * Audit actions for team-based tracking.
+ * Tracks both resource operations and team membership changes.
+ */
 export type AuditAction =
   | 'CREATE'
   | 'READ'
@@ -694,12 +830,29 @@ export type AuditAction =
   | 'LOGIN_FAILED'
   | 'PASSWORD_CHANGED'
   | 'ROLE_ASSIGNED'
-  | 'ROLE_REVOKED';
+  | 'ROLE_REVOKED'
+  | 'JOIN_TEAM'
+  | 'LEAVE_TEAM'
+  | 'ROLE_CHANGE'
+  | 'TEAM_CREATED'
+  | 'TEAM_DELETED'
+  | 'SCRIPT_CREATE'
+  | 'SCRIPT_UPDATE'
+  | 'SCRIPT_DELETE'
+  | 'JOB_LINK'
+  | 'JOB_UNLINK'
+  | 'JOB_DELETE'
+  | 'JOB_IMPORT';
 
+/**
+ * Audit log entry stored in shared PostgreSQL.
+ * Uses member_email as actor identifier (not user_id).
+ */
 export interface AuditLogEntry {
   id: string;
-  userId?: string;
-  username?: string;
+  teamId?: string;
+  memberEmail?: string;
+  memberDisplayName?: string;
   action: AuditAction;
   resourceType: string;
   resourceId?: string;
@@ -712,7 +865,8 @@ export interface AuditLogEntry {
 }
 
 export interface AuditLogFilters {
-  userId?: string;
+  teamId?: string;
+  memberEmail?: string;
   action?: AuditAction;
   resourceType?: string;
   resourceId?: string;

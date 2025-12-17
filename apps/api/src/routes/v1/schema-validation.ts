@@ -1,8 +1,8 @@
 import { Router } from 'express';
 
-import { schemaValidationService } from '../../services/schema-validation.service.js';
-import { runSharedMigrations } from '../../db/shared-migrations/index.js';
 import { getSharedPool } from '../../db/shared-client.js';
+import { runSharedMigrations } from '../../db/shared-migrations/index.js';
+import { schemaValidationService } from '../../services/schema-validation.service.js';
 
 import type { Request, Response } from 'express';
 

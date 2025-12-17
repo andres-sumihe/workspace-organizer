@@ -28,8 +28,12 @@ auditRouter.get(
 
       const filters: AuditLogFilters = {};
 
-      if (req.query.userId) {
-        filters.userId = req.query.userId as string;
+      if (req.query.memberEmail) {
+        filters.memberEmail = req.query.memberEmail as string;
+      }
+
+      if (req.query.teamId) {
+        filters.teamId = req.query.teamId as string;
       }
 
       if (req.query.action) {

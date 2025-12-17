@@ -1,7 +1,7 @@
 import { Router } from 'express';
 
-import { modeAwareAuthProvider } from '../../auth/mode-aware-auth.provider.js';
 import { localAuthProvider } from '../../auth/local-auth.provider.js';
+import { modeAwareAuthProvider } from '../../auth/mode-aware-auth.provider.js';
 import { authMiddleware } from '../../middleware/auth.middleware.js';
 import { attestationService } from '../../services/attestation.service.js';
 import { modeService } from '../../services/mode.service.js';

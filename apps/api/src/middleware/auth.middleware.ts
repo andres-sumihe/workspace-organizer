@@ -1,4 +1,5 @@
 import { modeAwareAuthProvider } from '../auth/mode-aware-auth.provider.js';
+import { sessionService } from '../services/session.service.js';
 
 import type { AuthenticatedUser } from '@workspace/shared';
 import type { Request, Response, NextFunction } from 'express';
@@ -64,6 +65,15 @@ export const authMiddleware = async (
       res.status(401).json({
         code: 'UNAUTHORIZED',
         message: 'User account is deactivated'
+      });
+      return;
+    }
+
+    const sessionInfo = await sessionService.getSessionInfo(user.id);
+    if (!sessionInfo || !sessionInfo.isActive) {
+      res.status(401).json({
+        code: 'SESSION_EXPIRED',
+        message: 'Session has expired or timed out due to inactivity'
       });
       return;
     }
@@ -142,3 +152,8 @@ export const optionalAuthMiddleware = async (
     next();
   }
 };
+
+/**
+ * Alias for authMiddleware - used by team routes
+ */
+export const requireAuth = authMiddleware;

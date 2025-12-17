@@ -28,8 +28,9 @@ interface AuditLogRow {
 
 const mapRowToEntry = (row: AuditLogRow): AuditLogEntry => ({
   id: row.id,
-  userId: undefined, // No longer used - auth is local
-  username: row.member_display_name ?? row.member_email ?? undefined,
+  teamId: row.team_id ?? undefined,
+  memberEmail: row.member_email ?? undefined,
+  memberDisplayName: row.member_display_name ?? undefined,
   action: row.action as AuditAction,
   resourceType: row.resource_type,
   resourceId: row.resource_id ?? undefined,
@@ -37,11 +38,7 @@ const mapRowToEntry = (row: AuditLogRow): AuditLogEntry => ({
   newValue: row.new_value ?? undefined,
   ipAddress: row.ip_address ?? undefined,
   userAgent: row.user_agent ?? undefined,
-  metadata: {
-    ...row.metadata,
-    teamId: row.team_id ?? undefined,
-    memberEmail: row.member_email ?? undefined
-  },
+  metadata: row.metadata ?? undefined,
   timestamp: row.timestamp
 });
 
@@ -306,11 +303,16 @@ export const auditService = {
     const params: unknown[] = [];
     let paramIndex = 1;
 
-    // Support both userId (legacy) and memberEmail for filtering
-    if (filters.userId) {
-      // Legacy: treat as email search
+    // Team filter (new team-centric model)
+    if (filters.teamId) {
+      conditions.push(`team_id = $${paramIndex++}`);
+      params.push(filters.teamId);
+    }
+
+    // Member email filter (new team-centric model)
+    if (filters.memberEmail) {
       conditions.push(`member_email = $${paramIndex++}`);
-      params.push(filters.userId);
+      params.push(filters.memberEmail);
     }
 
     if (filters.action) {
@@ -366,6 +368,83 @@ export const auditService = {
         hasPreviousPage: page > 1
       }
     };
+  },
+
+  /**
+   * Get audit log entries for a specific team
+   */
+  async getByTeam(
+    teamId: string,
+    page = 1,
+    pageSize = 50
+  ): Promise<PaginatedData<AuditLogEntry>> {
+    return this.getAll({ teamId }, page, pageSize);
+  },
+
+  /**
+   * Log a team member joining
+   */
+  async logJoinTeam(
+    memberEmail: string,
+    teamId: string,
+    role: string,
+    context?: { ipAddress?: string; userAgent?: string; memberDisplayName?: string }
+  ): Promise<AuditLogEntry | null> {
+    return this.log({
+      memberEmail,
+      memberDisplayName: context?.memberDisplayName,
+      teamId,
+      action: 'JOIN_TEAM',
+      resourceType: 'team_member',
+      newValue: { email: memberEmail, role },
+      ipAddress: context?.ipAddress,
+      userAgent: context?.userAgent
+    });
+  },
+
+  /**
+   * Log a team member leaving
+   */
+  async logLeaveTeam(
+    memberEmail: string,
+    teamId: string,
+    context?: { ipAddress?: string; userAgent?: string; memberDisplayName?: string }
+  ): Promise<AuditLogEntry | null> {
+    return this.log({
+      memberEmail,
+      memberDisplayName: context?.memberDisplayName,
+      teamId,
+      action: 'LEAVE_TEAM',
+      resourceType: 'team_member',
+      oldValue: { email: memberEmail },
+      ipAddress: context?.ipAddress,
+      userAgent: context?.userAgent
+    });
+  },
+
+  /**
+   * Log a role change for a team member
+   */
+  async logRoleChange(
+    memberEmail: string,
+    teamId: string,
+    targetEmail: string,
+    oldRole: string,
+    newRole: string,
+    context?: { ipAddress?: string; userAgent?: string; memberDisplayName?: string }
+  ): Promise<AuditLogEntry | null> {
+    return this.log({
+      memberEmail,
+      memberDisplayName: context?.memberDisplayName,
+      teamId,
+      action: 'ROLE_CHANGE',
+      resourceType: 'team_member',
+      resourceId: targetEmail,
+      oldValue: { role: oldRole },
+      newValue: { role: newRole },
+      ipAddress: context?.ipAddress,
+      userAgent: context?.userAgent
+    });
   },
 
   /**

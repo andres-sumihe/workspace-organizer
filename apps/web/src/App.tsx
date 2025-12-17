@@ -4,8 +4,8 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from
 
 import type { SidebarNavItem } from '@/components/layout/app-sidebar';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LockScreen } from '@/components/lock-screen';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { FileManagerProvider } from '@/contexts/file-manager-context';
 import { InstallationProvider, useInstallation } from '@/contexts/installation-context';
