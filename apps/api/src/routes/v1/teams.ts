@@ -2,7 +2,6 @@ import { Router } from 'express';
 
 import { requireAuth } from '../../middleware/auth.middleware.js';
 import { requireTeamRole } from '../../middleware/team-rbac.middleware.js';
-import { rbacService } from '../../services/rbac.service.js';
 import { asyncHandler } from '../../utils/async-handler.js';
 
 import type { TeamAuthenticatedRequest } from '../../middleware/team-rbac.middleware.js';
@@ -12,6 +11,248 @@ export const teamsRouter = Router();
 
 // All team routes require authentication
 teamsRouter.use(requireAuth as RequestHandler);
+
+/**
+ * POST /teams
+ * Create a new team (authenticated user becomes owner)
+ */
+teamsRouter.post('/', asyncHandler(async (req: TeamAuthenticatedRequest, res: Response) => {
+  const userEmail = req.user?.email;
+  const displayName = req.user?.displayName;
+
+  if (!userEmail) {
+    res.status(401).json({
+      code: 'UNAUTHORIZED',
+      message: 'User email not found'
+    });
+    return;
+  }
+
+  const { name, description } = req.body ?? {};
+
+  if (!name || typeof name !== 'string' || name.trim().length === 0) {
+    res.status(400).json({
+      code: 'INVALID_NAME',
+      message: 'Team name is required'
+    });
+    return;
+  }
+
+  const { query, execute } = await import('../../db/shared-client.js');
+
+  // Check if team name already exists
+  interface TeamCheckRow {
+    count: string;
+  }
+
+  const existingTeams = await query<TeamCheckRow>(
+    'SELECT COUNT(*) as count FROM teams WHERE LOWER(name) = LOWER($1)',
+    [name.trim()]
+  );
+
+  if (parseInt(existingTeams[0].count, 10) > 0) {
+    res.status(409).json({
+      code: 'TEAM_NAME_EXISTS',
+      message: 'A team with this name already exists'
+    });
+    return;
+  }
+
+  // Create the team
+  interface TeamRow {
+    id: string;
+    name: string;
+    description: string | null;
+    created_by_email: string | null;
+    created_at: string;
+    updated_at: string;
+  }
+
+  const teams = await query<TeamRow>(
+    `INSERT INTO teams (name, description, created_by_email)
+     VALUES ($1, $2, $3)
+     RETURNING id, name, description, created_by_email, created_at, updated_at`,
+    [name.trim(), description || null, userEmail]
+  );
+
+  const team = teams[0];
+
+  // Add creator as owner
+  await execute(
+    `INSERT INTO team_members (team_id, email, display_name, role)
+     VALUES ($1, $2, $3, 'owner')`,
+    [team.id, userEmail, displayName || null]
+  );
+
+  // Log team creation
+  const { auditService } = await import('../../services/audit.service.js');
+  await auditService.logTeamCreated(userEmail, team.id, { teamName: team.name, memberDisplayName: displayName });
+
+  res.status(201).json({
+    team: {
+      id: team.id,
+      name: team.name,
+      description: team.description ?? undefined,
+      createdByEmail: team.created_by_email ?? undefined,
+      createdAt: team.created_at,
+      updatedAt: team.updated_at
+    },
+    membership: {
+      role: 'owner',
+      email: userEmail
+    }
+  });
+}));
+
+/**
+ * POST /teams/join
+ * Join an existing team by team ID
+ */
+teamsRouter.post('/join', asyncHandler(async (req: TeamAuthenticatedRequest, res: Response) => {
+  const userEmail = req.user?.email;
+  const displayName = req.user?.displayName;
+
+  if (!userEmail) {
+    res.status(401).json({
+      code: 'UNAUTHORIZED',
+      message: 'User email not found'
+    });
+    return;
+  }
+
+  const { teamId } = req.body ?? {};
+
+  if (!teamId || typeof teamId !== 'string') {
+    res.status(400).json({
+      code: 'INVALID_TEAM_ID',
+      message: 'Team ID is required'
+    });
+    return;
+  }
+
+  const { query, execute } = await import('../../db/shared-client.js');
+
+  // Find the team by ID
+  interface TeamRow {
+    id: string;
+    name: string;
+    description: string | null;
+    created_at: string;
+    updated_at: string;
+  }
+
+  const teams = await query<TeamRow>(
+    'SELECT id, name, description, created_at, updated_at FROM teams WHERE id = $1',
+    [teamId]
+  );
+
+  if (teams.length === 0) {
+    res.status(404).json({
+      code: 'TEAM_NOT_FOUND',
+      message: 'Team not found'
+    });
+    return;
+  }
+
+  const team = teams[0];
+
+  // Check if user is already a member
+  interface MemberCheckRow {
+    count: string;
+  }
+
+  const existingMembers = await query<MemberCheckRow>(
+    'SELECT COUNT(*) as count FROM team_members WHERE team_id = $1 AND email = $2',
+    [team.id, userEmail]
+  );
+
+  if (parseInt(existingMembers[0].count, 10) > 0) {
+    res.status(409).json({
+      code: 'ALREADY_MEMBER',
+      message: 'You are already a member of this team'
+    });
+    return;
+  }
+
+  // Add user as member
+  await execute(
+    `INSERT INTO team_members (team_id, email, display_name, role)
+     VALUES ($1, $2, $3, 'member')`,
+    [team.id, userEmail, displayName || null]
+  );
+
+  // Log team join
+  const { auditService } = await import('../../services/audit.service.js');
+  await auditService.logJoinTeam(userEmail, team.id, { teamName: team.name, memberDisplayName: displayName });
+
+  res.status(201).json({
+    team: {
+      id: team.id,
+      name: team.name,
+      description: team.description ?? undefined,
+      createdAt: team.created_at,
+      updatedAt: team.updated_at
+    },
+    membership: {
+      role: 'member',
+      email: userEmail
+    }
+  });
+}));
+
+/**
+ * GET /teams/available
+ * List all teams in the shared database that the user is NOT a member of
+ */
+teamsRouter.get('/available', asyncHandler(async (req: TeamAuthenticatedRequest, res: Response) => {
+  const userEmail = req.user?.email;
+
+  if (!userEmail) {
+    res.status(401).json({
+      code: 'UNAUTHORIZED',
+      message: 'User email not found'
+    });
+    return;
+  }
+
+  const { query } = await import('../../db/shared-client.js');
+
+  interface AvailableTeamRow {
+    id: string;
+    name: string;
+    description: string | null;
+    created_at: string;
+    member_count: string;
+  }
+
+  const availableTeams = await query<AvailableTeamRow>(
+    `SELECT 
+      t.id, 
+      t.name, 
+      t.description, 
+      t.created_at,
+      COUNT(tm.id) as member_count
+     FROM teams t
+     LEFT JOIN team_members tm ON t.id = tm.team_id
+     WHERE t.id NOT IN (
+       SELECT team_id FROM team_members WHERE email = $1
+     )
+     GROUP BY t.id, t.name, t.description, t.created_at
+     ORDER BY t.name`,
+    [userEmail]
+  );
+
+  res.json({
+    teams: availableTeams.map(t => ({
+      id: t.id,
+      name: t.name,
+      description: t.description ?? undefined,
+      createdAt: t.created_at,
+      memberCount: parseInt(t.member_count, 10)
+    })),
+    count: availableTeams.length
+  });
+}));
 
 /**
  * GET /teams
@@ -28,11 +269,36 @@ teamsRouter.get('/', asyncHandler(async (req: TeamAuthenticatedRequest, res: Res
     return;
   }
 
-  const teams = await rbacService.getTeamsByEmail(userEmail);
+  const { query } = await import('../../db/shared-client.js');
+
+  interface UserTeamRow {
+    id: string;
+    name: string;
+    description: string | null;
+    created_at: string;
+    updated_at: string;
+    role: string;
+  }
+
+  const userTeams = await query<UserTeamRow>(
+    `SELECT t.id, t.name, t.description, t.created_at, t.updated_at, tm.role
+     FROM teams t
+     JOIN team_members tm ON t.id = tm.team_id
+     WHERE tm.email = $1
+     ORDER BY t.name`,
+    [userEmail]
+  );
 
   res.json({
-    teams,
-    count: teams.length
+    teams: userTeams.map(t => ({
+      id: t.id,
+      name: t.name,
+      description: t.description ?? undefined,
+      role: t.role,
+      createdAt: t.created_at,
+      updatedAt: t.updated_at
+    })),
+    count: userTeams.length
   });
 }));
 
@@ -99,11 +365,10 @@ teamsRouter.get('/:teamId/members', requireTeamRole('member'), asyncHandler(asyn
     display_name: string | null;
     role: string;
     joined_at: string;
-    last_active_at: string | null;
   }
 
   const members = await query<MemberRow>(
-    `SELECT id, email, display_name, role, joined_at, last_active_at
+    `SELECT id, email, display_name, role, joined_at
      FROM team_members
      WHERE team_id = $1
      ORDER BY role, display_name, email`,
@@ -116,8 +381,7 @@ teamsRouter.get('/:teamId/members', requireTeamRole('member'), asyncHandler(asyn
       email: m.email,
       displayName: m.display_name ?? undefined,
       role: m.role,
-      joinedAt: m.joined_at,
-      lastActiveAt: m.last_active_at ?? undefined
+      joinedAt: m.joined_at
     })),
     count: members.length
   });
