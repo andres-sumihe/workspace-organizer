@@ -4,13 +4,16 @@ import { auditRouter } from './audit.js';
 import { authRouter } from './auth.js';
 import controlmJobsRouter from './controlm-jobs.js';
 import { installationRouter } from './installation.js';
+import schemaValidationRouter from './schema-validation.js';
 import { scriptsRouter } from './scripts.js';
 import settingsRouter from './settings.js';
 import setupRouter from './setup.js';
 import teamConfigRouter from './team-config.js';
+import { teamControlmJobsRouter } from './team-controlm-jobs.js';
+import { teamScriptsRouter } from './team-scripts.js';
+import { teamsRouter } from './teams.js';
 import templatesRouter from './templates.js';
 import { workspacesRouter } from './workspaces.js';
-import schemaValidationRouter from './schema-validation.js';
 import { isSharedDbConnected } from '../../db/shared-client.js';
 import { installationService } from '../../services/installation.service.js';
 
@@ -58,4 +61,9 @@ v1Router.use('/scripts', requireSharedDb, scriptsRouter);
 v1Router.use('/controlm-jobs', requireSharedDb, controlmJobsRouter);
 v1Router.use('/audit', requireSharedDb, auditRouter);
 v1Router.use('/schema-validation', requireSharedDb, schemaValidationRouter);
+
+// Team-scoped routes - require shared DB and team membership
+v1Router.use('/teams', requireSharedDb, teamsRouter);
+v1Router.use('/teams/:teamId/scripts', requireSharedDb, teamScriptsRouter);
+v1Router.use('/teams/:teamId/controlm-jobs', requireSharedDb, teamControlmJobsRouter);
 

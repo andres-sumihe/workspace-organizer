@@ -1,8 +1,9 @@
+import { FolderOpen, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+
 import type { WorkspaceFormValues } from '../types';
 import type { UseFormReturn } from 'react-hook-form';
 
-import { FolderOpen, Loader2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {

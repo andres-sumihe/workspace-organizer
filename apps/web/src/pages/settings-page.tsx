@@ -1,8 +1,8 @@
 import { Database, Loader2, Save, Settings as SettingsIcon, Server, Link2, Unlink, AlertTriangle, RefreshCw, Play, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
-import { settingsApi } from '@/api/settings';
 import { schemaValidationApi, type ValidationResponse } from '@/api/schema-validation';
+import { settingsApi } from '@/api/settings';
 import { PageShell } from '@/components/layout/page-shell';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';

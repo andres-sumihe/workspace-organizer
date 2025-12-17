@@ -1,6 +1,8 @@
 import { AlertCircle, Download, FileUp, Package } from 'lucide-react';
 import { useCallback, useState } from 'react';
 
+import { usePayloadTransfer } from '../hooks/use-payload-transfer';
+
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,7 +15,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { usePayloadTransfer } from '../hooks/use-payload-transfer';
 
 interface PayloadDialogProps {
   open: boolean;

@@ -1,9 +1,9 @@
 import { Router } from 'express';
 
-import { teamConfigService } from '../../services/team-config.service.js';
 import { testConnection, initializeSharedDb, isSharedDbConnected, getSharedPool } from '../../db/shared-client.js';
 import { runSharedMigrations } from '../../db/shared-migrations/index.js';
 import { settingsRepository } from '../../repositories/settings.repository.js';
+import { teamConfigService } from '../../services/team-config.service.js';
 
 import type { Request, Response } from 'express';
 

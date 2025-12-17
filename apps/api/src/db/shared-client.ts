@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
 
-import { settingsRepository } from '../repositories/settings.repository.js';
 import { SHARED_SCHEMA, getSearchPath } from './shared-schema.js';
+import { settingsRepository } from '../repositories/settings.repository.js';
 
 import type { PoolClient } from 'pg';
 
