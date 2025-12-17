@@ -51,17 +51,24 @@ const parseErrorBody = async (response: Response) => {
   return response.statusText || `Request failed with status ${response.status}`;
 };
 
+const getAuthToken = (): string | null => {
+  return localStorage.getItem('auth_access_token');
+};
+
 export const apiRequest = async <TResponse>(
   path: string,
   { query, headers, ...init }: RequestOptions = {}
 ): Promise<TResponse> => {
   const url = buildUrl(path, query);
+  const token = getAuthToken();
+  
   const response = await fetch(url, {
     ...init,
     cache: init?.cache ?? 'no-store',
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
   });

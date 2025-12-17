@@ -382,13 +382,33 @@ export const auditService = {
   },
 
   /**
+   * Log team creation
+   */
+  async logTeamCreated(
+    memberEmail: string,
+    teamId: string,
+    context?: { teamName?: string; ipAddress?: string; userAgent?: string; memberDisplayName?: string }
+  ): Promise<AuditLogEntry | null> {
+    return this.log({
+      memberEmail,
+      memberDisplayName: context?.memberDisplayName,
+      teamId,
+      action: 'TEAM_CREATED',
+      resourceType: 'team',
+      resourceId: teamId,
+      newValue: { name: context?.teamName },
+      ipAddress: context?.ipAddress,
+      userAgent: context?.userAgent
+    });
+  },
+
+  /**
    * Log a team member joining
    */
   async logJoinTeam(
     memberEmail: string,
     teamId: string,
-    role: string,
-    context?: { ipAddress?: string; userAgent?: string; memberDisplayName?: string }
+    context?: { teamName?: string; role?: string; ipAddress?: string; userAgent?: string; memberDisplayName?: string }
   ): Promise<AuditLogEntry | null> {
     return this.log({
       memberEmail,
@@ -396,7 +416,7 @@ export const auditService = {
       teamId,
       action: 'JOIN_TEAM',
       resourceType: 'team_member',
-      newValue: { email: memberEmail, role },
+      newValue: { email: memberEmail, role: context?.role || 'member', teamName: context?.teamName },
       ipAddress: context?.ipAddress,
       userAgent: context?.userAgent
     });

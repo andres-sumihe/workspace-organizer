@@ -1,4 +1,4 @@
-import { FolderGit2, LayoutDashboard, LineChart, Settings, FileCode, Loader2 } from 'lucide-react';
+import { FolderGit2, LayoutDashboard, LineChart, Settings, FileCode, Loader2, Users } from 'lucide-react';
 import { useEffect, useMemo, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 
@@ -18,6 +18,7 @@ import { LoginPage } from '@/pages/login-page';
 import { ScriptsPage } from '@/pages/scripts-page';
 import { SettingsPage } from '@/pages/settings-page';
 import { SetupPage } from '@/pages/setup-page';
+import { TeamPage } from '@/pages/team-page';
 import { WorkspaceDetailPage } from '@/pages/workspace-detail-page';
 import { WorkspacesPage } from '@/pages/workspaces-page';
 
@@ -142,6 +143,7 @@ function AppContent() {
 
   // Build sidebar items based on mode
   // In Solo mode, Scripts is still shown but leads to a "Team Feature" placeholder
+  // Teams item only visible in Shared mode
   const sidebarItems = useMemo<SidebarNavItem[]>(
     () => [
       { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -153,6 +155,8 @@ function AppContent() {
         // Visual hint that this is a team feature
         badge: isSoloMode ? 'Team' : undefined
       },
+      // Teams sidebar item only visible in Shared mode
+      ...(!isSoloMode ? [{ key: 'teams', label: 'Teams', icon: Users }] : []),
       { key: 'analytics', label: 'Analytics', icon: LineChart },
       { key: 'settings', label: 'Settings', icon: Settings },
     ],
@@ -164,6 +168,7 @@ function AppContent() {
     const path = location.pathname;
     if (path.startsWith('/workspaces')) return 'workspaces';
     if (path.startsWith('/scripts')) return 'scripts';
+    if (path.startsWith('/teams')) return 'teams';
     if (path.startsWith('/analytics')) return 'analytics';
     if (path.startsWith('/settings')) return 'settings';
     return 'dashboard';
@@ -181,6 +186,7 @@ function AppContent() {
           const routes: Record<string, string> = {
             dashboard: '/',
             scripts: '/scripts',
+            teams: '/teams',
             analytics: '/analytics',
             settings: '/settings'
           };
@@ -196,6 +202,8 @@ function AppContent() {
         <Route path="/workspaces/:workspaceId/:tab" element={<WorkspaceDetailPage />} />
         <Route path="/scripts" element={<ScriptsPage />} />
         <Route path="/scripts/:scriptId" element={<ScriptsPage />} />
+        <Route path="/teams" element={<TeamPage />} />
+        <Route path="/teams/:teamId" element={<TeamPage />} />
         <Route path="/analytics" element={renderPlaceholder('analytics')} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

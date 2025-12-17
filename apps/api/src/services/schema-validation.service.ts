@@ -21,6 +21,7 @@ export interface SchemaValidationResult {
 
 /**
  * Expected schema definitions for all shared DB tables
+ * These should match what the migrations in shared-migrations/ actually create
  */
 const EXPECTED_SCHEMAS: Record<string, string[]> = {
   teams: [
@@ -44,34 +45,46 @@ const EXPECTED_SCHEMAS: Record<string, string[]> = {
     'id',
     'team_id',
     'member_email',
+    'member_display_name',
     'action',
     'resource_type',
     'resource_id',
-    'details',
+    'old_value',
+    'new_value',
     'ip_address',
     'user_agent',
-    'created_at'
+    'metadata',
+    'timestamp'
   ],
   scripts: [
     'id',
+    'team_id',
     'name',
     'description',
-    'type',
+    'file_path',
     'content',
-    'parameters',
+    'type',
+    'is_active',
     'tags',
     'created_by',
     'updated_by',
     'created_at',
-    'updated_at',
-    'is_active'
+    'updated_at'
   ],
   drive_mappings: [
     'id',
-    'script_id',
+    'team_id',
     'drive_letter',
-    'network_path',
-    'description'
+    'unc_path',
+    'description',
+    'is_active',
+    'created_by_email',
+    'created_at',
+    'updated_at'
+  ],
+  script_drive_mappings: [
+    'script_id',
+    'drive_mapping_id'
   ],
   controlm_jobs: [
     'id',
@@ -79,10 +92,14 @@ const EXPECTED_SCHEMAS: Record<string, string[]> = {
     'application',
     'group_name',
     'mem_name',
+    'job_name',
+    'description',
     'node_id',
+    'owner',
     'task_type',
     'is_cyclic',
     'priority',
+    'is_critical',
     'days_calendar',
     'weeks_calendar',
     'from_time',
@@ -95,39 +112,36 @@ const EXPECTED_SCHEMAS: Record<string, string[]> = {
     'change_user_id',
     'change_date',
     'is_active',
-    'created_by',
-    'updated_by',
+    'linked_script_id',
     'created_at',
-    'updated_at',
-    'linked_script_id'
+    'updated_at'
   ],
   job_dependencies: [
     'id',
-    'job_id',
-    'dependency_type',
-    'dependency_value'
+    'predecessor_job_id',
+    'successor_job_id',
+    'condition_type',
+    'created_at'
   ],
   job_conditions: [
     'id',
     'job_id',
+    'condition_name',
     'condition_type',
-    'condition_value'
+    'odate',
+    'created_at'
   ],
   app_info: [
-    'id',
     'server_id',
-    'public_key',
-    'private_key_encrypted',
     'team_id',
-    'member_email',
+    'team_name',
+    'public_key',
     'created_at',
     'updated_at'
   ],
   app_secrets: [
-    'id',
-    'secret_name',
-    'secret_value_encrypted',
-    'created_by_email',
+    'key',
+    'value',
     'created_at',
     'updated_at'
   ]
