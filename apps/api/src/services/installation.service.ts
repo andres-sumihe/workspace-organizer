@@ -9,6 +9,7 @@ import {
 } from '../db/shared-client.js';
 import { runSharedMigrations, getAllMigrationIds, getExecutedMigrations } from '../db/shared-migrations/index.js';
 import { settingsRepository } from '../repositories/settings.repository.js';
+import { modeService } from './mode.service.js';
 
 import type {
   ConfigureInstallationRequest,
@@ -158,6 +159,9 @@ export const installationService = {
     const pool = getSharedPool();
     const migrationsRun = await runSharedMigrations(pool);
 
+    // Enable shared mode
+    await modeService.enableSharedMode();
+
     // Mark installation as complete
     await settingsRepository.set('installation_completed', true);
 
@@ -177,16 +181,15 @@ export const installationService = {
     // Check if connection string exists
     const { getSharedDbConnectionString } = await import('../db/shared-client.js');
     const connString = await getSharedDbConnectionString();
-
     if (!connString) {
       return false;
     }
 
-    try {
+    try {     
       await initializeSharedDb(connString);
+      await modeService.enableSharedMode();
       return true;
-    } catch (error) {
-      console.error('Failed to initialize shared database:', error);
+    } catch (_) {
       return false;
     }
   }
