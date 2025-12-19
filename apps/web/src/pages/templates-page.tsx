@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import type { BuilderMeta, CaptureFormValues, EditableFile, EditableFolder, EditableToken } from '@/features/templates';
 import type { TemplateManifest, TemplateSummary, TemplateTokenEntry } from '@/types/desktop';
 
-import { PageShell } from '@/components/layout/page-shell';
+import { AppPage, AppPageContent } from '@/components/layout/app-page';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { TemplateBuilderDialog, TemplateGrid, TemplatesToolbar, makeId, normalizePathInput } from '@/features/templates';
 
@@ -270,10 +270,10 @@ export const TemplatesPage = () => {
   };
 
   return (
-    <PageShell
+    <AppPage
       title="Project Templates"
       description="Capture folder structures once and reuse them when creating new projects."
-      toolbar={
+      actions={
         <TemplatesToolbar
           desktopAvailable={desktopAvailable}
           loading={loading}
@@ -291,16 +291,18 @@ export const TemplatesPage = () => {
         />
       }
     >
-      {!desktopAvailable ? (
-        <Alert variant="warning">
-          <AlertDescription>
-            Templates require the desktop shell. Launch via <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">npm run dev:desktop</code> to design, capture, and apply them.
-          </AlertDescription>
-        </Alert>
-      ) : null}
-      {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
+      <AppPageContent>
+        {!desktopAvailable ? (
+          <Alert variant="warning">
+            <AlertDescription>
+              Templates require the desktop shell. Launch via <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">npm run dev:desktop</code> to design, capture, and apply them.
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
 
-      <TemplateGrid templates={formattedTemplates} loading={loading} onEdit={openBuilder} onDelete={handleDeleteTemplate} />
+        <TemplateGrid templates={formattedTemplates} loading={loading} onEdit={openBuilder} onDelete={handleDeleteTemplate} />
+      </AppPageContent>
 
       <TemplateBuilderDialog
         open={builderDialogOpen}
@@ -327,6 +329,6 @@ export const TemplatesPage = () => {
         onSave={handleSaveTemplate}
         title={builderTemplateId ? 'Edit template' : 'Create template'}
       />
-    </PageShell>
+    </AppPage>
   );
 };
