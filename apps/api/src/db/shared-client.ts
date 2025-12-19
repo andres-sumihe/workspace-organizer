@@ -70,8 +70,13 @@ export const buildConnectionString = (config: SharedDbConfig): string => {
  * Get the connection string from local settings
  */
 export const getSharedDbConnectionString = async (): Promise<string | null> => {
-  const setting = await settingsRepository.get<string | null>('shared_db_connection');
-  return setting?.value ?? null;
+  try {
+    const setting = await settingsRepository.get<string | null>('shared_db_connection');
+    return setting?.value ?? null;
+  } catch (error) {
+    console.error('Error getting connection string:', error);
+    return null;
+  }
 };
 
 /**

@@ -203,7 +203,6 @@ function AppContent() {
         <Route path="/scripts" element={<ScriptsPage />} />
         <Route path="/scripts/:scriptId" element={<ScriptsPage />} />
         <Route path="/teams" element={<TeamPage />} />
-        <Route path="/teams/:teamId" element={<TeamPage />} />
         <Route path="/analytics" element={renderPlaceholder('analytics')} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
