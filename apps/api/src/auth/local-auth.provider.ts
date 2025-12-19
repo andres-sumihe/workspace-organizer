@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { getDb } from '../db/client.js';
 import { settingsRepository } from '../repositories/settings.repository.js';
+import { modeService } from '../services/mode.service.js';
 
 import type { LoginRequest, LoginResponse, LocalUser, CreateAccountRequest, LoginContext } from '@workspace/shared';
 
@@ -139,10 +140,13 @@ export const localAuthProvider = {
     // SECURITY: Invalidate all existing sessions (single session enforcement)
     await db.run('DELETE FROM local_sessions WHERE user_id = ?', [row.id]);
 
+    // Get current mode dynamically
+    const mode = await modeService.getMode();
+
     // Generate tokens
     const secret = await getJwtSecret();
     const accessToken = jwt.sign(
-      { userId: row.id, username: row.username, mode: 'solo' },
+      { userId: row.id, username: row.username, mode },
       secret,
       { expiresIn: ACCESS_TOKEN_EXPIRY }
     );
@@ -163,7 +167,7 @@ export const localAuthProvider = {
       accessToken,
       refreshToken,
       expiresIn: 900, // 15 minutes
-      mode: 'solo',
+      mode,
       user: {
         id: row.id,
         username: row.username,
@@ -208,10 +212,13 @@ export const localAuthProvider = {
       throw new Error('USER_DISABLED');
     }
 
+    // Get current mode dynamically
+    const mode = await modeService.getMode();
+
     // Generate new access token
     const secret = await getJwtSecret();
     const accessToken = jwt.sign(
-      { userId: userRow.id, username: userRow.username, mode: 'solo' },
+      { userId: userRow.id, username: userRow.username, mode },
       secret,
       { expiresIn: ACCESS_TOKEN_EXPIRY }
     );
@@ -220,7 +227,7 @@ export const localAuthProvider = {
       accessToken,
       refreshToken,
       expiresIn: 900,
-      mode: 'solo',
+      mode,
       user: {
         id: userRow.id,
         username: userRow.username,
