@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 
 import { scanScripts } from '@/api/scripts';
+import { AppPage, AppPageTabs } from '@/components/layout/app-page';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -114,65 +115,59 @@ export const ScriptsPage = () => {
   }
 
   return (
-    <div className="absolute inset-0 flex flex-col bg-background">
-      {/* Header */}
-      <div className="border-b border-border bg-card px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Scripts</h1>
-            <p className="text-sm text-muted-foreground">
-              Manage batch scripts and network drive mappings
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleRefresh}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleScanDirectory}>
-              <FolderSearch className="mr-2 h-4 w-4" />
-              Scan Directory
-            </Button>
-            <Button size="sm" onClick={handleNewScript}>
-              <Plus className="mr-2 h-4 w-4" />
-              New Script
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs */}
+    <AppPage
+      title="Scripts"
+      description="Manage batch scripts and network drive mappings"
+      actions={
+        <>
+          <Button variant="outline" size="sm" onClick={handleRefresh}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Refresh
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleScanDirectory}>
+            <FolderSearch className="mr-2 h-4 w-4" />
+            Scan Directory
+          </Button>
+          <Button size="sm" onClick={handleNewScript}>
+            <Plus className="mr-2 h-4 w-4" />
+            New Script
+          </Button>
+        </>
+      }
+    >
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-        <div className="border-b border-border bg-muted px-6">
-          <TabsList className="h-12 bg-transparent">
-            <TabsTrigger value="scripts" className="gap-2">
-              <FileCode className="h-4 w-4" />
-              Scripts
-            </TabsTrigger>
-            <TabsTrigger value="jobs" className="gap-2">
-              <Network className="h-4 w-4" />
-              Control-M Jobs
-            </TabsTrigger>
-            <TabsTrigger value="drive-mappings" className="gap-2">
-              <HardDrive className="h-4 w-4" />
-              Drive Mappings
-            </TabsTrigger>
-          </TabsList>
-        </div>
+        <AppPageTabs
+          tabs={
+            <TabsList className="h-12 bg-transparent">
+              <TabsTrigger value="scripts" className="gap-2">
+                <FileCode className="h-4 w-4" />
+                Scripts
+              </TabsTrigger>
+              <TabsTrigger value="jobs" className="gap-2">
+                <Network className="h-4 w-4" />
+                Control-M Jobs
+              </TabsTrigger>
+              <TabsTrigger value="drive-mappings" className="gap-2">
+                <HardDrive className="h-4 w-4" />
+                Drive Mappings
+              </TabsTrigger>
+            </TabsList>
+          }
+        >
+          <TabsContent value="scripts" className="flex-1 m-0 h-full" key={`scripts-${refreshKey}`}>
+            <div className="h-full flex flex-col">
+              <ScriptsTab initialScriptId={scriptId} />
+            </div>
+          </TabsContent>
 
-        <TabsContent value="scripts" className="flex-1 m-0" key={`scripts-${refreshKey}`}>
-          <div className="h-full flex flex-col">
-            <ScriptsTab initialScriptId={scriptId} />
-          </div>
-        </TabsContent>
+          <TabsContent value="jobs" className="flex-1 m-0 h-full" key={`jobs-${refreshKey}`}>
+            <JobsTab initialJobId={jobIdParam ?? undefined} />
+          </TabsContent>
 
-        <TabsContent value="jobs" className="flex-1 m-0" key={`jobs-${refreshKey}`}>
-          <JobsTab initialJobId={jobIdParam ?? undefined} />
-        </TabsContent>
-
-        <TabsContent value="drive-mappings" className="flex-1 m-0 overflow-auto" key={`mappings-${refreshKey}`}>
-          <DriveMappingsTab />
-        </TabsContent>
+          <TabsContent value="drive-mappings" className="flex-1 m-0 overflow-auto h-full" key={`mappings-${refreshKey}`}>
+            <DriveMappingsTab />
+          </TabsContent>
+        </AppPageTabs>
       </Tabs>
 
       {/* Dialogs */}
@@ -188,7 +183,7 @@ export const ScriptsPage = () => {
         onScan={handleScan}
         canSelectFolder={canSelectFolder}
       />
-    </div>
+    </AppPage>
   );
 };
 

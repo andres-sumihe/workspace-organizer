@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { schemaValidationApi, type ValidationResponse } from '@/api/schema-validation';
 import { settingsApi } from '@/api/settings';
-import { PageShell } from '@/components/layout/page-shell';
+import { AppPage, AppPageContent, AppPageTabs } from '@/components/layout/app-page';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -402,23 +402,23 @@ export const SettingsPage = () => {
 
   if (contextLoading) {
     return (
-      <PageShell
+      <AppPage
         title="Settings"
         description="Configure application settings and validation criteria"
       >
-        <div className="flex items-center justify-center py-12">
+        <AppPageContent className="flex items-center justify-center">
           <Loader2 className="size-8 animate-spin text-muted-foreground" />
           <span className="ml-2 text-muted-foreground">Loading settings...</span>
-        </div>
-      </PageShell>
+        </AppPageContent>
+      </AppPage>
     );
   }
 
   return (
-    <PageShell
+    <AppPage
       title="Settings"
       description="Configure application settings and validation criteria"
-      toolbar={
+      actions={
         <div className="flex items-center gap-2">
           <SettingsIcon className="size-4 text-muted-foreground" />
           <span className="text-sm text-muted-foreground">Application Configuration</span>
@@ -428,162 +428,167 @@ export const SettingsPage = () => {
         </div>
       }
     >
-      <div className="max-w-3xl space-y-6">
-        {saveMessage && (
-          <Alert variant="success">
-            <AlertDescription>{saveMessage}</AlertDescription>
-          </Alert>
-        )}
-
-        {(errorMessage || contextError) && (
-          <Alert variant="destructive">
-            <AlertDescription>{errorMessage || contextError}</AlertDescription>
-          </Alert>
-        )}
-
-        <Tabs defaultValue="general" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="general">General</TabsTrigger>
-            <TabsTrigger value="validation">Validation</TabsTrigger>
-            <TabsTrigger value="team">Team Features</TabsTrigger>
-          </TabsList>
-
+      <Tabs defaultValue="general" className="flex-1 flex flex-col">
+        <AppPageTabs
+          tabs={
+            <TabsList className="h-12 bg-transparent">
+              <TabsTrigger value="general">General</TabsTrigger>
+              <TabsTrigger value="validation">Validation</TabsTrigger>
+              <TabsTrigger value="team">Team Features</TabsTrigger>
+            </TabsList>
+          }
+        >
           {/* General Settings Tab */}
-          <TabsContent value="general" className="space-y-6 mt-6">
-            {/* Shared Database Status */}
-            <Card className="p-6">
-              <div className="flex items-start gap-4">
-                <div className="rounded-lg bg-primary/10 p-3">
-                  <Database className="size-6 text-primary" />
-                </div>
-                <div className="flex-1">
-                  <h2 className="text-lg font-semibold mb-1">Database Status</h2>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Current mode and database connection status.
-                  </p>
-                  {installLoading ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="size-4 animate-spin" />
-                      Checking connection...
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-medium">Mode:</span>
-                        <Badge variant={isSoloMode ? 'secondary' : 'default'}>
-                          {isSoloMode ? 'Solo (Local)' : 'Shared (Team)'}
-                        </Badge>
+          <TabsContent value="general" className="flex-1 m-0 overflow-auto p-6">
+            <div className="max-w-3xl space-y-6">
+              {saveMessage && (
+                <Alert variant="success">
+                  <AlertDescription>{saveMessage}</AlertDescription>
+                </Alert>
+              )}
+
+              {(errorMessage || contextError) && (
+                <Alert variant="destructive">
+                  <AlertDescription>{errorMessage || contextError}</AlertDescription>
+                </Alert>
+              )}
+
+              {/* Shared Database Status */}
+              <Card className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="rounded-lg bg-primary/10 p-3">
+                    <Database className="size-6 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-lg font-semibold mb-1">Database Status</h2>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Current mode and database connection status.
+                    </p>
+                    {installLoading ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="size-4 animate-spin" />
+                        Checking connection...
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-medium">Local Database:</span>
-                        <Badge variant="success">Connected</Badge>
-                      </div>
-                      {isSharedMode && (
-                        <>
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm font-medium">Shared Database:</span>
-                            {installationStatus?.sharedDbConnected ? (
-                              <Badge variant="success">Connected</Badge>
-                            ) : (
-                              <Badge variant="destructive">Disconnected</Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm font-medium">Migrations:</span>
-                            {installationStatus?.migrationsRun ? (
-                              installationStatus.pendingMigrations.length > 0 ? (
-                                <Badge variant="secondary">{installationStatus.pendingMigrations.length} pending</Badge>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-medium">Mode:</span>
+                          <Badge variant={isSoloMode ? 'secondary' : 'default'}>
+                            {isSoloMode ? 'Solo (Local)' : 'Shared (Team)'}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-medium">Local Database:</span>
+                          <Badge variant="success">Connected</Badge>
+                        </div>
+                        {isSharedMode && (
+                          <>
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm font-medium">Shared Database:</span>
+                              {installationStatus?.sharedDbConnected ? (
+                                <Badge variant="success">Connected</Badge>
                               ) : (
-                                <Badge variant="success">Up to date</Badge>
-                              )
-                            ) : (
-                              <Badge variant="secondary">Not run</Badge>
-                            )}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )}
+                                <Badge variant="destructive">Disconnected</Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm font-medium">Migrations:</span>
+                              {installationStatus?.migrationsRun ? (
+                                installationStatus.pendingMigrations.length > 0 ? (
+                                  <Badge variant="secondary">{installationStatus.pendingMigrations.length} pending</Badge>
+                                ) : (
+                                  <Badge variant="success">Up to date</Badge>
+                                )
+                              ) : (
+                                <Badge variant="secondary">Not run</Badge>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </Card>
+              </Card>
+            </div>
           </TabsContent>
 
           {/* Validation Settings Tab */}
-          <TabsContent value="validation" className="space-y-6 mt-6">
-            <Card className="p-6">
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-lg font-semibold mb-2">ISO20022 Validation</h2>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Configure validation criteria for ISO20022 XML files (pacs, camt, pain, etc.) in the testing environment.
-                  </p>
+          <TabsContent value="validation" className="flex-1 m-0 overflow-auto p-6">
+            <div className="max-w-3xl space-y-6">
+              <Card className="p-6">
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-lg font-semibold mb-2">ISO20022 Validation</h2>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Configure validation criteria for ISO20022 XML files (pacs, camt, pain, etc.) in the testing environment.
+                    </p>
 
-                  <div className="flex items-center gap-3 mb-6">
-                    <Switch
-                      checked={isEnabled}
-                      onCheckedChange={handleToggleEnabled}
-                      id="validation-enabled"
-                      disabled={isSaving}
-                    />
-                    <Label htmlFor="validation-enabled" className="cursor-pointer">
-                      Enable automatic validation for ISO20022 files
-                    </Label>
+                    <div className="flex items-center gap-3 mb-6">
+                      <Switch
+                        checked={isEnabled}
+                        onCheckedChange={handleToggleEnabled}
+                        id="validation-enabled"
+                        disabled={isSaving}
+                      />
+                      <Label htmlFor="validation-enabled" className="cursor-pointer">
+                        Enable automatic validation for ISO20022 files
+                      </Label>
+                    </div>
                   </div>
-                </div>
 
-                <div className="space-y-4 pt-4 border-t">
-                  <h3 className="font-medium">Sender Criteria</h3>
+                  <div className="space-y-4 pt-4 border-t">
+                    <h3 className="font-medium">Sender Criteria</h3>
                   
-                  <div className="space-y-2">
-                    <Label htmlFor="sender-dn">Sender DN</Label>
-                    <Input
-                      id="sender-dn"
-                      value={formData.senderDN}
-                      onChange={(e) => setFormData({ ...formData, senderDN: e.target.value })}
-                      placeholder="ou=xxx,o=cenaidja,o=swift"
-                      className="font-mono text-sm"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Expected value for Sender/DN element in ISO20022 messages
-                    </p>
+                    <div className="space-y-2">
+                      <Label htmlFor="sender-dn">Sender DN</Label>
+                      <Input
+                        id="sender-dn"
+                        value={formData.senderDN}
+                        onChange={(e) => setFormData({ ...formData, senderDN: e.target.value })}
+                        placeholder="ou=xxx,o=cenaidja,o=swift"
+                        className="font-mono text-sm"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Expected value for Sender/DN element in ISO20022 messages
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="sender-fullname">Sender Full Name</Label>
+                      <Input
+                        id="sender-fullname"
+                        value={formData.senderFullName}
+                        onChange={(e) => setFormData({ ...formData, senderFullName: e.target.value })}
+                        placeholder="CENAIDJAXXX"
+                        className="font-mono text-sm"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Expected value for Sender/FullName/X1 element
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="sender-fullname">Sender Full Name</Label>
-                    <Input
-                      id="sender-fullname"
-                      value={formData.senderFullName}
-                      onChange={(e) => setFormData({ ...formData, senderFullName: e.target.value })}
-                      placeholder="CENAIDJAXXX"
-                      className="font-mono text-sm"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Expected value for Sender/FullName/X1 element
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-4 pt-4 border-t">
-                  <h3 className="font-medium">Receiver Criteria</h3>
+                  <div className="space-y-4 pt-4 border-t">
+                    <h3 className="font-medium">Receiver Criteria</h3>
                   
-                  <div className="space-y-2">
-                    <Label htmlFor="receiver-dn">Receiver DN</Label>
-                    <Input
-                      id="receiver-dn"
-                      value={formData.receiverDN}
-                      onChange={(e) => setFormData({ ...formData, receiverDN: e.target.value })}
-                      placeholder="ou=xxx,o=cenaidja,o=swift"
-                      className="font-mono text-sm"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Expected value for Receiver/DN element in ISO20022 messages
-                    </p>
-                  </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="receiver-dn">Receiver DN</Label>
+                      <Input
+                        id="receiver-dn"
+                        value={formData.receiverDN}
+                        onChange={(e) => setFormData({ ...formData, receiverDN: e.target.value })}
+                        placeholder="ou=xxx,o=cenaidja,o=swift"
+                        className="font-mono text-sm"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Expected value for Receiver/DN element in ISO20022 messages
+                      </p>
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="receiver-fullname">Receiver Full Name</Label>
-                    <Input
+                    <div className="space-y-2">
+                      <Label htmlFor="receiver-fullname">Receiver Full Name</Label>
+                      <Input
                       id="receiver-fullname"
                       value={formData.receiverFullName}
                       onChange={(e) => setFormData({ ...formData, receiverFullName: e.target.value })}
@@ -678,76 +683,78 @@ export const SettingsPage = () => {
               </div>
             </Card>
 
-            <Alert variant="info">
-              <AlertCircle className="size-4" />
-              <AlertDescription>
-                <h3 className="font-medium mb-2">How it works</h3>
-                <ul className="text-sm space-y-1 list-disc list-inside">
-                  <li>When you open an XML file in the File Manager, it will be automatically checked for ISO20022 format</li>
-                  <li>When you open any text file, it will be checked for SWIFT MT format if MT validation is enabled</li>
-                  <li>ISO20022 validation checks Sender/Receiver DN and Full Names in MX messages</li>
-                  <li>SWIFT MT validation checks Sender/Receiver BIC codes in FIN messages</li>
-                  <li>Validation results appear in the preview panel with detailed error messages</li>
-                </ul>
-              </AlertDescription>
-            </Alert>
+              <Alert variant="info">
+                <AlertCircle className="size-4" />
+                <AlertDescription>
+                  <h3 className="font-medium mb-2">How it works</h3>
+                  <ul className="text-sm space-y-1 list-disc list-inside">
+                    <li>When you open an XML file in the File Manager, it will be automatically checked for ISO20022 format</li>
+                    <li>When you open any text file, it will be checked for SWIFT MT format if MT validation is enabled</li>
+                    <li>ISO20022 validation checks Sender/Receiver DN and Full Names in MX messages</li>
+                    <li>SWIFT MT validation checks Sender/Receiver BIC codes in FIN messages</li>
+                    <li>Validation results appear in the preview panel with detailed error messages</li>
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            </div>
           </TabsContent>
 
           {/* Team Features Tab */}
-          <TabsContent value="team" className="space-y-6 mt-6">
-            <Card className="p-6">
-              <div className="flex items-start gap-4">
-                <div className="rounded-lg bg-primary/10 p-3">
-                  <Server className="size-6 text-primary" />
-                </div>
-                <div className="flex-1">
-                  <h2 className="text-lg font-semibold mb-1">Team Features</h2>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Enable shared mode to connect to a PostgreSQL database for team collaboration features including 
-                    shared scripts, user management, and audit logging.
-                  </p>
+          <TabsContent value="team" className="flex-1 m-0 overflow-auto p-6">
+            <div className="max-w-3xl space-y-6">
+              <Card className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="rounded-lg bg-primary/10 p-3">
+                    <Server className="size-6 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-lg font-semibold mb-1">Team Features</h2>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Enable shared mode to connect to a PostgreSQL database for team collaboration features including 
+                      shared scripts, user management, and audit logging.
+                    </p>
 
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium">Current Mode:</span>
-                      <Badge variant={isSoloMode ? 'secondary' : 'default'}>
-                        {isSoloMode ? 'Solo (Local Only)' : 'Shared (Team)'}
-                      </Badge>
-                    </div>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium">Current Mode:</span>
+                        <Badge variant={isSoloMode ? 'secondary' : 'default'}>
+                          {isSoloMode ? 'Solo (Local Only)' : 'Shared (Team)'}
+                        </Badge>
+                      </div>
 
-                    {isSoloMode ? (
-                      <div className="space-y-4 pt-4 border-t">
-                        <Alert variant="warning">
-                          <AlertTriangle className="size-4" />
-                          <AlertDescription>
-                            <p className="font-medium mb-1">Solo Mode Active</p>
-                            <p>You are currently running in solo mode with local authentication. 
-                               To enable team features, configure a PostgreSQL connection below.</p>
-                          </AlertDescription>
-                        </Alert>
+                      {isSoloMode ? (
+                        <div className="space-y-4 pt-4 border-t">
+                          <Alert variant="warning">
+                            <AlertTriangle className="size-4" />
+                            <AlertDescription>
+                              <p className="font-medium mb-1">Solo Mode Active</p>
+                              <p>You are currently running in solo mode with local authentication. 
+                                 To enable team features, configure a PostgreSQL connection below.</p>
+                            </AlertDescription>
+                          </Alert>
 
-                        <div className="space-y-4">
-                          <div className="grid gap-4 md:grid-cols-2">
-                            <div className="space-y-2">
-                              <Label htmlFor="db-host">Host</Label>
-                              <Input
-                                id="db-host"
-                                value={connectionForm.host}
-                                onChange={(e) => updateConnectionForm('host', e.target.value)}
-                                placeholder="db.company.com"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="db-port">Port</Label>
-                              <Input
-                                id="db-port"
-                                type="number"
-                                min="1"
-                                value={connectionForm.port}
-                                onChange={(e) => updateConnectionForm('port', e.target.value)}
-                              />
-                            </div>
-                            <div className="space-y-2">
+                          <div className="space-y-4">
+                            <div className="grid gap-4 md:grid-cols-2">
+                              <div className="space-y-2">
+                                <Label htmlFor="db-host">Host</Label>
+                                <Input
+                                  id="db-host"
+                                  value={connectionForm.host}
+                                  onChange={(e) => updateConnectionForm('host', e.target.value)}
+                                  placeholder="db.company.com"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="db-port">Port</Label>
+                                <Input
+                                  id="db-port"
+                                  type="number"
+                                  min="1"
+                                  value={connectionForm.port}
+                                  onChange={(e) => updateConnectionForm('port', e.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-2">
                               <Label htmlFor="db-name">Database</Label>
                               <Input
                                 id="db-name"
@@ -1052,22 +1059,23 @@ export const SettingsPage = () => {
               </div>
             </Card>
 
-            <Alert variant="info">
-              <AlertCircle className="size-4" />
-              <AlertDescription>
-                <h3 className="font-medium mb-2">About Team Features</h3>
-                <ul className="text-sm space-y-1 list-disc list-inside">
-                  <li><strong>Solo Mode:</strong> All data stored locally in SQLite, single user, no network required</li>
-                  <li><strong>Shared Mode:</strong> Team data stored in PostgreSQL, multi-user with RBAC</li>
-                  <li>Scripts can be migrated from local to shared when switching modes</li>
-                  <li>Audit logs track all changes in shared mode for compliance</li>
-                  <li>User roles determine access to different features and resources</li>
-                </ul>
-              </AlertDescription>
-            </Alert>
+              <Alert variant="info">
+                <AlertCircle className="size-4" />
+                <AlertDescription>
+                  <h3 className="font-medium mb-2">About Team Features</h3>
+                  <ul className="text-sm space-y-1 list-disc list-inside">
+                    <li><strong>Solo Mode:</strong> All data stored locally in SQLite, single user, no network required</li>
+                    <li><strong>Shared Mode:</strong> Team data stored in PostgreSQL, multi-user with RBAC</li>
+                    <li>Scripts can be migrated from local to shared when switching modes</li>
+                    <li>Audit logs track all changes in shared mode for compliance</li>
+                    <li>User roles determine access to different features and resources</li>
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            </div>
           </TabsContent>
-        </Tabs>
-      </div>
-    </PageShell>
+        </AppPageTabs>
+      </Tabs>
+    </AppPage>
   );
 };

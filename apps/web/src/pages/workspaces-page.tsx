@@ -8,7 +8,7 @@ import type { WorkspaceFormValues } from '@/features/workspaces';
 import type { TemplateManifest, TemplateSummary, TemplateTokenEntry } from '@/types/desktop';
 
 import { createWorkspace } from '@/api/workspaces';
-import { PageShell } from '@/components/layout/page-shell';
+import { AppPage, AppPageContent } from '@/components/layout/app-page';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -347,38 +347,38 @@ export function WorkspacesPage() {
   };
 
   return (
-    <PageShell
+    <AppPage
       title="Workspaces"
       description="Manage workspace inventory, indexing cadence, and template associations."
-      toolbar={
-        <div className="flex justify-end">
-          <Button onClick={() => setOpenNew(true)} className="gap-2">
-            <Plus className="size-4" />
-            New Workspace
-          </Button>
-        </div>
+      actions={
+        <Button onClick={() => setOpenNew(true)} className="gap-2">
+          <Plus className="size-4" />
+          New Workspace
+        </Button>
       }
     >
-      {error ? <div className="mb-4 text-sm text-destructive">Error: {error}</div> : null}
+      <AppPageContent>
+        {error ? <div className="mb-4 text-sm text-destructive">Error: {error}</div> : null}
 
-      <WorkspaceListPanel
-        items={paginatedItems}
-        loading={loading}
-        selectedWorkspaceId={null}
-        onSelect={(id) => navigate(`/workspaces/${id}`)}
-        getTemplateCount={(wsId) => {
-          const ws = workspaces.find((w) => w.id === wsId);
-          return ws?.templateCount ?? 0;
-        }}
-        getWorkspaceStatus={(wsId, fallback) => {
-          const ws = workspaces.find((w) => w.id === wsId);
-          return ws?.status ?? fallback;
-        }}
-        page={page}
-        pageSize={pageSize}
-        total={total}
-        onPageChange={setPage}
-      />
+        <WorkspaceListPanel
+          items={paginatedItems}
+          loading={loading}
+          selectedWorkspaceId={null}
+          onSelect={(id) => navigate(`/workspaces/${id}`)}
+          getTemplateCount={(wsId) => {
+            const ws = workspaces.find((w) => w.id === wsId);
+            return ws?.templateCount ?? 0;
+          }}
+          getWorkspaceStatus={(wsId, fallback) => {
+            const ws = workspaces.find((w) => w.id === wsId);
+            return ws?.status ?? fallback;
+          }}
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={setPage}
+        />
+      </AppPageContent>
 
       <Dialog open={openNew} onOpenChange={setOpenNew}>
         <DialogContent>
@@ -669,6 +669,6 @@ export function WorkspacesPage() {
           </div>
         </SheetContent>
       </Sheet>
-    </PageShell>
+    </AppPage>
   );
 }

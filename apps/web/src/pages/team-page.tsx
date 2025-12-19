@@ -6,7 +6,7 @@ import type { TeamWithMembership, TeamMemberDetail } from '@/api/teams';
 import type { TeamRole } from '@workspace/shared';
 
 import { listTeams, getTeam, listMembers, updateMemberRole, removeMember, createTeam, joinTeam } from '@/api/teams';
-import { PageShell } from '@/components/layout/page-shell';
+import { AppPage, AppPageContent, AppPageTabs } from '@/components/layout/app-page';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   AlertDialog,
@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -188,32 +188,34 @@ export const TeamPage = () => {
   // Solo mode guard
   if (isSoloMode) {
     return (
-      <PageShell
+      <AppPage
         title="Teams"
         description="Team features are only available in Shared mode"
       >
-        <Card className="p-8 text-center">
-          <Users className="mx-auto size-12 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold mb-2">Team Features Disabled</h3>
-          <p className="text-muted-foreground mb-6">
-            You are currently in Solo mode. Enable Shared mode in Settings to access team features.
-          </p>
-          <Button onClick={() => navigate('/settings')}>
-            <SettingsIcon className="size-4 mr-2" />
-            Go to Settings
-          </Button>
-        </Card>
-      </PageShell>
+        <AppPageContent className="flex items-center justify-center">
+          <Card className="max-w-md p-8 text-center">
+            <Users className="mx-auto size-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Team Features Disabled</h3>
+            <p className="text-muted-foreground mb-6">
+              You are currently in Solo mode. Enable Shared mode in Settings to access team features.
+            </p>
+            <Button onClick={() => navigate('/settings')}>
+              <SettingsIcon className="size-4 mr-2" />
+              Go to Settings
+            </Button>
+          </Card>
+        </AppPageContent>
+      </AppPage>
     );
   }
 
   // Loading state
   if (isLoading) {
     return (
-      <PageShell
+      <AppPage
         title="Teams"
         description="Manage your team and members"
-        toolbar={
+        actions={
           <div className="flex items-center gap-2">
             <Users className="size-4 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">Team Management</span>
@@ -221,24 +223,20 @@ export const TeamPage = () => {
           </div>
         }
       >
-        <div className="flex items-center justify-center h-[calc(100vh-12rem)]">
-          <Card className="w-full h-full flex items-center justify-center">
-            <CardContent>
-              <Loader2 className="size-8 animate-spin text-muted-foreground" />
-            </CardContent>
-          </Card>
-        </div>
-      </PageShell>
+        <AppPageContent className="flex items-center justify-center">
+          <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        </AppPageContent>
+      </AppPage>
     );
   }
 
   // No team - show create/join options
   if (!currentTeam) {
     return (
-      <PageShell
+      <AppPage
         title="Teams"
         description="Join or create a team to collaborate"
-        toolbar={
+        actions={
           <div className="flex items-center gap-2">
             <Users className="size-4 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">Team Management</span>
@@ -246,7 +244,7 @@ export const TeamPage = () => {
           </div>
         }
       >
-        <div className="flex items-center justify-center h-[calc(100vh-12rem)]">
+        <AppPageContent className="flex items-center justify-center">
           <Card className="w-full max-w-md">
             <CardContent className="flex flex-col items-center text-center py-12">
               <Users className="size-16 text-muted-foreground mb-4" />
@@ -266,7 +264,7 @@ export const TeamPage = () => {
               </div>
             </CardContent>
           </Card>
-        </div>
+        </AppPageContent>
 
         {/* Create Team Dialog */}
         <CreateTeamDialog
@@ -283,166 +281,153 @@ export const TeamPage = () => {
           onSubmit={handleJoinTeam}
           isBackendReady={true}
         />
-      </PageShell>
+      </AppPage>
     );
   }
 
   // Has team - show team details directly
   return (
-    <PageShell
-      title="Teams"
-      description="Manage your team and members"
-      toolbar={
+    <AppPage
+      title={currentTeam.team.name}
+      description={currentTeam.team.description || 'Manage your team and members'}
+      actions={
         <div className="flex items-center gap-2">
-          <Users className="size-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">Team Management</span>
-          <Badge variant="default" className="ml-2">Shared Mode</Badge>
+          <Badge variant="outline" className="capitalize">Your Role: {currentTeam.membership.role}</Badge>
+          <Badge variant="default">Shared Mode</Badge>
         </div>
       }
     >
-      <Card className="h-[calc(100vh-12rem)] flex flex-col overflow-hidden">
-        <CardHeader className="border-b">
-          <div className="flex items-start justify-between">
-            <div>
-              <CardTitle className="text-xl">{currentTeam.team.name}</CardTitle>
-              {currentTeam.team.description && (
-                <p className="text-sm text-muted-foreground mt-1">{currentTeam.team.description}</p>
-              )}
-            </div>
-            <Badge variant="outline" className="capitalize">Your Role: {currentTeam.membership.role}</Badge>
-          </div>
-        </CardHeader>
+      {successMessage && (
+        <Alert className="mx-6 mt-4 bg-success/10 text-success border-success/20">
+          <AlertDescription>{successMessage}</AlertDescription>
+        </Alert>
+      )}
 
-        <CardContent className="flex-1 flex flex-col overflow-hidden p-0">
-          {successMessage && (
-            <Alert className="m-4 mb-0 bg-success/10 text-success border-success/20">
-              <AlertDescription>{successMessage}</AlertDescription>
-            </Alert>
-          )}
+      {error && (
+        <Alert variant="destructive" className="mx-6 mt-4">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
-          {error && (
-            <Alert variant="destructive" className="m-4 mb-0">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          <Tabs defaultValue="members" className="flex-1 flex flex-col overflow-hidden px-6 pt-4 pb-6">
-            <TabsList className="w-fit">
+      <Tabs defaultValue="members" className="flex-1 flex flex-col">
+        <AppPageTabs
+          tabs={
+            <TabsList className="h-12 bg-transparent">
               <TabsTrigger value="members">Members</TabsTrigger>
               <TabsTrigger value="overview" disabled>Overview</TabsTrigger>
               <TabsTrigger value="settings" disabled>Settings</TabsTrigger>
             </TabsList>
-
-            <TabsContent value="members" className="flex-1 overflow-y-auto mt-4">
-              {isLoadingMembers ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="size-6 animate-spin text-muted-foreground" />
+          }
+        >
+          <TabsContent value="members" className="flex-1 m-0 h-full overflow-auto p-6">
+            {isLoadingMembers ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="size-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="text-sm text-muted-foreground">
+                  {currentTeam.membership.role === 'member'
+                    ? 'You can view members but cannot change roles or remove others.'
+                    : 'Manage team members and their roles.'}
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="text-sm text-muted-foreground">
-                    {currentTeam.membership.role === 'member'
-                      ? 'You can view members but cannot change roles or remove others.'
-                      : 'Manage team members and their roles.'}
-                  </div>
 
-                  <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full">
-                      <thead className="border-b bg-muted/50">
-                        <tr>
-                          <th className="text-left p-3 text-sm font-medium">Name</th>
-                          <th className="text-left p-3 text-sm font-medium">Email</th>
-                          <th className="text-left p-3 text-sm font-medium">Role</th>
-                          <th className="text-left p-3 text-sm font-medium">Joined</th>
-                          <th className="text-right p-3 text-sm font-medium">Actions</th>
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full">
+                    <thead className="border-b bg-muted/50">
+                      <tr>
+                        <th className="text-left p-3 text-sm font-medium">Name</th>
+                        <th className="text-left p-3 text-sm font-medium">Email</th>
+                        <th className="text-left p-3 text-sm font-medium">Role</th>
+                        <th className="text-left p-3 text-sm font-medium">Joined</th>
+                        <th className="text-right p-3 text-sm font-medium">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {members.map((member) => (
+                        <tr key={member.id} className="border-b last:border-b-0 hover:bg-muted/30">
+                          <td className="p-3 text-sm font-medium">{member.displayName || '-'}</td>
+                          <td className="p-3 font-mono text-xs text-muted-foreground">{member.email}</td>
+                          <td className="p-3">
+                            {canChangeRole(member.role) ? (
+                              <Select
+                                value={member.role}
+                                onValueChange={(value) => handleRoleChange(member.id, value as TeamRole)}
+                              >
+                                <SelectTrigger className="w-28 h-8">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="member">Member</SelectItem>
+                                  <SelectItem value="admin">Admin</SelectItem>
+                                  {currentTeam.membership.role === 'owner' && (
+                                    <SelectItem value="owner">Owner</SelectItem>
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <Badge
+                                variant={
+                                  member.role === 'owner'
+                                    ? 'default'
+                                    : member.role === 'admin'
+                                      ? 'secondary'
+                                      : 'outline'
+                                }
+                                className="capitalize"
+                              >
+                                {member.role}
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="p-3 text-sm text-muted-foreground">
+                            {new Date(member.joinedAt).toLocaleDateString()}
+                          </td>
+                          <td className="p-3 text-right">
+                            {canRemoveMember(member.role) && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                    onClick={() => handleConfirmRemove(member)}
+                                  >
+                                    <Trash2 className="size-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Remove member</TooltipContent>
+                              </Tooltip>
+                            )}
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {members.map((member) => (
-                          <tr key={member.id} className="border-b last:border-b-0 hover:bg-muted/30">
-                            <td className="p-3 text-sm font-medium">{member.displayName || '-'}</td>
-                            <td className="p-3 font-mono text-xs text-muted-foreground">{member.email}</td>
-                            <td className="p-3">
-                              {canChangeRole(member.role) ? (
-                                <Select
-                                  value={member.role}
-                                  onValueChange={(value) => handleRoleChange(member.id, value as TeamRole)}
-                                >
-                                  <SelectTrigger className="w-28 h-8">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="member">Member</SelectItem>
-                                    <SelectItem value="admin">Admin</SelectItem>
-                                    {currentTeam.membership.role === 'owner' && (
-                                      <SelectItem value="owner">Owner</SelectItem>
-                                    )}
-                                  </SelectContent>
-                                </Select>
-                              ) : (
-                                <Badge
-                                  variant={
-                                    member.role === 'owner'
-                                      ? 'default'
-                                      : member.role === 'admin'
-                                        ? 'secondary'
-                                        : 'outline'
-                                  }
-                                  className="capitalize"
-                                >
-                                  {member.role}
-                                </Badge>
-                              )}
-                            </td>
-                            <td className="p-3 text-sm text-muted-foreground">
-                              {new Date(member.joinedAt).toLocaleDateString()}
-                            </td>
-                            <td className="p-3 text-right">
-                              {canRemoveMember(member.role) && (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                      onClick={() => handleConfirmRemove(member)}
-                                    >
-                                      <Trash2 className="size-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Remove member</TooltipContent>
-                                </Tooltip>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              )}
-            </TabsContent>
+              </div>
+            )}
+          </TabsContent>
 
-            <TabsContent value="overview" className="mt-4">
-              <Alert>
-                <AlertCircle className="size-4" />
-                <AlertDescription>
-                  Overview tab coming soon. Will show team statistics and activity.
-                </AlertDescription>
-              </Alert>
-            </TabsContent>
+          <TabsContent value="overview" className="m-0 p-6">
+            <Alert>
+              <AlertCircle className="size-4" />
+              <AlertDescription>
+                Overview tab coming soon. Will show team statistics and activity.
+              </AlertDescription>
+            </Alert>
+          </TabsContent>
 
-            <TabsContent value="settings" className="mt-4">
-              <Alert>
-                <AlertCircle className="size-4" />
-                <AlertDescription>
-                  Settings tab coming soon. Team owners will be able to update team details here.
-                </AlertDescription>
-              </Alert>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+          <TabsContent value="settings" className="m-0 p-6">
+            <Alert>
+              <AlertCircle className="size-4" />
+              <AlertDescription>
+                Settings tab coming soon. Team owners will be able to update team details here.
+              </AlertDescription>
+            </Alert>
+          </TabsContent>
+        </AppPageTabs>
+      </Tabs>
 
       {/* Remove Member Confirmation Dialog */}
       <AlertDialog open={removeDialogOpen} onOpenChange={setRemoveDialogOpen}>
@@ -472,6 +457,6 @@ export const TeamPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </PageShell>
+    </AppPage>
   );
 };

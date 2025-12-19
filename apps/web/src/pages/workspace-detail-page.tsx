@@ -7,7 +7,7 @@ import { z } from 'zod';
 
 import type { WorkspaceFormValues } from '@/features/workspaces/types';
 
-import { PageShell } from '@/components/layout/page-shell';
+import { AppPage, AppPageContent, AppPageTabs } from '@/components/layout/app-page';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -110,139 +110,143 @@ export const WorkspaceDetailPage = () => {
 
   if (loading) {
     return (
-      <PageShell
+      <AppPage
         title="Loading..."
         description="Loading workspace details..."
       >
-        <div className="flex items-center justify-center py-12">
+        <AppPageContent className="flex items-center justify-center">
           <div className="text-muted-foreground">Loading workspace...</div>
-        </div>
-      </PageShell>
+        </AppPageContent>
+      </AppPage>
     );
   }
 
   if (!workspace) {
     return (
-      <PageShell
+      <AppPage
         title="Workspace Not Found"
         description="The requested workspace could not be found."
       >
-        <div className="flex items-center justify-center py-12">
+        <AppPageContent className="flex items-center justify-center">
           <div className="text-muted-foreground">Workspace not found</div>
-        </div>
-      </PageShell>
+        </AppPageContent>
+      </AppPage>
     );
   }
 
   return (
-    <PageShell
+    <AppPage
       title={workspace.name}
       description={workspace.rootPath}
-      toolbar={
+      actions={
         <Button
           variant="outline"
           size="sm"
           onClick={() => navigate('/workspaces')}
         >
-          <ArrowLeft className="size-4" />
+          <ArrowLeft className="size-4 mr-2" />
           Back to Workspaces
         </Button>
       }
     >
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="overview" className="gap-2">
-            <BarChart3 className="size-4" />
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="projects" className="gap-2">
-            <FolderTree className="size-4" />
-            Projects
-          </TabsTrigger>
-          <TabsTrigger value="templates" className="gap-2">
-            <Layers className="size-4" />
-            Templates
-          </TabsTrigger>
-          <TabsTrigger value="settings" className="gap-2">
-            <SettingsIcon className="size-4" />
-            Settings
-          </TabsTrigger>
-        </TabsList>
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col">
+        <AppPageTabs
+          tabs={
+            <TabsList className="h-12 bg-transparent">
+              <TabsTrigger value="overview" className="gap-2">
+                <BarChart3 className="size-4" />
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="projects" className="gap-2">
+                <FolderTree className="size-4" />
+                Projects
+              </TabsTrigger>
+              <TabsTrigger value="templates" className="gap-2">
+                <Layers className="size-4" />
+                Templates
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="gap-2">
+                <SettingsIcon className="size-4" />
+                Settings
+              </TabsTrigger>
+            </TabsList>
+          }
+        >
+          <TabsContent value="overview" className="flex-1 m-0 overflow-auto p-6">
+            <WorkspaceOverviewTab workspace={workspace} />
+          </TabsContent>
 
-        <TabsContent value="overview" className="space-y-4">
-          <WorkspaceOverviewTab workspace={workspace} />
-        </TabsContent>
+          <TabsContent value="projects" className="flex-1 m-0 overflow-auto p-6">
+            <WorkspaceFilesTab workspaceId={workspace.id} />
+          </TabsContent>
 
-        <TabsContent value="projects" className="space-y-4">
-          <WorkspaceFilesTab workspaceId={workspace.id} />
-        </TabsContent>
+          <TabsContent value="templates" className="flex-1 m-0 overflow-auto p-6">
+            <WorkspaceTemplatesTab workspaceId={workspace.id} />
+          </TabsContent>
 
-        <TabsContent value="templates" className="space-y-4">
-          <WorkspaceTemplatesTab workspaceId={workspace.id} />
-        </TabsContent>
+          <TabsContent value="settings" className="flex-1 m-0 overflow-auto p-6">
+            <div className="space-y-6 max-w-2xl">
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Workspace Settings</h3>
+                <form onSubmit={editForm.handleSubmit(handleEditSubmit)} className="space-y-4">
+                  <div>
+                    <Label htmlFor="workspace-name">Name</Label>
+                    <Input id="workspace-name" {...editForm.register('name', { required: true })} placeholder="My Workspace" />
+                    {editForm.formState.errors.name && (
+                      <p className="text-sm text-destructive mt-1">{editForm.formState.errors.name.message}</p>
+                    )}
+                  </div>
 
-        <TabsContent value="settings" className="space-y-4">
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Workspace Settings</h3>
-              <form onSubmit={editForm.handleSubmit(handleEditSubmit)} className="space-y-4 max-w-2xl">
-                <div>
-                  <Label htmlFor="workspace-name">Name</Label>
-                  <Input id="workspace-name" {...editForm.register('name', { required: true })} placeholder="My Workspace" />
-                  {editForm.formState.errors.name && (
-                    <p className="text-sm text-destructive mt-1">{editForm.formState.errors.name.message}</p>
-                  )}
-                </div>
+                  <div>
+                    <Label htmlFor="workspace-rootPath">Root Path</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="workspace-rootPath"
+                        {...editForm.register('rootPath', { required: true })}
+                        placeholder="C:\Projects\MyWorkspace"
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => void pickRootFolder()}
+                        disabled={!canSelectFolder || selectingFolder}
+                        className="shrink-0 gap-2"
+                      >
+                        {selectingFolder ? <Loader2 className="size-4 animate-spin" /> : <FolderOpen className="size-4" />}
+                        {canSelectFolder ? 'Choose' : 'Desktop only'}
+                      </Button>
+                    </div>
+                    {!canSelectFolder ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Folder picker currently requires the desktop shell; enter the path manually when running in the browser.
+                      </p>
+                    ) : null}
+                    {editForm.formState.errors.rootPath && (
+                      <p className="text-sm text-destructive mt-1">{editForm.formState.errors.rootPath.message}</p>
+                    )}
+                  </div>
 
-                <div>
-                  <Label htmlFor="workspace-rootPath">Root Path</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="workspace-rootPath"
-                      {...editForm.register('rootPath', { required: true })}
-                      placeholder="C:\Projects\MyWorkspace"
-                      className="flex-1"
+                  <div>
+                    <Label htmlFor="workspace-description">Description</Label>
+                    <Textarea
+                      id="workspace-description"
+                      {...editForm.register('description')}
+                      placeholder="Optional description"
                     />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => void pickRootFolder()}
-                      disabled={!canSelectFolder || selectingFolder}
-                      className="shrink-0 gap-2"
-                    >
-                      {selectingFolder ? <Loader2 className="size-4 animate-spin" /> : <FolderOpen className="size-4" />}
-                      {canSelectFolder ? 'Choose' : 'Desktop only'}
+                  </div>
+
+                  <div className="flex justify-end">
+                    <Button type="submit" disabled={saving}>
+                      {saving ? 'Saving...' : 'Save Changes'}
                     </Button>
                   </div>
-                  {!canSelectFolder ? (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Folder picker currently requires the desktop shell; enter the path manually when running in the browser.
-                    </p>
-                  ) : null}
-                  {editForm.formState.errors.rootPath && (
-                    <p className="text-sm text-destructive mt-1">{editForm.formState.errors.rootPath.message}</p>
-                  )}
-                </div>
-
-                <div>
-                  <Label htmlFor="workspace-description">Description</Label>
-                  <Textarea
-                    id="workspace-description"
-                    {...editForm.register('description')}
-                    placeholder="Optional description"
-                  />
-                </div>
-
-                <div className="flex justify-end">
-                  <Button type="submit" disabled={saving}>
-                    {saving ? 'Saving...' : 'Save Changes'}
-                  </Button>
-                </div>
-              </form>
+                </form>
+              </div>
             </div>
-          </div>
-        </TabsContent>
+          </TabsContent>
+        </AppPageTabs>
       </Tabs>
-    </PageShell>
+    </AppPage>
   );
 };
