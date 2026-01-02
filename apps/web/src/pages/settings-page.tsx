@@ -1,8 +1,9 @@
-import { Database, Loader2, Save, Settings as SettingsIcon, Server, Link2, Unlink, AlertTriangle, RefreshCw, Play, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { Database, Loader2, Save, Settings as SettingsIcon, Server, Link2, Unlink, AlertTriangle, RefreshCw, Play, CheckCircle2, XCircle, AlertCircle, Wrench } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { schemaValidationApi, type ValidationResponse } from '@/api/schema-validation';
 import { settingsApi } from '@/api/settings';
+import { toolsApi } from '@/api/tools';
 import { AppPage, AppPageContent, AppPageTabs } from '@/components/layout/app-page';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -105,6 +106,12 @@ export const SettingsPage = () => {
   const [isResettingDb, setIsResettingDb] = useState(false);
   const [showValidationDetails, setShowValidationDetails] = useState(false);
 
+  // Tools settings state
+  const [baseSalary, setBaseSalary] = useState<string>('');
+  const [baseSalaryFormatted, setBaseSalaryFormatted] = useState<string>('');
+  const [isLoadingToolsSettings, setIsLoadingToolsSettings] = useState(true);
+  const [isSavingToolsSettings, setIsSavingToolsSettings] = useState(false);
+
   const connectionString = useMemo(() => buildConnectionStringFromForm(connectionForm), [connectionForm]);
   const isConnectionFormValid = useMemo(() => hasConnectionRequiredFields(connectionForm), [connectionForm]);
 
@@ -123,6 +130,57 @@ export const SettingsPage = () => {
   useEffect(() => {
     setMTFormData(mtCriteria);
   }, [mtCriteria]);
+
+  // Load tools general settings
+  useEffect(() => {
+    const loadToolsSettings = async () => {
+      try {
+        const settings = await toolsApi.getGeneralSettings();
+        setBaseSalary(settings.baseSalary ? String(settings.baseSalary) : '');
+        setBaseSalaryFormatted(settings.baseSalary ? formatNumberWithSeparator(String(settings.baseSalary)) : '');
+      } catch {
+        // Silent fail - not critical
+      } finally {
+        setIsLoadingToolsSettings(false);
+      }
+    };
+    loadToolsSettings();
+  }, []);
+
+  const formatNumberWithSeparator = (value: string): string => {
+    const numericValue = value.replace(/\D/g, '');
+    if (!numericValue) return '';
+    return new Intl.NumberFormat('id-ID').format(parseInt(numericValue, 10));
+  };
+
+  const parseFormattedNumber = (value: string): number => {
+    const cleaned = value.replace(/\./g, '').replace(/,/g, '');
+    return parseInt(cleaned, 10) || 0;
+  };
+
+  const handleSaveToolsSettings = async () => {
+    setIsSavingToolsSettings(true);
+    setErrorMessage(null);
+
+    try {
+      const salary = baseSalary.trim() === '' ? null : parseFormattedNumber(baseSalary);
+      
+      if (salary !== null && (isNaN(salary) || salary <= 0)) {
+        setErrorMessage('Base salary must be a positive number or empty');
+        setTimeout(() => setErrorMessage(null), 5000);
+        return;
+      }
+
+      await toolsApi.updateGeneralSettings({ baseSalary: salary });
+      setSaveMessage('Tools settings saved successfully!');
+      setTimeout(() => setSaveMessage(null), 3000);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to save tools settings');
+      setTimeout(() => setErrorMessage(null), 5000);
+    } finally {
+      setIsSavingToolsSettings(false);
+    }
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -433,6 +491,7 @@ export const SettingsPage = () => {
           tabs={
             <TabsList className="h-12 bg-transparent">
               <TabsTrigger value="general">General</TabsTrigger>
+              <TabsTrigger value="tools">Tools</TabsTrigger>
               <TabsTrigger value="validation">Validation</TabsTrigger>
               <TabsTrigger value="team">Team Features</TabsTrigger>
             </TabsList>
@@ -510,6 +569,93 @@ export const SettingsPage = () => {
                   </div>
                 </div>
               </Card>
+            </div>
+          </TabsContent>
+
+          {/* Tools Settings Tab */}
+          <TabsContent value="tools" className="flex-1 m-0 overflow-auto p-6">
+            <div className="max-w-3xl space-y-6">
+              {saveMessage && (
+                <Alert variant="success">
+                  <AlertDescription>{saveMessage}</AlertDescription>
+                </Alert>
+              )}
+
+              {errorMessage && (
+                <Alert variant="destructive">
+                  <AlertDescription>{errorMessage}</AlertDescription>
+                </Alert>
+              )}
+
+              <Card className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="rounded-lg bg-primary/10 p-3">
+                    <Wrench className="size-6 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-lg font-semibold mb-1">Tools — General Settings</h2>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Configure settings used by the Tools features such as the Overtime Calculator.
+                    </p>
+
+                    {isLoadingToolsSettings ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="size-4 animate-spin" />
+                        Loading settings...
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="baseSalary">Base Salary (Monthly)</Label>
+                          <Input
+                            id="baseSalary"
+                            type="text"
+                            inputMode="numeric"
+                            value={baseSalaryFormatted}
+                            onChange={(e) => {
+                              const formatted = formatNumberWithSeparator(e.target.value);
+                              const rawValue = parseFormattedNumber(e.target.value);
+                              setBaseSalary(String(rawValue));
+                              setBaseSalaryFormatted(formatted);
+                            }}
+                            placeholder="e.g., 10.000.000"
+                            className="max-w-xs"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Monthly salary used for overtime calculations. The hourly rate is calculated as salary ÷ 173.
+                          </p>
+                        </div>
+
+                        <Button
+                          onClick={handleSaveToolsSettings}
+                          disabled={isSavingToolsSettings}
+                          className="flex items-center gap-2"
+                        >
+                          {isSavingToolsSettings ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : (
+                            <Save className="size-4" />
+                          )}
+                          Save Settings
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Card>
+
+              <Alert variant="info">
+                <AlertCircle className="size-4" />
+                <AlertDescription>
+                  <h3 className="font-medium mb-2">About Tools Settings</h3>
+                  <ul className="text-sm space-y-1 list-disc list-inside">
+                    <li>Base Salary is used as the default value in the Overtime Calculator</li>
+                    <li>You can override this value for individual overtime entries</li>
+                    <li>Leave empty if you want to enter the salary manually each time</li>
+                    <li>Tools data (like overtime entries) is stored locally and remains private</li>
+                  </ul>
+                </AlertDescription>
+              </Alert>
             </div>
           </TabsContent>
 

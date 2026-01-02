@@ -9,7 +9,8 @@ interface AuthenticatedLayoutProps {
   children: ReactNode;
   sidebarItems: SidebarNavItem[];
   activeSidebarKey: string;
-  onNavigate: (key: string) => void;
+  activeSidebarSubKey?: string;
+  onNavigate: (key: string, subKey?: string) => void;
   connectionLabel?: string;
 }
 
@@ -17,6 +18,7 @@ export const AuthenticatedLayout = ({
   children,
   sidebarItems,
   activeSidebarKey,
+  activeSidebarSubKey,
   onNavigate,
   connectionLabel,
 }: AuthenticatedLayoutProps) => {
@@ -25,6 +27,7 @@ export const AuthenticatedLayout = ({
       <AppSidebar
         items={sidebarItems}
         activeKey={activeSidebarKey}
+        activeSubKey={activeSidebarSubKey}
         onNavigate={onNavigate}
         connectionLabel={connectionLabel}
       />

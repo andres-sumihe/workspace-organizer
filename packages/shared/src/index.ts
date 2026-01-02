@@ -1113,3 +1113,65 @@ export interface DeviceInfo {
 export interface LocalUserResetRequest {
   confirmPhrase: string; // Must type "RESET ALL DATA" to confirm
 }
+
+// ============================================================================
+// Tools - Overtime Calculator Types
+// ============================================================================
+
+/**
+ * Type of day for overtime calculation.
+ * - workday: First hour 1.5x, remaining hours 2x
+ * - holiday_weekend: First 7h at 2x, 8th at 3x, 9th+ at 4x
+ */
+export type OvertimeDayType = 'workday' | 'holiday_weekend';
+
+/**
+ * Settings for Tools features, stored under "tools.general" key.
+ * baseSalary is the monthly salary used to calculate overtime pay.
+ */
+export interface ToolsGeneralSettings {
+  baseSalary: number | null;
+}
+
+/**
+ * Overtime entry stored in local SQLite database.
+ */
+export interface OvertimeEntry {
+  id: string;
+  date: string; // YYYY-MM-DD
+  dayType: OvertimeDayType;
+  startTime: string; // HH:MM format (24-hour)
+  endTime: string; // HH:MM format (24-hour)
+  totalHours: number; // Calculated from start/end time
+  payAmount: number; // Calculated and rounded to 2 decimals
+  baseSalary: number; // Effective salary used for this entry
+  note?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Request to create a new overtime entry.
+ */
+export interface CreateOvertimeEntryRequest {
+  date: string; // YYYY-MM-DD
+  dayType: OvertimeDayType;
+  startTime: string; // HH:MM format (24-hour)
+  endTime: string; // HH:MM format (24-hour)
+  baseSalaryOverride?: number | null; // Use this instead of settings.baseSalary
+  note?: string;
+}
+
+/**
+ * Response containing a list of overtime entries.
+ */
+export interface OvertimeEntryListResponse {
+  items: OvertimeEntry[];
+}
+
+/**
+ * Response containing a single overtime entry.
+ */
+export interface OvertimeEntryResponse {
+  entry: OvertimeEntry;
+}

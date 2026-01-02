@@ -79,8 +79,8 @@ teamsRouter.post('/', asyncHandler(async (req: TeamAuthenticatedRequest, res: Re
 
   // Add creator as owner
   await execute(
-    `INSERT INTO team_members (team_id, email, display_name, role)
-     VALUES ($1, $2, $3, 'owner')`,
+    `INSERT INTO team_members (team_id, email, display_name, role, joined_at, updated_at)
+     VALUES ($1, $2, $3, 'owner', NOW(), NOW())`,
     [team.id, userEmail, displayName || null]
   );
 
@@ -176,8 +176,8 @@ teamsRouter.post('/join', asyncHandler(async (req: TeamAuthenticatedRequest, res
 
   // Add user as member
   await execute(
-    `INSERT INTO team_members (team_id, email, display_name, role)
-     VALUES ($1, $2, $3, 'member')`,
+    `INSERT INTO team_members (team_id, email, display_name, role, joined_at, updated_at)
+     VALUES ($1, $2, $3, 'member', NOW(), NOW())`,
     [team.id, userEmail, displayName || null]
   );
 
