@@ -1,13 +1,26 @@
-const DEFAULT_API_BASE_URL = 'http://127.0.0.1:4000';
+// In Electron production builds using custom protocol (app://bundle/),
+// API requests should be relative so they get intercepted by the protocol handler.
+// In development (Vite dev server), we need absolute URLs to the API server.
+const isElectronProduction = () => {
+  return typeof window !== 'undefined' && 
+         window.location.protocol === 'app:';
+};
 
 const resolveApiBaseUrl = () => {
+  // In Electron production (app:// protocol), use relative URLs
+  // The custom protocol handler will intercept /api/* requests
+  if (isElectronProduction()) {
+    return ''; // Empty string means relative URLs (/api/...)
+  }
+  
+  // Check for environment variable override
   const envValue = (import.meta as { env?: Record<string, unknown> }).env?.VITE_API_URL;
-
   if (typeof envValue === 'string' && envValue.trim().length > 0) {
     return envValue.trim();
   }
 
-  return DEFAULT_API_BASE_URL;
+  // Default to localhost port 4000 for development
+  return 'http://127.0.0.1:4000';
 };
 
 const API_BASE_URL = resolveApiBaseUrl();
@@ -24,7 +37,19 @@ export class ApiError extends Error {
 }
 
 const buildUrl = (path: string, query?: RequestOptions['query']) => {
-  const url = new URL(path.replace(/^\/+/, ''), API_BASE_URL.replace(/\/$/, '') + '/');
+  // For Electron production (empty base URL), use relative URLs
+  // The custom protocol handler will intercept these requests
+  const normalizedPath = path.replace(/^\/+/, '');
+  
+  let url: URL;
+  if (API_BASE_URL === '') {
+    // Relative URL for Electron production
+    // Use window.location.origin as base for URL construction
+    url = new URL(`/${normalizedPath}`, window.location.origin);
+  } else {
+    // Absolute URL for development
+    url = new URL(normalizedPath, API_BASE_URL.replace(/\/$/, '') + '/');
+  }
 
   if (query) {
     for (const [key, value] of Object.entries(query)) {

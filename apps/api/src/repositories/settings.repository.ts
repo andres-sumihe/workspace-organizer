@@ -50,7 +50,7 @@ export const settingsRepository = {
    */
   async get<T = unknown>(key: string): Promise<Setting<T> | null> {
     const db = await getDb();
-    const row = await db.get('SELECT * FROM settings WHERE key = ?', [key]);
+    const row = db.prepare('SELECT * FROM settings WHERE key = ?').get(key);
     if (!isSettingsRow(row)) return null;
     return mapRowToSetting<T>(row);
   },
@@ -60,8 +60,7 @@ export const settingsRepository = {
    */
   async getByPrefix<T = unknown>(prefix: string): Promise<Setting<T>[]> {
     const db = await getDb();
-    const rows = await db.all('SELECT * FROM settings WHERE key LIKE ?', [`${prefix}%`]);
-    if (!Array.isArray(rows)) return [];
+    const rows = db.prepare('SELECT * FROM settings WHERE key LIKE ?').all(`${prefix}%`) as unknown[];
     return rows.filter(isSettingsRow).map((row) => mapRowToSetting<T>(row));
   },
 
@@ -70,8 +69,7 @@ export const settingsRepository = {
    */
   async getAll(): Promise<Setting[]> {
     const db = await getDb();
-    const rows = await db.all('SELECT * FROM settings ORDER BY key');
-    if (!Array.isArray(rows)) return [];
+    const rows = db.prepare('SELECT * FROM settings ORDER BY key').all() as unknown[];
     return rows.filter(isSettingsRow).map((row) => mapRowToSetting(row));
   },
 
@@ -82,14 +80,13 @@ export const settingsRepository = {
     const db = await getDb();
     const valueJson = JSON.stringify(value);
     
-    await db.run(
+    db.prepare(
       `INSERT INTO settings (key, value_json, description)
        VALUES (?, ?, ?)
        ON CONFLICT(key) DO UPDATE SET
          value_json = excluded.value_json,
-         description = COALESCE(excluded.description, settings.description)`,
-      [key, valueJson, description ?? null]
-    );
+         description = COALESCE(excluded.description, settings.description)`
+    ).run(key, valueJson, description ?? null);
     
     const result = await this.get<T>(key);
     if (!result) throw new Error(`Failed to retrieve setting after upsert: ${key}`);
@@ -101,8 +98,8 @@ export const settingsRepository = {
    */
   async delete(key: string): Promise<boolean> {
     const db = await getDb();
-    const result = await db.run('DELETE FROM settings WHERE key = ?', [key]);
-    return (result.changes ?? 0) > 0;
+    const result = db.prepare('DELETE FROM settings WHERE key = ?').run(key);
+    return result.changes > 0;
   },
 
   /**
@@ -110,7 +107,7 @@ export const settingsRepository = {
    */
   async deleteByPrefix(prefix: string): Promise<number> {
     const db = await getDb();
-    const result = await db.run('DELETE FROM settings WHERE key LIKE ?', [`${prefix}%`]);
-    return result.changes ?? 0;
+    const result = db.prepare('DELETE FROM settings WHERE key LIKE ?').run(`${prefix}%`);
+    return result.changes;
   }
 };

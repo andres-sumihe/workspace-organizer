@@ -1,9 +1,9 @@
-import type { Database } from 'sqlite';
+import type Database from 'better-sqlite3';
 
 export const id = '0004-create-templates';
 
-export const up = async (db: Database) => {
-  await db.exec(`
+export const up = async (db: Database.Database) => {
+  db.exec(`
     CREATE TABLE IF NOT EXISTS templates (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -53,3 +53,6 @@ export const up = async (db: Database) => {
     CREATE INDEX IF NOT EXISTS idx_workspace_templates_template_id ON workspace_templates(template_id);
   `);
 };
+
+
+

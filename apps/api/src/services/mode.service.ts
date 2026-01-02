@@ -90,7 +90,7 @@ export const modeService = {
   async hasLocalUser(): Promise<boolean> {
     try {
       const db = await getDb();
-      const row = await db.get('SELECT COUNT(*) as count FROM local_users');
+      const row = db.prepare('SELECT COUNT(*) as count FROM local_users').get();
       return (row as { count: number })?.count > 0;
     } catch (error) {
       // Table might not exist yet if migrations haven't completed

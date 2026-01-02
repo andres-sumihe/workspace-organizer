@@ -13,7 +13,7 @@
     "dev:api": "npm run dev --workspace @workspace/api",
     "dev:web": "npm run dev --workspace @workspace/web",
     "dev:desktop": "concurrently \"npm run dev --workspace @workspace/api\" \"npm run dev --workspace @workspace/web\" \"node ./scripts/wait-for-http.js http://127.0.0.1:5173 && electron .\"",
-    "build": "npm run build --workspace @workspace/api && npm run build --workspace @workspace/web",
+    "build": "npm run build:bundle --workspace @workspace/api && npm run build --workspace @workspace/web",
     "prebuild:desktop": "node scripts/validate-desktop-build.js",
     "build:desktop": "npm run build && electron-builder",
     "build:desktop:win": "npm run build && electron-builder --win",
@@ -38,9 +38,10 @@
     "file-management",
     "templates"
   ],
-  "author": "",
+  "author": "Andres Sumihe",
   "license": "MIT",
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.18.13",
     "@typescript-eslint/eslint-plugin": "^8.46.2",
     "@typescript-eslint/parser": "^8.46.2",
@@ -62,6 +63,7 @@
   },
   "dependencies": {
     "archiver": "^7.0.1",
+    "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.4.1",
     "chokidar": "^4.0.3",
     "extract-zip": "^2.0.1",
@@ -72,6 +74,14 @@
   "build": {
     "appId": "com.workspace.organizer",
     "productName": "Workspace Organizer",
+    "asar": true,
+    "asarUnpack": [
+      "apps/api/dist/**/*",
+      "node_modules/better-sqlite3/**/*",
+      "node_modules/sqlite3/**/*",
+      "node_modules/bindings/**/*",
+      "node_modules/file-uri-to-path/**/*"
+    ],
     "directories": {
       "output": "release",
       "buildResources": "build-assets"

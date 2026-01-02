@@ -24,22 +24,22 @@ export const migrationService = {
     const localDb = await getDb();
 
     // Count local scripts not yet migrated
-    const scriptsRow = await localDb.get(
+    const scriptsRow = localDb.prepare(
       'SELECT COUNT(*) as count FROM scripts WHERE migrated_to_shared IS NULL'
-    ) as { count: number };
+    ).get() as { count: number };
 
-    const migratedScriptsRow = await localDb.get(
+    const migratedScriptsRow = localDb.prepare(
       'SELECT COUNT(*) as count FROM scripts WHERE migrated_to_shared IS NOT NULL'
-    ) as { count: number };
+    ).get() as { count: number };
 
     // Count local Control-M jobs (if table exists)
     let jobsCount = 0;
     let migratedJobsCount = 0;
     
     try {
-      const jobsRow = await localDb.get(
+      const jobsRow = localDb.prepare(
         'SELECT COUNT(*) as count FROM controlm_jobs'
-      ) as { count: number };
+      ).get() as { count: number };
       jobsCount = jobsRow?.count || 0;
     } catch {
       // Table doesn't exist yet
@@ -66,9 +66,9 @@ export const migrationService = {
 
     try {
       // Get all local scripts not yet migrated
-      const scripts = await localDb.all(
+      const scripts = localDb.prepare(
         'SELECT * FROM scripts WHERE migrated_to_shared IS NULL'
-      ) as Array<{
+      ).all() as Array<{
         id: string;
         name: string;
         file_path: string;
@@ -134,17 +134,15 @@ export const migrationService = {
             );
 
             // Record mapping in local database
-            await localDb.run(
+            localDb.prepare(
               `INSERT INTO migration_mappings (local_id, shared_id, table_name, migrated_at)
-               VALUES (?, ?, 'scripts', ?)`,
-              [script.id, sharedId, now]
-            );
+               VALUES (?, ?, 'scripts', ?)`
+            ).run(script.id, sharedId, now);
 
             // Mark script as migrated
-            await localDb.run(
-              'UPDATE scripts SET migrated_to_shared = ? WHERE id = ?',
-              [sharedId, script.id]
-            );
+            localDb.prepare(
+              'UPDATE scripts SET migrated_to_shared = ? WHERE id = ?'
+            ).run(sharedId, script.id);
 
             itemsMigrated++;
           } catch (error) {
@@ -182,10 +180,9 @@ export const migrationService = {
   async getMappings(tableName: string): Promise<MigrationMapping[]> {
     const localDb = await getDb();
     
-    const rows = await localDb.all(
-      'SELECT local_id, shared_id, table_name, migrated_at FROM migration_mappings WHERE table_name = ?',
-      [tableName]
-    ) as Array<{
+    const rows = localDb.prepare(
+      'SELECT local_id, shared_id, table_name, migrated_at FROM migration_mappings WHERE table_name = ?'
+    ).all(tableName) as Array<{
       local_id: string;
       shared_id: string;
       table_name: string;
@@ -206,10 +203,9 @@ export const migrationService = {
   async getSharedId(localId: string, tableName: string): Promise<string | null> {
     const localDb = await getDb();
     
-    const row = await localDb.get(
-      'SELECT shared_id FROM migration_mappings WHERE local_id = ? AND table_name = ?',
-      [localId, tableName]
-    ) as { shared_id: string } | undefined;
+    const row = localDb.prepare(
+      'SELECT shared_id FROM migration_mappings WHERE local_id = ? AND table_name = ?'
+    ).get(localId, tableName) as { shared_id: string } | undefined;
 
     return row?.shared_id ?? null;
   },
@@ -223,16 +219,15 @@ export const migrationService = {
 
     try {
       // Clear migration mappings
-      await localDb.run(
-        'DELETE FROM migration_mappings WHERE table_name = ?',
-        [tableName]
-      );
+      localDb.prepare(
+        'DELETE FROM migration_mappings WHERE table_name = ?'
+      ).run(tableName);
 
       // Reset migrated flag on scripts
       if (tableName === 'scripts') {
-        await localDb.run(
+        localDb.prepare(
           'UPDATE scripts SET migrated_to_shared = NULL'
-        );
+        ).run();
       }
 
       return {

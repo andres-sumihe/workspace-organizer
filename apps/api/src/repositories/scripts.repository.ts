@@ -181,10 +181,9 @@ export const listScripts = async (params: ListScriptsParams): Promise<BatchScrip
 
   values.push(limit, offset);
 
-  const rowsRaw: unknown = await db.all(
-    `SELECT s.* FROM scripts s ${whereClause} ORDER BY s.name LIMIT ? OFFSET ?`,
-    values
-  );
+  const rowsRaw: unknown = db.prepare(
+    `SELECT s.* FROM scripts s ${whereClause} ORDER BY s.name LIMIT ? OFFSET ?`
+  ).all(...values);
 
   const scripts: BatchScript[] = [];
 
@@ -234,7 +233,7 @@ export const countScripts = async (params: Omit<ListScriptsParams, 'limit' | 'of
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-  const result: unknown = await db.get(`SELECT COUNT(1) as count FROM scripts s ${whereClause}`, values);
+  const result: unknown = db.prepare(`SELECT COUNT(1) as count FROM scripts s ${whereClause}`).get(...values);
 
   if (result && typeof result === 'object' && typeof (result as { count?: unknown }).count === 'number') {
     return (result as { count: number }).count;
@@ -261,14 +260,13 @@ export const findScriptsByFilename = async (filename: string): Promise<BatchScri
   // 1. Exact match on name (case-insensitive)
   // 2. Name matches filename without extension (case-insensitive)
   // 3. file_path ends with the filename (case-insensitive)
-  const rowsRaw: unknown = await db.all(
+  const rowsRaw: unknown = db.prepare(
     `SELECT * FROM scripts
      WHERE UPPER(name) = ?
         OR UPPER(name) = ?
         OR UPPER(file_path) LIKE ?
-     ORDER BY name`,
-    [filename.toUpperCase(), normalizedFilename, `%${filename.toUpperCase()}`]
-  );
+     ORDER BY name`
+  ).all(filename.toUpperCase(), normalizedFilename, `%${filename.toUpperCase()}`);
 
   const scripts: BatchScript[] = [];
 
@@ -292,7 +290,7 @@ export const findScriptsByFilename = async (filename: string): Promise<BatchScri
 export const findScriptByName = async (name: string): Promise<BatchScript | null> => {
   const db = await getDb();
 
-  const row: unknown = await db.get('SELECT * FROM scripts WHERE UPPER(name) = ?', [name.toUpperCase()]);
+  const row: unknown = db.prepare('SELECT * FROM scripts WHERE UPPER(name) = ?').get(name.toUpperCase());
 
   if (!isScriptRow(row)) {
     return null;
@@ -303,7 +301,7 @@ export const findScriptByName = async (name: string): Promise<BatchScript | null
 
 export const findScriptById = async (id: string): Promise<BatchScriptDetail | null> => {
   const db = await getDb();
-  const row: unknown = await db.get('SELECT * FROM scripts WHERE id = ?', [id]);
+  const row: unknown = db.prepare('SELECT * FROM scripts WHERE id = ?').get(id);
 
   if (!isScriptRow(row)) {
     return null;
@@ -312,7 +310,7 @@ export const findScriptById = async (id: string): Promise<BatchScriptDetail | nu
   const script = mapRowToScript(row);
 
   // Fetch drive mappings
-  const mappingsRaw: unknown = await db.all('SELECT * FROM drive_mappings WHERE script_id = ?', [id]);
+  const mappingsRaw: unknown = db.prepare('SELECT * FROM drive_mappings WHERE script_id = ?').all(id);
   const driveMappings: DriveMapping[] = [];
 
   if (Array.isArray(mappingsRaw)) {
@@ -324,12 +322,11 @@ export const findScriptById = async (id: string): Promise<BatchScriptDetail | nu
   }
 
   // Fetch tags
-  const tagsRaw: unknown = await db.all(
+  const tagsRaw: unknown = db.prepare(
     `SELECT t.* FROM tags t
      INNER JOIN script_tags st ON st.tag_id = t.id
-     WHERE st.script_id = ?`,
-    [id]
-  );
+     WHERE st.script_id = ?`
+  ).all(id);
   const tags: ScriptTag[] = [];
 
   if (Array.isArray(tagsRaw)) {
@@ -341,12 +338,11 @@ export const findScriptById = async (id: string): Promise<BatchScriptDetail | nu
   }
 
   // Fetch dependencies (scripts this script depends on)
-  const dependenciesRaw: unknown = await db.all(
+  const dependenciesRaw: unknown = db.prepare(
     `SELECT s.* FROM scripts s
      INNER JOIN script_dependencies sd ON sd.dependency_script_id = s.id
-     WHERE sd.dependent_script_id = ?`,
-    [id]
-  );
+     WHERE sd.dependent_script_id = ?`
+  ).all(id);
   const dependencies: BatchScript[] = [];
 
   if (Array.isArray(dependenciesRaw)) {
@@ -358,12 +354,11 @@ export const findScriptById = async (id: string): Promise<BatchScriptDetail | nu
   }
 
   // Fetch dependents (scripts that depend on this script)
-  const dependentsRaw: unknown = await db.all(
+  const dependentsRaw: unknown = db.prepare(
     `SELECT s.* FROM scripts s
      INNER JOIN script_dependencies sd ON sd.dependent_script_id = s.id
-     WHERE sd.dependency_script_id = ?`,
-    [id]
-  );
+     WHERE sd.dependency_script_id = ?`
+  ).all(id);
   const dependents: BatchScript[] = [];
 
   if (Array.isArray(dependentsRaw)) {
@@ -412,13 +407,12 @@ export const createScript = async (input: CreateScriptInput): Promise<BatchScrip
     updatedAt
   } = input;
 
-  await db.run(
+  db.prepare(
     `INSERT INTO scripts (
       id, name, description, file_path, content, type, is_active, has_credentials,
       execution_count, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
-    [id, name, description ?? null, filePath, content, type, isActive ? 1 : 0, hasCredentials ? 1 : 0, createdAt, updatedAt]
-  );
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`
+  ).run(id, name, description ?? null, filePath, content, type, isActive ? 1 : 0, hasCredentials ? 1 : 0, createdAt, updatedAt);
 
   const created = await findScriptById(id);
 
@@ -488,7 +482,7 @@ export const updateScript = async (id: string, updates: UpdateScriptInput): Prom
 
   values.push(id);
 
-  await db.run(`UPDATE scripts SET ${assignments.join(', ')} WHERE id = ?`, values);
+  db.prepare(`UPDATE scripts SET ${assignments.join(', ')} WHERE id = ?`).run(...values);
 
   const updated = await findScriptById(id);
   return updated ? { ...updated } : null;
@@ -496,15 +490,14 @@ export const updateScript = async (id: string, updates: UpdateScriptInput): Prom
 
 export const deleteScript = async (id: string): Promise<void> => {
   const db = await getDb();
-  await db.run('DELETE FROM scripts WHERE id = ?', [id]);
+  db.prepare('DELETE FROM scripts WHERE id = ?').run(id);
 };
 
 export const incrementExecutionCount = async (id: string): Promise<void> => {
   const db = await getDb();
-  await db.run(
-    'UPDATE scripts SET execution_count = execution_count + 1, last_executed_at = ? WHERE id = ?',
-    [new Date().toISOString(), id]
-  );
+  db.prepare(
+    'UPDATE scripts SET execution_count = execution_count + 1, last_executed_at = ? WHERE id = ?'
+  ).run(new Date().toISOString(), id);
 };
 
 // Drive Mappings
@@ -537,26 +530,25 @@ export const createDriveMapping = async (input: CreateDriveMappingInput): Promis
     updatedAt
   } = input;
 
-  await db.run(
+  db.prepare(
     `INSERT INTO drive_mappings (
       id, script_id, drive_letter, network_path, server_name, share_name,
       has_credentials, username, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      id,
-      scriptId,
-      driveLetter,
-      networkPath,
-      serverName ?? null,
-      shareName ?? null,
-      hasCredentials ? 1 : 0,
-      username ?? null,
-      createdAt,
-      updatedAt
-    ]
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    id,
+    scriptId,
+    driveLetter,
+    networkPath,
+    serverName ?? null,
+    shareName ?? null,
+    hasCredentials ? 1 : 0,
+    username ?? null,
+    createdAt,
+    updatedAt
   );
 
-  const rowRaw: unknown = await db.get('SELECT * FROM drive_mappings WHERE id = ?', [id]);
+  const rowRaw: unknown = db.prepare('SELECT * FROM drive_mappings WHERE id = ?').get(id);
 
   if (!isDriveMappingRow(rowRaw)) {
     throw new Error('Failed to create drive mapping');
@@ -567,12 +559,12 @@ export const createDriveMapping = async (input: CreateDriveMappingInput): Promis
 
 export const deleteDriveMappingsByScriptId = async (scriptId: string): Promise<void> => {
   const db = await getDb();
-  await db.run('DELETE FROM drive_mappings WHERE script_id = ?', [scriptId]);
+  db.prepare('DELETE FROM drive_mappings WHERE script_id = ?').run(scriptId);
 };
 
 export const listAllDriveMappings = async (): Promise<DriveMapping[]> => {
   const db = await getDb();
-  const rowsRaw: unknown = await db.all('SELECT * FROM drive_mappings ORDER BY drive_letter');
+  const rowsRaw: unknown = db.prepare('SELECT * FROM drive_mappings ORDER BY drive_letter').all();
 
   const mappings: DriveMapping[] = [];
 
@@ -591,7 +583,7 @@ export const listAllDriveMappings = async (): Promise<DriveMapping[]> => {
 export const findOrCreateTag = async (name: string, id: string, color?: string): Promise<ScriptTag> => {
   const db = await getDb();
 
-  const existing: unknown = await db.get('SELECT * FROM tags WHERE name = ?', [name]);
+  const existing: unknown = db.prepare('SELECT * FROM tags WHERE name = ?').get(name);
 
   if (isTagRow(existing)) {
     return mapRowToTag(existing);
@@ -599,15 +591,15 @@ export const findOrCreateTag = async (name: string, id: string, color?: string):
 
   const now = new Date().toISOString();
 
-  await db.run('INSERT INTO tags (id, name, color, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', [
+  db.prepare('INSERT INTO tags (id, name, color, created_at, updated_at) VALUES (?, ?, ?, ?, ?)').run(
     id,
     name,
     color ?? null,
     now,
     now
-  ]);
+  );
 
-  const created: unknown = await db.get('SELECT * FROM tags WHERE id = ?', [id]);
+  const created: unknown = db.prepare('SELECT * FROM tags WHERE id = ?').get(id);
 
   if (!isTagRow(created)) {
     throw new Error('Failed to create tag');
@@ -620,21 +612,21 @@ export const attachTagToScript = async (scriptId: string, tagId: string): Promis
   const db = await getDb();
   const now = new Date().toISOString();
 
-  await db.run('INSERT OR IGNORE INTO script_tags (script_id, tag_id, created_at) VALUES (?, ?, ?)', [
+  db.prepare('INSERT OR IGNORE INTO script_tags (script_id, tag_id, created_at) VALUES (?, ?, ?)').run(
     scriptId,
     tagId,
     now
-  ]);
+  );
 };
 
 export const detachTagsFromScript = async (scriptId: string): Promise<void> => {
   const db = await getDb();
-  await db.run('DELETE FROM script_tags WHERE script_id = ?', [scriptId]);
+  db.prepare('DELETE FROM script_tags WHERE script_id = ?').run(scriptId);
 };
 
 export const listAllTags = async (): Promise<ScriptTag[]> => {
   const db = await getDb();
-  const rowsRaw: unknown = await db.all('SELECT * FROM tags ORDER BY name');
+  const rowsRaw: unknown = db.prepare('SELECT * FROM tags ORDER BY name').all();
 
   const tags: ScriptTag[] = [];
 

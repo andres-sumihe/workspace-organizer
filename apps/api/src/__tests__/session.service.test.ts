@@ -11,19 +11,18 @@ describe('Session Service', () => {
     const db = await getDb();
     
     // Create test user
-    await db.run(
+    db.prepare(
       `INSERT INTO local_users (id, username, email, password_hash, is_active, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 1, datetime('now'), datetime('now'))`,
-      [testUserId, 'testuser', 'test@example.com', 'hash']
-    );
+       VALUES (?, ?, ?, ?, 1, datetime('now'), datetime('now'))`
+    ).run(testUserId, 'testuser', 'test@example.com', 'hash');
   });
 
   afterEach(async () => {
     const db = await getDb();
     
     // Clean up test data
-    await db.run('DELETE FROM local_sessions WHERE user_id = ?', [testUserId]);
-    await db.run('DELETE FROM local_users WHERE id = ?', [testUserId]);
+    db.prepare('DELETE FROM local_sessions WHERE user_id = ?').run(testUserId);
+    db.prepare('DELETE FROM local_users WHERE id = ?').run(testUserId);
   });
 
   describe('cleanupExpiredSessions', () => {
@@ -35,22 +34,20 @@ describe('Session Service', () => {
       const expiredToken = uuidv4();
       const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
       
-      await db.run(
+      db.prepare(
         `INSERT INTO local_sessions (id, user_id, refresh_token, expires_at, created_at, last_activity_at)
-         VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))`,
-        [expiredSessionId, testUserId, expiredToken, twoDaysAgo]
-      );
+         VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))`
+      ).run(expiredSessionId, testUserId, expiredToken, twoDaysAgo);
 
       // Create an active session (expires in 7 days)
       const activeSessionId = uuidv4();
       const activeToken = uuidv4();
       const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
       
-      await db.run(
+      db.prepare(
         `INSERT INTO local_sessions (id, user_id, refresh_token, expires_at, created_at, last_activity_at)
-         VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))`,
-        [activeSessionId, testUserId, activeToken, sevenDaysFromNow]
-      );
+         VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))`
+      ).run(activeSessionId, testUserId, activeToken, sevenDaysFromNow);
 
       // Run cleanup
       const cleaned = await sessionService.cleanupExpiredSessions();
@@ -58,17 +55,15 @@ describe('Session Service', () => {
       expect(cleaned).toBe(1);
 
       // Verify expired session was removed
-      const expiredSession = await db.get(
-        'SELECT * FROM local_sessions WHERE id = ?',
-        [expiredSessionId]
-      );
+      const expiredSession = db.prepare(
+        'SELECT * FROM local_sessions WHERE id = ?'
+      ).get(expiredSessionId);
       expect(expiredSession).toBeUndefined();
 
       // Verify active session still exists
-      const activeSession = await db.get(
-        'SELECT * FROM local_sessions WHERE id = ?',
-        [activeSessionId]
-      );
+      const activeSession = db.prepare(
+        'SELECT * FROM local_sessions WHERE id = ?'
+      ).get(activeSessionId);
       expect(activeSession).toBeDefined();
     });
   });
@@ -86,22 +81,20 @@ describe('Session Service', () => {
       ).toISOString();
       const futureExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
       
-      await db.run(
+      db.prepare(
         `INSERT INTO local_sessions (id, user_id, refresh_token, expires_at, created_at, last_activity_at)
-         VALUES (?, ?, ?, ?, datetime('now'), ?)`,
-        [inactiveSessionId, testUserId, inactiveToken, futureExpiry, inactivityCutoff]
-      );
+         VALUES (?, ?, ?, ?, datetime('now'), ?)`
+      ).run(inactiveSessionId, testUserId, inactiveToken, futureExpiry, inactivityCutoff);
 
       // Create an active session (recent activity)
       const activeSessionId = uuidv4();
       const activeToken = uuidv4();
       const recentActivity = new Date(Date.now() - 60000).toISOString(); // 1 minute ago
       
-      await db.run(
+      db.prepare(
         `INSERT INTO local_sessions (id, user_id, refresh_token, expires_at, created_at, last_activity_at)
-         VALUES (?, ?, ?, ?, datetime('now'), ?)`,
-        [activeSessionId, testUserId, activeToken, futureExpiry, recentActivity]
-      );
+         VALUES (?, ?, ?, ?, datetime('now'), ?)`
+      ).run(activeSessionId, testUserId, activeToken, futureExpiry, recentActivity);
 
       // Run cleanup
       const cleaned = await sessionService.cleanupInactiveSessions();
@@ -109,17 +102,15 @@ describe('Session Service', () => {
       expect(cleaned).toBeGreaterThanOrEqual(1);
 
       // Verify inactive session was removed
-      const inactiveSession = await db.get(
-        'SELECT * FROM local_sessions WHERE id = ?',
-        [inactiveSessionId]
-      );
+      const inactiveSession = db.prepare(
+        'SELECT * FROM local_sessions WHERE id = ?'
+      ).get(inactiveSessionId);
       expect(inactiveSession).toBeUndefined();
 
       // Verify active session still exists
-      const activeSession = await db.get(
-        'SELECT * FROM local_sessions WHERE id = ?',
-        [activeSessionId]
-      );
+      const activeSession = db.prepare(
+        'SELECT * FROM local_sessions WHERE id = ?'
+      ).get(activeSessionId);
       expect(activeSession).toBeDefined();
     });
   });
@@ -142,11 +133,10 @@ describe('Session Service', () => {
       ).toISOString();
       const futureExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
       
-      await db.run(
+      db.prepare(
         `INSERT INTO local_sessions (id, user_id, refresh_token, expires_at, created_at, last_activity_at)
-         VALUES (?, ?, ?, ?, datetime('now'), ?)`,
-        [sessionId, testUserId, refreshToken, futureExpiry, oldActivity]
-      );
+         VALUES (?, ?, ?, ?, datetime('now'), ?)`
+      ).run(sessionId, testUserId, refreshToken, futureExpiry, oldActivity);
 
       const sessionInfo = await sessionService.getSessionInfo(testUserId);
       
@@ -163,11 +153,10 @@ describe('Session Service', () => {
       const recentActivity = new Date(Date.now() - 60000).toISOString(); // 1 minute ago
       const futureExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
       
-      await db.run(
+      db.prepare(
         `INSERT INTO local_sessions (id, user_id, refresh_token, expires_at, created_at, last_activity_at)
-         VALUES (?, ?, ?, ?, datetime('now'), ?)`,
-        [sessionId, testUserId, refreshToken, futureExpiry, recentActivity]
-      );
+         VALUES (?, ?, ?, ?, datetime('now'), ?)`
+      ).run(sessionId, testUserId, refreshToken, futureExpiry, recentActivity);
 
       const sessionInfo = await sessionService.getSessionInfo(testUserId);
       

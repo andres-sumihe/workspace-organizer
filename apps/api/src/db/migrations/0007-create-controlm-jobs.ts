@@ -1,12 +1,12 @@
-import type { Database } from 'sqlite';
+import type Database from 'better-sqlite3';
 
 export const id = '0007-create-controlm-jobs';
 
-export const up = async (db: Database) => {
-  await db.exec(`PRAGMA foreign_keys = ON;`);
+export const up = async (db: Database.Database) => {
+  db.exec(`PRAGMA foreign_keys = ON;`);
 
   // Control-M Jobs table - core metadata for batch jobs from Control-M
-  await db.exec(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS controlm_jobs (
       id TEXT PRIMARY KEY,
       job_id INTEGER NOT NULL,
@@ -41,7 +41,7 @@ export const up = async (db: Database) => {
   `);
 
   // Control-M Job Dependencies table - predecessor/successor relationships
-  await db.exec(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS controlm_job_dependencies (
       id TEXT PRIMARY KEY,
       predecessor_job_id TEXT NOT NULL,
@@ -55,7 +55,7 @@ export const up = async (db: Database) => {
   `);
 
   // Control-M Job Conditions table - IN/OUT conditions for job flow
-  await db.exec(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS controlm_job_conditions (
       id TEXT PRIMARY KEY,
       job_id TEXT NOT NULL,
@@ -68,7 +68,7 @@ export const up = async (db: Database) => {
   `);
 
   // Triggers to keep updated_at current
-  await db.exec(`
+  db.exec(`
     CREATE TRIGGER IF NOT EXISTS trg_controlm_jobs_set_updated_at
     AFTER UPDATE ON controlm_jobs
     FOR EACH ROW
@@ -79,17 +79,20 @@ export const up = async (db: Database) => {
   `);
 
   // Indexes for efficient queries
-  await db.exec(`CREATE INDEX IF NOT EXISTS idx_controlm_jobs_job_id ON controlm_jobs(job_id);`);
-  await db.exec(`CREATE INDEX IF NOT EXISTS idx_controlm_jobs_job_name ON controlm_jobs(job_name);`);
-  await db.exec(`CREATE INDEX IF NOT EXISTS idx_controlm_jobs_application ON controlm_jobs(application);`);
-  await db.exec(`CREATE INDEX IF NOT EXISTS idx_controlm_jobs_node_id ON controlm_jobs(node_id);`);
-  await db.exec(`CREATE INDEX IF NOT EXISTS idx_controlm_jobs_task_type ON controlm_jobs(task_type);`);
-  await db.exec(`CREATE INDEX IF NOT EXISTS idx_controlm_jobs_is_active ON controlm_jobs(is_active);`);
-  await db.exec(`CREATE INDEX IF NOT EXISTS idx_controlm_jobs_linked_script ON controlm_jobs(linked_script_id);`);
-  await db.exec(`CREATE INDEX IF NOT EXISTS idx_controlm_job_deps_predecessor ON controlm_job_dependencies(predecessor_job_id);`);
-  await db.exec(`CREATE INDEX IF NOT EXISTS idx_controlm_job_deps_successor ON controlm_job_dependencies(successor_job_id);`);
-  await db.exec(`CREATE INDEX IF NOT EXISTS idx_controlm_job_conditions_job ON controlm_job_conditions(job_id);`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_controlm_jobs_job_id ON controlm_jobs(job_id);`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_controlm_jobs_job_name ON controlm_jobs(job_name);`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_controlm_jobs_application ON controlm_jobs(application);`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_controlm_jobs_node_id ON controlm_jobs(node_id);`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_controlm_jobs_task_type ON controlm_jobs(task_type);`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_controlm_jobs_is_active ON controlm_jobs(is_active);`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_controlm_jobs_linked_script ON controlm_jobs(linked_script_id);`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_controlm_job_deps_predecessor ON controlm_job_dependencies(predecessor_job_id);`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_controlm_job_deps_successor ON controlm_job_dependencies(successor_job_id);`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_controlm_job_conditions_job ON controlm_job_conditions(job_id);`);
 
   // Unique constraint for job_id + application to prevent duplicates
-  await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS ux_controlm_jobs_unique ON controlm_jobs(job_id, application);`);
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS ux_controlm_jobs_unique ON controlm_jobs(job_id, application);`);
 };
+
+
+

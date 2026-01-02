@@ -1,12 +1,12 @@
-import type { Database } from 'sqlite';
+import type Database from 'better-sqlite3';
 
 export const id = '0001-create-workspaces';
 
-export const up = async (db: Database) => {
+export const up = async (db: Database.Database) => {
   // Ensure foreign keys behavior is enabled
-  await db.exec(`PRAGMA foreign_keys = ON;`);
+  db.exec(`PRAGMA foreign_keys = ON;`);
 
-  await db.exec(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS migrations (
       id TEXT PRIMARY KEY,
       executed_at TEXT NOT NULL
@@ -14,7 +14,7 @@ export const up = async (db: Database) => {
   `);
 
   // Workspaces table with sensible defaults for timestamps
-  await db.exec(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS workspaces (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -32,7 +32,7 @@ export const up = async (db: Database) => {
   `);
 
   // Applications table
-  await db.exec(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS applications (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -45,7 +45,7 @@ export const up = async (db: Database) => {
   `);
 
   // Projects table
-  await db.exec(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS projects (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -62,7 +62,7 @@ export const up = async (db: Database) => {
   `);
 
   // Triggers to keep updated_at current on update operations
-  await db.exec(`
+  db.exec(`
     CREATE TRIGGER IF NOT EXISTS trg_workspaces_set_updated_at
     AFTER UPDATE ON workspaces
     FOR EACH ROW
@@ -72,7 +72,7 @@ export const up = async (db: Database) => {
     END;
   `);
 
-  await db.exec(`
+  db.exec(`
     CREATE TRIGGER IF NOT EXISTS trg_applications_set_updated_at
     AFTER UPDATE ON applications
     FOR EACH ROW
@@ -82,7 +82,7 @@ export const up = async (db: Database) => {
     END;
   `);
 
-  await db.exec(`
+  db.exec(`
     CREATE TRIGGER IF NOT EXISTS trg_projects_set_updated_at
     AFTER UPDATE ON projects
     FOR EACH ROW
@@ -93,14 +93,17 @@ export const up = async (db: Database) => {
   `);
 
   // Indexes for common queries
-  await db.exec(`CREATE INDEX IF NOT EXISTS idx_workspaces_name ON workspaces(name);`);
-  await db.exec(`CREATE INDEX IF NOT EXISTS idx_projects_workspace ON projects(workspace_id);`);
-  await db.exec(`CREATE INDEX IF NOT EXISTS idx_workspaces_status ON workspaces(status);`);
-  await db.exec(`CREATE INDEX IF NOT EXISTS idx_workspaces_last_indexed_at ON workspaces(last_indexed_at);`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_workspaces_name ON workspaces(name);`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_projects_workspace ON projects(workspace_id);`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_workspaces_status ON workspaces(status);`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_workspaces_last_indexed_at ON workspaces(last_indexed_at);`);
 
   // Unique constraint for root_path
-  await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS ux_workspaces_root_path ON workspaces(root_path);`);
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS ux_workspaces_root_path ON workspaces(root_path);`);
 
   // Note: Seed data removed. The application no longer inserts sample workspaces
   // automatically. Workspaces should be created via the API or application UI.
 };
+
+
+

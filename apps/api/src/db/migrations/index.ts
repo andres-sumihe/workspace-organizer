@@ -14,11 +14,11 @@ import * as migration0013 from './0013-add-session-metadata-columns.js';
 import * as migration0014 from './0014-create-overtime-entries.js';
 import * as migration0015 from './0015-add-overtime-time-columns.js';
 
-import type { Database } from 'sqlite';
+import type Database from 'better-sqlite3';
 
 interface Migration {
   id: string;
-  up: (db: Database) => Promise<void>;
+  up: (db: Database.Database) => Promise<void>;
 }
 
 const migrations: Migration[] = [
@@ -39,15 +39,15 @@ const migrations: Migration[] = [
   { id: migration0015.id, up: migration0015.up }
 ];
 
-export const runMigrations = async (db: Database) => {
-  await db.exec(`
+export const runMigrations = async (db: Database.Database) => {
+  db.exec(`
     CREATE TABLE IF NOT EXISTS migrations (
       id TEXT PRIMARY KEY,
       executed_at TEXT NOT NULL
     )
   `);
 
-  const executedRowsRaw = await db.all('SELECT id FROM migrations');
+  const executedRowsRaw = db.prepare('SELECT id FROM migrations').all();
   const executedIds = new Set<string>();
 
   if (Array.isArray(executedRowsRaw)) {
@@ -63,16 +63,13 @@ export const runMigrations = async (db: Database) => {
       continue;
     }
 
-    await db.exec('BEGIN');
     try {
       await migration.up(db);
-      await db.run('INSERT INTO migrations (id, executed_at) VALUES (?, ?)', [
+      db.prepare('INSERT INTO migrations (id, executed_at) VALUES (?, ?)').run(
         migration.id,
         new Date().toISOString()
-      ]);
-      await db.exec('COMMIT');
+      );
     } catch (error) {
-      await db.exec('ROLLBACK');
       throw error;
     }
   }

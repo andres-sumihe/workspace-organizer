@@ -1,9 +1,9 @@
-import type { Database } from 'sqlite';
+import type Database from 'better-sqlite3';
 
 export const id = '0014-create-overtime-entries';
 
-export const up = async (db: Database) => {
-  await db.exec(`
+export const up = async (db: Database.Database) => {
+  db.exec(`
     -- Overtime entries table (local/private data)
     CREATE TABLE IF NOT EXISTS overtime_entries (
       id TEXT PRIMARY KEY,
@@ -30,3 +30,6 @@ export const up = async (db: Database) => {
     END;
   `);
 };
+
+
+

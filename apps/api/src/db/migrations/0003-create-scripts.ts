@@ -1,12 +1,12 @@
-import type { Database } from 'sqlite';
+import type Database from 'better-sqlite3';
 
 export const id = '0003-create-scripts';
 
-export const up = async (db: Database) => {
-  await db.exec(`PRAGMA foreign_keys = ON;`);
+export const up = async (db: Database.Database) => {
+  db.exec(`PRAGMA foreign_keys = ON;`);
 
   // Scripts table - core metadata for batch scripts
-  await db.exec(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS scripts (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -24,7 +24,7 @@ export const up = async (db: Database) => {
   `);
 
   // Drive mappings extracted from scripts
-  await db.exec(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS drive_mappings (
       id TEXT PRIMARY KEY,
       script_id TEXT NOT NULL,
@@ -41,7 +41,7 @@ export const up = async (db: Database) => {
   `);
 
   // Tags for organizing scripts
-  await db.exec(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS tags (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -53,7 +53,7 @@ export const up = async (db: Database) => {
   `);
 
   // Many-to-many relationship between scripts and tags
-  await db.exec(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS script_tags (
       script_id TEXT NOT NULL,
       tag_id TEXT NOT NULL,
@@ -65,7 +65,7 @@ export const up = async (db: Database) => {
   `);
 
   // Script dependencies (e.g., script A calls script B)
-  await db.exec(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS script_dependencies (
       dependent_script_id TEXT NOT NULL,
       dependency_script_id TEXT NOT NULL,
@@ -77,7 +77,7 @@ export const up = async (db: Database) => {
   `);
 
   // Triggers to keep updated_at current
-  await db.exec(`
+  db.exec(`
     CREATE TRIGGER IF NOT EXISTS trg_scripts_set_updated_at
     AFTER UPDATE ON scripts
     FOR EACH ROW
@@ -87,7 +87,7 @@ export const up = async (db: Database) => {
     END;
   `);
 
-  await db.exec(`
+  db.exec(`
     CREATE TRIGGER IF NOT EXISTS trg_drive_mappings_set_updated_at
     AFTER UPDATE ON drive_mappings
     FOR EACH ROW
@@ -97,7 +97,7 @@ export const up = async (db: Database) => {
     END;
   `);
 
-  await db.exec(`
+  db.exec(`
     CREATE TRIGGER IF NOT EXISTS trg_tags_set_updated_at
     AFTER UPDATE ON tags
     FOR EACH ROW
@@ -108,14 +108,17 @@ export const up = async (db: Database) => {
   `);
 
   // Indexes for efficient queries
-  await db.exec(`CREATE INDEX IF NOT EXISTS idx_scripts_type ON scripts(type);`);
-  await db.exec(`CREATE INDEX IF NOT EXISTS idx_scripts_is_active ON scripts(is_active);`);
-  await db.exec(`CREATE INDEX IF NOT EXISTS idx_scripts_name ON scripts(name);`);
-  await db.exec(`CREATE INDEX IF NOT EXISTS idx_drive_mappings_drive_letter ON drive_mappings(drive_letter);`);
-  await db.exec(`CREATE INDEX IF NOT EXISTS idx_drive_mappings_script_id ON drive_mappings(script_id);`);
-  await db.exec(`CREATE INDEX IF NOT EXISTS idx_script_tags_script_id ON script_tags(script_id);`);
-  await db.exec(`CREATE INDEX IF NOT EXISTS idx_script_tags_tag_id ON script_tags(tag_id);`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_scripts_type ON scripts(type);`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_scripts_is_active ON scripts(is_active);`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_scripts_name ON scripts(name);`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_drive_mappings_drive_letter ON drive_mappings(drive_letter);`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_drive_mappings_script_id ON drive_mappings(script_id);`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_script_tags_script_id ON script_tags(script_id);`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_script_tags_tag_id ON script_tags(tag_id);`);
 
   // Unique constraint for file paths to prevent duplicate imports
-  await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS ux_scripts_file_path ON scripts(file_path);`);
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS ux_scripts_file_path ON scripts(file_path);`);
 };
+
+
+

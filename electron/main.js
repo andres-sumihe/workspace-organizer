@@ -1,11 +1,433 @@
-const { app, BrowserWindow, ipcMain, dialog, clipboard } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, clipboard, protocol, net } = require('electron');
 const path = require('path');
+const http = require('http');
+const url = require('url');
+const fs = require('fs');
+
+let expressApp = null;
+let mainWindow = null;
+
+// Debug logging to file since console.log doesn't show in production
+let logFile = null;
+function log(...args) {
+  const msg = `[${new Date().toISOString()}] ${args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(' ')}\n`;
+  console.log(...args);
+  try {
+    if (!logFile && app.isReady()) {
+      logFile = path.join(app.getPath('userData'), 'debug.log');
+      // Clear old log on start
+      fs.mkdirSync(path.dirname(logFile), { recursive: true });
+      fs.writeFileSync(logFile, '=== App Started ===\n');
+    }
+    if (logFile) {
+      fs.appendFileSync(logFile, msg);
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
+// Production uses port 41923 (private range) to avoid conflicts with dev servers
+// Development uses port 4000 (standard dev port)
+const PRODUCTION_API_PORT = 41923;
+const DEVELOPMENT_API_PORT = 4000;
+
+const getApiPort = () => {
+  const isDev = !app.isPackaged || process.env.ELECTRON_DEV === 'true' || process.env.NODE_ENV === 'development';
+  return isDev ? DEVELOPMENT_API_PORT : PRODUCTION_API_PORT;
+};
+
+const getApiBaseUrl = () => `http://127.0.0.1:${getApiPort()}`;
+
+// Register custom protocol scheme before app is ready
+// This must be called before app.whenReady()
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'app',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: true
+    }
+  }
+]);
+
+// Health check for API server
+function waitForApi(healthUrl, maxAttempts = 30, intervalMs = 500) {
+  return new Promise((resolve, reject) => {
+    let attempts = 0;
+    
+    const check = () => {
+      attempts++;
+      console.log(`API health check attempt ${attempts}/${maxAttempts}`);
+      
+      const req = http.get(healthUrl, (res) => {
+        if (res.statusCode === 200) {
+          console.log('API server is ready');
+          resolve(true);
+        } else {
+          retry();
+        }
+      });
+      
+      req.on('error', () => {
+        retry();
+      });
+      
+      req.setTimeout(1000, () => {
+        req.destroy();
+        retry();
+      });
+    };
+    
+    const retry = () => {
+      if (attempts >= maxAttempts) {
+        console.error('API server failed to start after', maxAttempts, 'attempts');
+        resolve(false); // Don't reject, let the app show error UI
+      } else {
+        setTimeout(check, intervalMs);
+      }
+    };
+    
+    check();
+  });
+}
+
+function startApiServer() {
+  const isDev = !app.isPackaged || process.env.ELECTRON_DEV === 'true' || process.env.NODE_ENV === 'development';
+  
+  if (isDev) {
+    log(`Dev mode: Expecting API server on port ${DEVELOPMENT_API_PORT}`);
+    return Promise.resolve(true);
+  }
+
+  // In production, load the API app in-process
+  log(`[API] App packaged: ${app.isPackaged}`);
+  log(`[API] Loading API in-process`);
+  
+  // Set environment for the API
+  const userDataPath = app.getPath('userData');
+  log(`[API] User data path: ${userDataPath}`);
+  
+  process.env.NODE_ENV = 'production';
+  process.env.ELECTRON_USER_DATA_PATH = userDataPath;
+  
+  return new Promise(async (resolve) => {
+    try {
+      const appPath = app.getAppPath();
+      log(`[API] App path: ${appPath}`);
+      
+      // For native modules, we need to point to the unpacked node_modules
+      const resourcesPath = path.dirname(appPath);
+      const unpackedNodeModules = path.join(resourcesPath, 'app.asar.unpacked', 'node_modules');
+      
+      // Add unpacked node_modules to global module paths
+      const Module = require('module');
+      Module.globalPaths.unshift(unpackedNodeModules);
+      log(`[API] Added to global module paths: ${unpackedNodeModules}`);
+      
+      // Use bundled app.js which uses CJS require() for native modules
+      let apiAppPath;
+      if (appPath.includes('.asar')) {
+        apiAppPath = path.join(resourcesPath, 'app.asar.unpacked', 'apps', 'api', 'dist', 'app.bundle.js');
+      } else {
+        apiAppPath = path.join(appPath, 'apps', 'api', 'dist', 'app.bundle.js');
+      }
+      
+      log(`[API] Loading from: ${apiAppPath}`);
+      
+      // Check if file exists
+      if (!fs.existsSync(apiAppPath)) {
+        log(`[API] File not found: ${apiAppPath}`);
+        // Try alternate paths
+        const altPaths = [
+          path.join(appPath, 'apps', 'api', 'dist', 'app.bundle.js'),
+          path.join(resourcesPath, 'app.asar.unpacked', 'apps', 'api', 'dist', 'app.bundle.js'),
+        ];
+        log('[API] Trying alternate paths:', altPaths);
+        for (const altPath of altPaths) {
+          if (fs.existsSync(altPath)) {
+            apiAppPath = altPath;
+            log(`[API] Found at: ${altPath}`);
+            break;
+          }
+        }
+      }
+      
+      // Use dynamic import with file:// URL for ESM module
+      const fileUrl = new URL(`file://${apiAppPath.replace(/\\/g, '/')}`);
+      log(`[API] Import URL: ${fileUrl.href}`);
+      
+      const apiModule = await import(fileUrl.href);
+      log(`[API] Module loaded, exports:`, Object.keys(apiModule));
+      
+      if (!apiModule.createApp) {
+        throw new Error('createApp not exported from API module');
+      }
+      
+      expressApp = await apiModule.createApp();
+      log(`[API] Express app loaded successfully`);
+      resolve(true);
+    } catch (err) {
+      log('[API] Failed to load API:', err.message);
+      log('[API] Error stack:', err.stack);
+      resolve(false);
+    }
+  });
+}
+
+// Setup custom protocol handler for app:// scheme
+function setupProtocolHandler() {
+  const isDev = !app.isPackaged || process.env.ELECTRON_DEV === 'true' || process.env.NODE_ENV === 'development';
+  
+  protocol.handle('app', async (request) => {
+    try {
+      const requestUrl = new URL(request.url);
+      const pathname = requestUrl.pathname;
+      
+      // If it's an API request, handle it directly or proxy to dev server
+      if (pathname.startsWith('/api/')) {
+        if (isDev) {
+          // In dev, proxy to the dev API server
+          const apiUrl = `${getApiBaseUrl()}${pathname}${requestUrl.search}`;
+          console.log(`[Protocol] Proxying to dev API: ${request.url} -> ${apiUrl}`);
+          
+          const fetchOptions = {
+            method: request.method,
+            headers: request.headers,
+          };
+          
+          if (request.method !== 'GET' && request.method !== 'HEAD' && request.body) {
+            fetchOptions.body = request.body;
+            fetchOptions.duplex = 'half';
+          }
+          
+          try {
+            return await net.fetch(apiUrl, fetchOptions);
+          } catch (fetchError) {
+            console.error('[Protocol] Dev API fetch error:', fetchError);
+            return new Response(JSON.stringify({ error: 'API request failed' }), {
+              status: 502,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+        } else {
+          // In production, call Express app directly (no network hop)
+          if (!expressApp) {
+            log('[Protocol] Express app not loaded');
+            return new Response(JSON.stringify({ error: 'API not ready' }), {
+              status: 503,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+          
+          log(`[Protocol] Handling API request directly: ${request.method} ${pathname}`);
+          
+          // Create a mock request/response to call Express directly
+          return new Promise(async (resolve) => {
+            try {
+              // Parse request body if present
+              let body = null;
+              if (request.method !== 'GET' && request.method !== 'HEAD' && request.body) {
+                try {
+                  const text = await request.text();
+                  if (text) {
+                    try {
+                      body = JSON.parse(text);
+                    } catch {
+                      body = text;
+                    }
+                  }
+                } catch (e) {
+                  console.error('[Protocol] Failed to read request body:', e);
+                }
+              }
+              
+              // Create mock req object with all properties Express middleware needs
+              const mockReq = {
+                method: request.method,
+                url: pathname + requestUrl.search,
+                originalUrl: pathname + requestUrl.search,
+                path: pathname,
+                baseUrl: '',
+                query: Object.fromEntries(requestUrl.searchParams),
+                params: {},
+                headers: Object.fromEntries(request.headers.entries()),
+                body: body,
+                ip: '127.0.0.1',
+                protocol: 'app',
+                secure: false,
+                xhr: false,
+                hostname: 'localhost',
+                get: function(name) {
+                  return this.headers[name.toLowerCase()];
+                },
+                header: function(name) {
+                  return this.headers[name.toLowerCase()];
+                },
+                accepts: function() { return true; },
+                acceptsEncodings: function() { return true; },
+                acceptsCharsets: function() { return true; },
+                acceptsLanguages: function() { return true; },
+                is: function() { return false; },
+                socket: { remoteAddress: '127.0.0.1' },
+                connection: { remoteAddress: '127.0.0.1' }
+              };
+              
+              // Create mock res object
+              let responseBody = '';
+              let responseStatus = 200;
+              let responseHeaders = { 'Content-Type': 'application/json' };
+              let headersSent = false;
+              
+              const mockRes = {
+                statusCode: 200,
+                headersSent: false,
+                locals: {},
+                status: function(code) {
+                  responseStatus = code;
+                  this.statusCode = code;
+                  return this;
+                },
+                set: function(name, value) {
+                  if (typeof name === 'object') {
+                    Object.assign(responseHeaders, name);
+                  } else {
+                    responseHeaders[name] = value;
+                  }
+                  return this;
+                },
+                setHeader: function(name, value) {
+                  responseHeaders[name] = value;
+                  return this;
+                },
+                getHeader: function(name) {
+                  return responseHeaders[name];
+                },
+                removeHeader: function(name) {
+                  delete responseHeaders[name];
+                  return this;
+                },
+                type: function(type) {
+                  responseHeaders['Content-Type'] = type;
+                  return this;
+                },
+                json: function(data) {
+                  if (headersSent) return this;
+                  headersSent = true;
+                  this.headersSent = true;
+                  responseHeaders['Content-Type'] = 'application/json';
+                  responseBody = JSON.stringify(data);
+                  log(`[Protocol] API response: ${responseStatus} ${pathname}`);
+                  resolve(new Response(responseBody, {
+                    status: responseStatus,
+                    headers: responseHeaders
+                  }));
+                  return this;
+                },
+                send: function(data) {
+                  if (headersSent) return this;
+                  if (typeof data === 'object') {
+                    return this.json(data);
+                  }
+                  headersSent = true;
+                  this.headersSent = true;
+                  responseBody = String(data);
+                  log(`[Protocol] API response (send): ${responseStatus} ${pathname}`);
+                  resolve(new Response(responseBody, {
+                    status: responseStatus,
+                    headers: responseHeaders
+                  }));
+                  return this;
+                },
+                end: function(data) {
+                  if (headersSent) return this;
+                  headersSent = true;
+                  this.headersSent = true;
+                  if (data) responseBody = String(data);
+                  log(`[Protocol] API response (end): ${responseStatus} ${pathname}`);
+                  resolve(new Response(responseBody, {
+                    status: responseStatus,
+                    headers: responseHeaders
+                  }));
+                  return this;
+                },
+                write: function(chunk) {
+                  responseBody += String(chunk);
+                  return true;
+                },
+                on: function() { return this; },
+                once: function() { return this; },
+                emit: function() { return this; }
+              };
+              
+              // Call Express app
+              expressApp(mockReq, mockRes, (err) => {
+                if (err) {
+                  log('[Protocol] Express error:', err.message);
+                  log('[Protocol] Express error stack:', err.stack);
+                  resolve(new Response(JSON.stringify({ error: err.message }), {
+                    status: 500,
+                    headers: { 'Content-Type': 'application/json' }
+                  }));
+                }
+              });
+              
+              // Timeout after 30 seconds
+              setTimeout(() => {
+                log('[Protocol] Request timeout for:', pathname);
+                resolve(new Response(JSON.stringify({ error: 'Request timeout' }), {
+                  status: 504,
+                  headers: { 'Content-Type': 'application/json' }
+                }));
+              }, 30000);
+              
+            } catch (err) {
+              log('[Protocol] Error handling API request:', err.message);
+              log('[Protocol] Error stack:', err.stack);
+              resolve(new Response(JSON.stringify({ error: err.message }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+              }));
+            }
+          });
+        }
+      }
+      
+      // Otherwise, serve static files from the web dist folder
+      const webDistPath = path.join(__dirname, '..', 'apps', 'web', 'dist');
+      let filePath = pathname === '/' ? '/index.html' : pathname;
+      
+      // For SPA routing: if file doesn't have extension, serve index.html
+      if (!path.extname(filePath)) {
+        filePath = '/index.html';
+      }
+      
+      const fullPath = path.join(webDistPath, filePath);
+      
+      // Security: Prevent directory traversal
+      const normalizedPath = path.normalize(fullPath);
+      if (!normalizedPath.startsWith(webDistPath)) {
+        console.error('[Protocol] Attempted directory traversal:', filePath);
+        return new Response('Forbidden', { status: 403 });
+      }
+      
+      console.log(`[Protocol] Serving file: ${normalizedPath}`);
+      return net.fetch(url.pathToFileURL(normalizedPath).toString());
+    } catch (error) {
+      console.error('[Protocol] Handler error:', error);
+      return new Response('Internal Error', { status: 500 });
+    }
+  });
+}
 
 function createWindow() {
   const isDev = !app.isPackaged || process.env.ELECTRON_DEV === 'true' || process.env.NODE_ENV === 'development';
-  const win = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    show: false, // Don't show until ready
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -13,25 +435,43 @@ function createWindow() {
     },
   });
 
-  const devUrl = 'http://127.0.0.1:5173';
-  const prodEntry = path.join(__dirname, '..', 'apps', 'web', 'dist', 'index.html');
+  // Show window when ready to prevent white flash
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+  });
 
+  const devUrl = 'http://127.0.0.1:5173';
+  
   if (isDev) {
-    win
+    // In development, use the Vite dev server directly
+    mainWindow
       .loadURL(devUrl)
       .catch((err) => {
-        console.error('Failed to load dev url, falling back to packaged build', err);
-        return win.loadFile(prodEntry);
-      })
-      .catch((err) => console.error('Failed to load fallback entry', err));
+        console.error('Failed to load dev URL:', err);
+        // Fallback to custom protocol if dev server is not available
+        mainWindow.loadURL('app://bundle/');
+      });
   } else {
-    win.loadFile(prodEntry).catch((err) => console.error('Failed to load packaged entry', err));
+    // In production, use the custom app:// protocol
+    // This allows proper routing of both static files and API requests
+    mainWindow.loadURL('app://bundle/').catch((err) => {
+      console.error('Failed to load app via custom protocol:', err);
+      mainWindow.show();
+    });
   }
 
-  return win;
+  return mainWindow;
 }
 
-app.on('ready', () => {
+app.on('ready', async () => {
+  log('[App] Ready event fired');
+  // Setup custom protocol handler before creating window
+  setupProtocolHandler();
+  log('[App] Protocol handler setup complete');
+  
+  const apiReady = await startApiServer();
+  log('[App] API ready status:', apiReady);
+  log('[App] expressApp is:', expressApp ? 'loaded' : 'null');
   createWindow();
 
   app.on('activate', function () {
@@ -40,6 +480,7 @@ app.on('ready', () => {
 });
 
 app.on('window-all-closed', () => {
+  // No server to close - Express app runs in-process without a listener
   if (process.platform !== 'darwin') {
     app.quit();
   }

@@ -174,10 +174,9 @@ export const countJobs = async (params: Omit<ListJobsParams, 'page' | 'pageSize'
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-  const result = await db.get<{ count: number }>(
-    `SELECT COUNT(*) as count FROM controlm_jobs ${whereClause}`,
-    values
-  );
+  const result = db.prepare(
+    `SELECT COUNT(*) as count FROM controlm_jobs ${whereClause}`
+  ).get(...values) as { count: number } | undefined;
 
   return result?.count ?? 0;
 };
@@ -213,10 +212,9 @@ export const listJobs = async (params: ListJobsParams): Promise<ControlMJob[]> =
   const offset = (params.page - 1) * params.pageSize;
   values.push(params.pageSize, offset);
 
-  const rows = await db.all(
-    `SELECT * FROM controlm_jobs ${whereClause} ORDER BY job_name ASC LIMIT ? OFFSET ?`,
-    values
-  );
+  const rows = db.prepare(
+    `SELECT * FROM controlm_jobs ${whereClause} ORDER BY job_name ASC LIMIT ? OFFSET ?`
+  ).all(...values);
 
   const jobs: ControlMJob[] = [];
   if (Array.isArray(rows)) {
@@ -233,21 +231,21 @@ export const listJobs = async (params: ListJobsParams): Promise<ControlMJob[]> =
 
 export const findJobById = async (id: string): Promise<ControlMJob | null> => {
   const db = await getDb();
-  const row = await db.get('SELECT * FROM controlm_jobs WHERE id = ?', [id]);
+  const row = db.prepare('SELECT * FROM controlm_jobs WHERE id = ?').get(id);
   if (!isJobRow(row)) return null;
   return mapRowToJob(row);
 };
 
 export const findJobByJobIdAndApp = async (jobId: number, application: string): Promise<ControlMJob | null> => {
   const db = await getDb();
-  const row = await db.get('SELECT * FROM controlm_jobs WHERE job_id = ? AND application = ?', [jobId, application]);
+  const row = db.prepare('SELECT * FROM controlm_jobs WHERE job_id = ? AND application = ?').get(jobId, application);
   if (!isJobRow(row)) return null;
   return mapRowToJob(row);
 };
 
 export const findJobByJobName = async (jobName: string): Promise<ControlMJob | null> => {
   const db = await getDb();
-  const row = await db.get('SELECT * FROM controlm_jobs WHERE job_name = ?', [jobName]);
+  const row = db.prepare('SELECT * FROM controlm_jobs WHERE job_name = ?').get(jobName);
   if (!isJobRow(row)) return null;
   return mapRowToJob(row);
 };
@@ -289,44 +287,43 @@ export const createJob = async (input: CreateJobInput): Promise<ControlMJob> => 
   const db = await getDb();
 
   // Simple INSERT - job_id is unique per CSV row
-  await db.run(
+  db.prepare(
     `INSERT INTO controlm_jobs (
       id, job_id, application, group_name, mem_name, job_name, description,
       node_id, owner, task_type, is_cyclic, priority, is_critical,
       days_calendar, weeks_calendar, from_time, to_time, interval_value,
       mem_lib, author, creation_user, creation_date, change_user_id, change_date,
       is_active, linked_script_id, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      input.id,
-      input.jobId,
-      input.application,
-      input.groupName,
-      input.memName ?? null,
-      input.jobName,
-      input.description ?? null,
-      input.nodeId,
-      input.owner ?? null,
-      input.taskType ?? 'Job',
-      input.isCyclic ? 1 : 0,
-      input.priority ?? null,
-      input.isCritical ? 1 : 0,
-      input.daysCalendar ?? null,
-      input.weeksCalendar ?? null,
-      input.fromTime ?? null,
-      input.toTime ?? null,
-      input.interval ?? null,
-      input.memLib ?? null,
-      input.author ?? null,
-      input.creationUser ?? null,
-      input.creationDate ?? null,
-      input.changeUserId ?? null,
-      input.changeDate ?? null,
-      input.isActive !== false ? 1 : 0,
-      input.linkedScriptId ?? null,
-      input.createdAt,
-      input.updatedAt
-    ]
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    input.id,
+    input.jobId,
+    input.application,
+    input.groupName,
+    input.memName ?? null,
+    input.jobName,
+    input.description ?? null,
+    input.nodeId,
+    input.owner ?? null,
+    input.taskType ?? 'Job',
+    input.isCyclic ? 1 : 0,
+    input.priority ?? null,
+    input.isCritical ? 1 : 0,
+    input.daysCalendar ?? null,
+    input.weeksCalendar ?? null,
+    input.fromTime ?? null,
+    input.toTime ?? null,
+    input.interval ?? null,
+    input.memLib ?? null,
+    input.author ?? null,
+    input.creationUser ?? null,
+    input.creationDate ?? null,
+    input.changeUserId ?? null,
+    input.changeDate ?? null,
+    input.isActive !== false ? 1 : 0,
+    input.linkedScriptId ?? null,
+    input.createdAt,
+    input.updatedAt
   );
 
   const created = await findJobById(input.id);
@@ -364,24 +361,23 @@ export const updateJob = async (id: string, updates: Partial<CreateJobInput>): P
   }
 
   values.push(id);
-  await db.run(
-    `UPDATE controlm_jobs SET ${setClauses.join(', ')} WHERE id = ?`,
-    values
-  );
+  db.prepare(
+    `UPDATE controlm_jobs SET ${setClauses.join(', ')} WHERE id = ?`
+  ).run(...values);
 
   return findJobById(id);
 };
 
 export const deleteJob = async (id: string): Promise<boolean> => {
   const db = await getDb();
-  const result = await db.run('DELETE FROM controlm_jobs WHERE id = ?', [id]);
-  return (result.changes ?? 0) > 0;
+  const result = db.prepare('DELETE FROM controlm_jobs WHERE id = ?').run(id);
+  return result.changes > 0;
 };
 
 export const deleteAllJobs = async (): Promise<number> => {
   const db = await getDb();
-  const result = await db.run('DELETE FROM controlm_jobs');
-  return result.changes ?? 0;
+  const result = db.prepare('DELETE FROM controlm_jobs').run();
+  return result.changes;
 };
 
 // ---- Dependencies ----
@@ -394,11 +390,10 @@ export const createDependency = async (
   createdAt: string
 ): Promise<ControlMJobDependency> => {
   const db = await getDb();
-  await db.run(
+  db.prepare(
     `INSERT OR IGNORE INTO controlm_job_dependencies (id, predecessor_job_id, successor_job_id, condition_type, created_at)
-     VALUES (?, ?, ?, ?, ?)`,
-    [id, predecessorJobId, successorJobId, conditionType, createdAt]
-  );
+     VALUES (?, ?, ?, ?, ?)`
+  ).run(id, predecessorJobId, successorJobId, conditionType, createdAt);
   return {
     id,
     predecessorJobId,
@@ -410,12 +405,11 @@ export const createDependency = async (
 
 export const findPredecessors = async (jobId: string): Promise<ControlMJob[]> => {
   const db = await getDb();
-  const rows = await db.all(
+  const rows = db.prepare(
     `SELECT j.* FROM controlm_jobs j
      INNER JOIN controlm_job_dependencies d ON d.predecessor_job_id = j.id
-     WHERE d.successor_job_id = ?`,
-    [jobId]
-  );
+     WHERE d.successor_job_id = ?`
+  ).all(jobId);
 
   const jobs: ControlMJob[] = [];
   if (Array.isArray(rows)) {
@@ -430,12 +424,11 @@ export const findPredecessors = async (jobId: string): Promise<ControlMJob[]> =>
 
 export const findSuccessors = async (jobId: string): Promise<ControlMJob[]> => {
   const db = await getDb();
-  const rows = await db.all(
+  const rows = db.prepare(
     `SELECT j.* FROM controlm_jobs j
      INNER JOIN controlm_job_dependencies d ON d.successor_job_id = j.id
-     WHERE d.predecessor_job_id = ?`,
-    [jobId]
-  );
+     WHERE d.predecessor_job_id = ?`
+  ).all(jobId);
 
   const jobs: ControlMJob[] = [];
   if (Array.isArray(rows)) {
@@ -450,7 +443,7 @@ export const findSuccessors = async (jobId: string): Promise<ControlMJob[]> => {
 
 export const getAllDependencies = async (): Promise<ControlMJobDependency[]> => {
   const db = await getDb();
-  const rows = await db.all('SELECT * FROM controlm_job_dependencies');
+  const rows = db.prepare('SELECT * FROM controlm_job_dependencies').all();
 
   const deps: ControlMJobDependency[] = [];
   if (Array.isArray(rows)) {
@@ -465,8 +458,8 @@ export const getAllDependencies = async (): Promise<ControlMJobDependency[]> => 
 
 export const deleteAllDependencies = async (): Promise<number> => {
   const db = await getDb();
-  const result = await db.run('DELETE FROM controlm_job_dependencies');
-  return result.changes ?? 0;
+  const result = db.prepare('DELETE FROM controlm_job_dependencies').run();
+  return result.changes;
 };
 
 // ---- Conditions ----
@@ -480,11 +473,10 @@ export const createCondition = async (
   createdAt: string
 ): Promise<ControlMJobCondition> => {
   const db = await getDb();
-  await db.run(
+  db.prepare(
     `INSERT INTO controlm_job_conditions (id, job_id, condition_name, condition_type, odate, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [id, jobId, conditionName, conditionType, odate, createdAt]
-  );
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(id, jobId, conditionName, conditionType, odate, createdAt);
   return {
     id,
     jobId,
@@ -497,7 +489,7 @@ export const createCondition = async (
 
 export const findConditionsByJobId = async (jobId: string): Promise<ControlMJobCondition[]> => {
   const db = await getDb();
-  const rows = await db.all('SELECT * FROM controlm_job_conditions WHERE job_id = ?', [jobId]);
+  const rows = db.prepare('SELECT * FROM controlm_job_conditions WHERE job_id = ?').all(jobId);
 
   const conditions: ControlMJobCondition[] = [];
   if (Array.isArray(rows)) {
@@ -512,8 +504,8 @@ export const findConditionsByJobId = async (jobId: string): Promise<ControlMJobC
 
 export const deleteAllConditions = async (): Promise<number> => {
   const db = await getDb();
-  const result = await db.run('DELETE FROM controlm_job_conditions');
-  return result.changes ?? 0;
+  const result = db.prepare('DELETE FROM controlm_job_conditions').run();
+  return result.changes;
 };
 
 // ---- Stats / Analysis ----
@@ -528,19 +520,19 @@ export const getJobStats = async (): Promise<{
 }> => {
   const db = await getDb();
 
-  const totalResult = await db.get<{ count: number }>('SELECT COUNT(*) as count FROM controlm_jobs');
-  const activeResult = await db.get<{ count: number }>('SELECT COUNT(*) as count FROM controlm_jobs WHERE is_active = 1');
-  const cyclicResult = await db.get<{ count: number }>('SELECT COUNT(*) as count FROM controlm_jobs WHERE is_cyclic = 1');
+  const totalResult = db.prepare('SELECT COUNT(*) as count FROM controlm_jobs').get() as { count: number } | undefined;
+  const activeResult = db.prepare('SELECT COUNT(*) as count FROM controlm_jobs WHERE is_active = 1').get() as { count: number } | undefined;
+  const cyclicResult = db.prepare('SELECT COUNT(*) as count FROM controlm_jobs WHERE is_cyclic = 1').get() as { count: number } | undefined;
 
-  const serverRows = await db.all<Array<{ node_id: string; count: number }>>(
+  const serverRows = db.prepare(
     'SELECT node_id, COUNT(*) as count FROM controlm_jobs GROUP BY node_id'
-  );
-  const appRows = await db.all<Array<{ application: string; count: number }>>(
+  ).all() as Array<{ node_id: string; count: number }>;
+  const appRows = db.prepare(
     'SELECT application, COUNT(*) as count FROM controlm_jobs GROUP BY application'
-  );
-  const typeRows = await db.all<Array<{ task_type: string; count: number }>>(
+  ).all() as Array<{ application: string; count: number }>;
+  const typeRows = db.prepare(
     'SELECT task_type, COUNT(*) as count FROM controlm_jobs GROUP BY task_type'
-  );
+  ).all() as Array<{ task_type: string; count: number }>;
 
   const jobsByServer: Record<string, number> = {};
   const jobsByApplication: Record<string, number> = {};
@@ -582,7 +574,7 @@ export const getJobStats = async (): Promise<{
 
 export const getDistinctApplications = async (): Promise<string[]> => {
   const db = await getDb();
-  const rows = await db.all('SELECT DISTINCT application FROM controlm_jobs ORDER BY application');
+  const rows = db.prepare('SELECT DISTINCT application FROM controlm_jobs ORDER BY application').all();
   const result: string[] = [];
   if (Array.isArray(rows)) {
     for (const row of rows) {
@@ -596,7 +588,7 @@ export const getDistinctApplications = async (): Promise<string[]> => {
 
 export const getDistinctNodes = async (): Promise<string[]> => {
   const db = await getDb();
-  const rows = await db.all('SELECT DISTINCT node_id FROM controlm_jobs ORDER BY node_id');
+  const rows = db.prepare('SELECT DISTINCT node_id FROM controlm_jobs ORDER BY node_id').all();
   const result: string[] = [];
   if (Array.isArray(rows)) {
     for (const row of rows) {
@@ -612,7 +604,7 @@ export const getDistinctNodes = async (): Promise<string[]> => {
 
 export const getAllJobs = async (): Promise<ControlMJob[]> => {
   const db = await getDb();
-  const rows = await db.all('SELECT * FROM controlm_jobs ORDER BY job_name ASC');
+  const rows = db.prepare('SELECT * FROM controlm_jobs ORDER BY job_name ASC').all();
   const jobs: ControlMJob[] = [];
   if (Array.isArray(rows)) {
     for (const row of rows) {
@@ -635,7 +627,7 @@ export const getAllJobs = async (): Promise<ControlMJob[]> => {
  */
 export const linkJobToScript = async (jobId: string, scriptId: string | null): Promise<ControlMJob | null> => {
   const db = await getDb();
-  await db.run('UPDATE controlm_jobs SET linked_script_id = ? WHERE id = ?', [scriptId, jobId]);
+  db.prepare('UPDATE controlm_jobs SET linked_script_id = ? WHERE id = ?').run(scriptId, jobId);
   return findJobById(jobId);
 };
 
@@ -646,13 +638,13 @@ export const linkJobToScript = async (jobId: string, scriptId: string | null): P
  */
 export const getJobsWithUnlinkedScripts = async (): Promise<ControlMJob[]> => {
   const db = await getDb();
-  const rows = await db.all(
+  const rows = db.prepare(
     `SELECT * FROM controlm_jobs 
      WHERE mem_name IS NOT NULL 
        AND mem_name != '' 
        AND linked_script_id IS NULL
      ORDER BY job_name ASC`
-  );
+  ).all();
 
   const jobs: ControlMJob[] = [];
   if (Array.isArray(rows)) {
@@ -672,11 +664,11 @@ export const getJobsWithUnlinkedScripts = async (): Promise<ControlMJob[]> => {
  */
 export const getJobsWithLinkedScripts = async (): Promise<ControlMJob[]> => {
   const db = await getDb();
-  const rows = await db.all(
+  const rows = db.prepare(
     `SELECT * FROM controlm_jobs 
      WHERE linked_script_id IS NOT NULL
      ORDER BY job_name ASC`
-  );
+  ).all();
 
   const jobs: ControlMJob[] = [];
   if (Array.isArray(rows)) {
@@ -699,9 +691,10 @@ export const bulkLinkJobsToScripts = async (links: Array<{ jobId: string; script
   const db = await getDb();
   let linkedCount = 0;
 
+  const stmt = db.prepare('UPDATE controlm_jobs SET linked_script_id = ? WHERE id = ?');
   for (const { jobId, scriptId } of links) {
-    const result = await db.run('UPDATE controlm_jobs SET linked_script_id = ? WHERE id = ?', [scriptId, jobId]);
-    if ((result.changes ?? 0) > 0) {
+    const result = stmt.run(scriptId, jobId);
+    if (result.changes > 0) {
       linkedCount++;
     }
   }
@@ -717,12 +710,11 @@ export const bulkLinkJobsToScripts = async (links: Array<{ jobId: string; script
  */
 export const getJobsByScriptId = async (scriptId: string): Promise<ControlMJob[]> => {
   const db = await getDb();
-  const rows = await db.all(
+  const rows = db.prepare(
     `SELECT * FROM controlm_jobs 
      WHERE linked_script_id = ?
-     ORDER BY job_name ASC`,
-    [scriptId]
-  );
+     ORDER BY job_name ASC`
+  ).all(scriptId);
 
   const jobs: ControlMJob[] = [];
   if (Array.isArray(rows)) {

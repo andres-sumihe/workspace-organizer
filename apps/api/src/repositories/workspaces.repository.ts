@@ -99,10 +99,10 @@ export interface ListWorkspacesParams {
 
 export const listWorkspaces = async ({ limit, offset }: ListWorkspacesParams): Promise<WorkspaceSummary[]> => {
   const db = await getDb();
-  const rowsRaw: unknown = await db.all('SELECT * FROM workspaces ORDER BY name LIMIT ? OFFSET ?', [
+  const rowsRaw: unknown = db.prepare('SELECT * FROM workspaces ORDER BY name LIMIT ? OFFSET ?').all(
     limit,
     offset
-  ]);
+  );
 
   const summaries: WorkspaceSummary[] = [];
 
@@ -119,7 +119,7 @@ export const listWorkspaces = async ({ limit, offset }: ListWorkspacesParams): P
 
 export const countWorkspaces = async (): Promise<number> => {
   const db = await getDb();
-  const result: unknown = await db.get('SELECT COUNT(1) as count FROM workspaces');
+  const result: unknown = db.prepare('SELECT COUNT(1) as count FROM workspaces').get();
 
   if (result && typeof result === 'object' && typeof (result as { count?: unknown }).count === 'number') {
     return (result as { count: number }).count;
@@ -130,7 +130,7 @@ export const countWorkspaces = async (): Promise<number> => {
 
 export const findWorkspaceById = async (id: string): Promise<WorkspaceDetail | null> => {
   const db = await getDb();
-  const row: unknown = await db.get('SELECT * FROM workspaces WHERE id = ?', [id]);
+  const row: unknown = db.prepare('SELECT * FROM workspaces WHERE id = ?').get(id);
 
   if (!isWorkspaceSummaryRow(row)) {
     return null;
@@ -163,23 +163,22 @@ export const createWorkspace = async (input: CreateWorkspaceInput & { id: string
     lastIndexedAt = createdAt
   } = input;
 
-  await db.run(
+  db.prepare(
     `INSERT INTO workspaces (
       id, name, status, project_count, template_count, last_indexed_at,
       root_path, description, settings_json, statistics_json, created_at, updated_at
-    ) VALUES (?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      id,
-      name,
-      status,
-      lastIndexedAt,
-      rootPath,
-      description ?? null,
-      JSON.stringify(settings),
-      JSON.stringify(statistics),
-      createdAt,
-      updatedAt
-    ]
+    ) VALUES (?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    id,
+    name,
+    status,
+    lastIndexedAt,
+    rootPath,
+    description ?? null,
+    JSON.stringify(settings),
+    JSON.stringify(statistics),
+    createdAt,
+    updatedAt
   );
 
   const created = await findWorkspaceById(id);
@@ -250,12 +249,12 @@ export const updateWorkspace = async (id: string, updates: UpdateWorkspaceInput)
 
   values.push(id);
 
-  await db.run(`UPDATE workspaces SET ${assignments.join(', ')} WHERE id = ?`, values);
+  db.prepare(`UPDATE workspaces SET ${assignments.join(', ')} WHERE id = ?`).run(...values);
 
   return findWorkspaceById(id);
 };
 
 export const incrementWorkspaceProjectCount = async (workspaceId: string, delta: number) => {
   const db = await getDb();
-  await db.run('UPDATE workspaces SET project_count = MAX(project_count + ?, 0) WHERE id = ?', [delta, workspaceId]);
+  db.prepare('UPDATE workspaces SET project_count = MAX(project_count + ?, 0) WHERE id = ?').run(delta, workspaceId);
 };

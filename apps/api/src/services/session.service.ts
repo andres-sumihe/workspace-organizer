@@ -52,10 +52,7 @@ export const sessionService = {
     const db = await getDb();
     const now = new Date().toISOString();
     
-    await db.run(
-      'UPDATE local_sessions SET last_activity_at = ? WHERE id = ?',
-      [now, sessionId]
-    );
+    db.prepare('UPDATE local_sessions SET last_activity_at = ? WHERE id = ?').run(now, sessionId);
   },
 
   /**
@@ -65,10 +62,7 @@ export const sessionService = {
     const db = await getDb();
     const now = new Date().toISOString();
     
-    await db.run(
-      'UPDATE local_sessions SET last_activity_at = ? WHERE refresh_token = ?',
-      [now, refreshToken]
-    );
+    db.prepare('UPDATE local_sessions SET last_activity_at = ? WHERE refresh_token = ?').run(now, refreshToken);
   },
 
   /**
@@ -78,10 +72,7 @@ export const sessionService = {
     const db = await getDb();
     const config = await this.getConfig();
     
-    const session = await db.get(
-      'SELECT * FROM local_sessions WHERE refresh_token = ?',
-      [refreshToken]
-    );
+    const session = db.prepare('SELECT * FROM local_sessions WHERE refresh_token = ?').get(refreshToken);
 
     if (!session) {
       return { valid: false, expiresAt: '', shouldRefresh: false };
@@ -137,10 +128,7 @@ export const sessionService = {
   async getSessionByToken(refreshToken: string): Promise<SessionInfo | null> {
     const db = await getDb();
     
-    const row = await db.get(
-      'SELECT * FROM local_sessions WHERE refresh_token = ?',
-      [refreshToken]
-    );
+    const row = db.prepare('SELECT * FROM local_sessions WHERE refresh_token = ?').get(refreshToken);
 
     if (!row) return null;
 
@@ -172,10 +160,7 @@ export const sessionService = {
   async getUserSessions(userId: string): Promise<SessionInfo[]> {
     const db = await getDb();
     
-    const rows = await db.all(
-      'SELECT * FROM local_sessions WHERE user_id = ? ORDER BY created_at DESC',
-      [userId]
-    );
+    const rows = db.prepare('SELECT * FROM local_sessions WHERE user_id = ? ORDER BY created_at DESC').all(userId);
 
     return (rows as Array<{
       id: string;
@@ -204,12 +189,11 @@ export const sessionService = {
     const db = await getDb();
     const config = await this.getConfig();
     
-    const row = await db.get(
+    const row = db.prepare(
       `SELECT * FROM local_sessions 
        WHERE user_id = ? AND expires_at > datetime('now') 
-       ORDER BY created_at DESC LIMIT 1`,
-      [userId]
-    );
+       ORDER BY created_at DESC LIMIT 1`
+    ).get(userId);
 
     if (!row) return null;
 
@@ -250,7 +234,7 @@ export const sessionService = {
    */
   async invalidateSession(refreshToken: string): Promise<void> {
     const db = await getDb();
-    await db.run('DELETE FROM local_sessions WHERE refresh_token = ?', [refreshToken]);
+    db.prepare('DELETE FROM local_sessions WHERE refresh_token = ?').run(refreshToken);
   },
 
   /**
@@ -258,8 +242,8 @@ export const sessionService = {
    */
   async invalidateAllUserSessions(userId: string): Promise<number> {
     const db = await getDb();
-    const result = await db.run('DELETE FROM local_sessions WHERE user_id = ?', [userId]);
-    return result.changes ?? 0;
+    const result = db.prepare('DELETE FROM local_sessions WHERE user_id = ?').run(userId);
+    return result.changes;
   },
 
   /**
@@ -268,11 +252,8 @@ export const sessionService = {
   async cleanupExpiredSessions(): Promise<number> {
     const db = await getDb();
     const now = new Date().toISOString();
-    const result = await db.run(
-      'DELETE FROM local_sessions WHERE expires_at < ?',
-      [now]
-    );
-    return result.changes ?? 0;
+    const result = db.prepare('DELETE FROM local_sessions WHERE expires_at < ?').run(now);
+    return result.changes;
   },
 
   /**
@@ -286,11 +267,8 @@ export const sessionService = {
     const inactivityMs = config.inactivityTimeoutMinutes * 60 * 1000;
     const cutoffTime = new Date(Date.now() - inactivityMs).toISOString();
     
-    const result = await db.run(
-      'DELETE FROM local_sessions WHERE last_activity_at < ?',
-      [cutoffTime]
-    );
-    return result.changes ?? 0;
+    const result = db.prepare('DELETE FROM local_sessions WHERE last_activity_at < ?').run(cutoffTime);
+    return result.changes;
   },
 
   /**

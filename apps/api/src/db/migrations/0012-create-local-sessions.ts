@@ -1,4 +1,4 @@
-import type { Database } from 'sqlite';
+import type Database from 'better-sqlite3';
 
 export const id = '0012-create-local-sessions';
 
@@ -13,8 +13,8 @@ export const id = '0012-create-local-sessions';
  * - Activity tracking for inactivity timeout
  * - Device/client information for security
  */
-export const up = async (db: Database) => {
-  await db.exec(`
+export const up = async (db: Database.Database) => {
+  db.exec(`
     CREATE TABLE IF NOT EXISTS local_sessions (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
@@ -33,3 +33,6 @@ export const up = async (db: Database) => {
     CREATE INDEX IF NOT EXISTS idx_local_sessions_activity ON local_sessions(last_activity_at);
   `);
 };
+
+
+

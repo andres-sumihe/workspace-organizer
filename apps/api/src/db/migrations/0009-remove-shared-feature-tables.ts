@@ -1,4 +1,4 @@
-import type { Database } from 'sqlite';
+import type Database from 'better-sqlite3';
 
 export const id = '0009-remove-shared-feature-tables';
 
@@ -16,22 +16,25 @@ export const id = '0009-remove-shared-feature-tables';
  * - controlm_job_dependencies
  * - controlm_job_conditions
  */
-export const up = async (db: Database) => {
+export const up = async (db: Database.Database) => {
   // Disable foreign key constraints temporarily to allow dropping tables
-  await db.exec('PRAGMA foreign_keys = OFF;');
+  db.exec('PRAGMA foreign_keys = OFF;');
 
   // Drop Control-M job tables (in dependency order)
-  await db.exec('DROP TABLE IF EXISTS controlm_job_conditions;');
-  await db.exec('DROP TABLE IF EXISTS controlm_job_dependencies;');
-  await db.exec('DROP TABLE IF EXISTS controlm_jobs;');
+  db.exec('DROP TABLE IF EXISTS controlm_job_conditions;');
+  db.exec('DROP TABLE IF EXISTS controlm_job_dependencies;');
+  db.exec('DROP TABLE IF EXISTS controlm_jobs;');
 
   // Drop Script-related tables (in dependency order)
-  await db.exec('DROP TABLE IF EXISTS script_dependencies;');
-  await db.exec('DROP TABLE IF EXISTS script_tags;');
-  await db.exec('DROP TABLE IF EXISTS drive_mappings;');
-  await db.exec('DROP TABLE IF EXISTS scripts;');
-  await db.exec('DROP TABLE IF EXISTS tags;');
+  db.exec('DROP TABLE IF EXISTS script_dependencies;');
+  db.exec('DROP TABLE IF EXISTS script_tags;');
+  db.exec('DROP TABLE IF EXISTS drive_mappings;');
+  db.exec('DROP TABLE IF EXISTS scripts;');
+  db.exec('DROP TABLE IF EXISTS tags;');
 
   // Re-enable foreign key constraints
-  await db.exec('PRAGMA foreign_keys = ON;');
+  db.exec('PRAGMA foreign_keys = ON;');
 };
+
+
+

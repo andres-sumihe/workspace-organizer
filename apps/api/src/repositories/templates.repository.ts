@@ -8,15 +8,7 @@ export class TemplatesRepository {
   constructor(private readonly db: AppDatabase) {}
 
   async findAll(): Promise<TemplateSummaryV2[]> {
-    const rows = await this.db.all<
-      Array<{
-        id: string;
-        name: string;
-        description: string | null;
-        created_at: string;
-        updated_at: string;
-      }>
-    >(`
+    const rows = this.db.prepare(`
       SELECT
         t.id,
         t.name,
@@ -30,7 +22,13 @@ export class TemplatesRepository {
       LEFT JOIN template_files tfile ON tfile.template_id = t.id
       GROUP BY t.id
       ORDER BY t.created_at DESC
-    `);
+    `).all() as Array<{
+      id: string;
+      name: string;
+      description: string | null;
+      created_at: string;
+      updated_at: string;
+    }>;
 
     return rows.map((row) => ({
       id: row.id,
@@ -44,32 +42,29 @@ export class TemplatesRepository {
   }
 
   async findById(id: string): Promise<TemplateManifestV2 | null> {
-    const template = await this.db.get<{
+    const template = this.db.prepare('SELECT * FROM templates WHERE id = ?').get(id) as {
       id: string;
       name: string;
       description: string | null;
       created_at: string;
       updated_at: string;
-    }>('SELECT * FROM templates WHERE id = ?', [id]);
+    } | undefined;
 
     if (!template) {
       return null;
     }
 
-    const folders = await this.db.all<Array<{ relative_path: string }>>(
-      'SELECT relative_path FROM template_folders WHERE template_id = ? ORDER BY relative_path',
-      [id]
-    );
+    const folders = this.db.prepare(
+      'SELECT relative_path FROM template_folders WHERE template_id = ? ORDER BY relative_path'
+    ).all(id) as Array<{ relative_path: string }>;
 
-    const files = await this.db.all<Array<{ relative_path: string; content: string }>>(
-      'SELECT relative_path, content FROM template_files WHERE template_id = ? ORDER BY relative_path',
-      [id]
-    );
+    const files = this.db.prepare(
+      'SELECT relative_path, content FROM template_files WHERE template_id = ? ORDER BY relative_path'
+    ).all(id) as Array<{ relative_path: string; content: string }>;
 
-    const tokens = await this.db.all<Array<{ key: string; label: string; default_value: string | null }>>(
-      'SELECT key, label, default_value FROM template_tokens WHERE template_id = ? ORDER BY key',
-      [id]
-    );
+    const tokens = this.db.prepare(
+      'SELECT key, label, default_value FROM template_tokens WHERE template_id = ? ORDER BY key'
+    ).all(id) as Array<{ key: string; label: string; default_value: string | null }>;
 
     return {
       id: template.id,
@@ -91,34 +86,32 @@ export class TemplatesRepository {
     const id = randomUUID();
     const now = new Date().toISOString();
 
-    await this.db.run(
-      'INSERT INTO templates (id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
-      [id, input.name, input.description ?? null, now, now]
-    );
+    this.db.prepare(
+      'INSERT INTO templates (id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?)'
+    ).run(id, input.name, input.description ?? null, now, now);
 
     // Insert folders
     for (const folder of input.folders) {
-      await this.db.run('INSERT INTO template_folders (template_id, relative_path) VALUES (?, ?)', [
+      this.db.prepare('INSERT INTO template_folders (template_id, relative_path) VALUES (?, ?)').run(
         id,
         folder.relativePath
-      ]);
+      );
     }
 
     // Insert files
     for (const file of input.files) {
-      await this.db.run('INSERT INTO template_files (template_id, relative_path, content) VALUES (?, ?, ?)', [
+      this.db.prepare('INSERT INTO template_files (template_id, relative_path, content) VALUES (?, ?, ?)').run(
         id,
         file.relativePath,
         file.content
-      ]);
+      );
     }
 
     // Insert tokens
     for (const token of input.tokens) {
-      await this.db.run(
-        'INSERT INTO template_tokens (template_id, key, label, default_value) VALUES (?, ?, ?, ?)',
-        [id, token.key, token.label, token.defaultValue ?? null]
-      );
+      this.db.prepare(
+        'INSERT INTO template_tokens (template_id, key, label, default_value) VALUES (?, ?, ?, ?)'
+      ).run(id, token.key, token.label, token.defaultValue ?? null);
     }
 
     const created = await this.findById(id);
@@ -139,47 +132,46 @@ export class TemplatesRepository {
 
     // Update basic metadata
     if (input.name !== undefined || input.description !== undefined) {
-      await this.db.run('UPDATE templates SET name = COALESCE(?, name), description = ?, updated_at = ? WHERE id = ?', [
+      this.db.prepare('UPDATE templates SET name = COALESCE(?, name), description = ?, updated_at = ? WHERE id = ?').run(
         input.name ?? null,
         input.description ?? null,
         now,
         id
-      ]);
+      );
     } else {
-      await this.db.run('UPDATE templates SET updated_at = ? WHERE id = ?', [now, id]);
+      this.db.prepare('UPDATE templates SET updated_at = ? WHERE id = ?').run(now, id);
     }
 
     // Replace folders if provided
     if (input.folders !== undefined) {
-      await this.db.run('DELETE FROM template_folders WHERE template_id = ?', [id]);
+      this.db.prepare('DELETE FROM template_folders WHERE template_id = ?').run(id);
       for (const folder of input.folders) {
-        await this.db.run('INSERT INTO template_folders (template_id, relative_path) VALUES (?, ?)', [
+        this.db.prepare('INSERT INTO template_folders (template_id, relative_path) VALUES (?, ?)').run(
           id,
           folder.relativePath
-        ]);
+        );
       }
     }
 
     // Replace files if provided
     if (input.files !== undefined) {
-      await this.db.run('DELETE FROM template_files WHERE template_id = ?', [id]);
+      this.db.prepare('DELETE FROM template_files WHERE template_id = ?').run(id);
       for (const file of input.files) {
-        await this.db.run('INSERT INTO template_files (template_id, relative_path, content) VALUES (?, ?, ?)', [
+        this.db.prepare('INSERT INTO template_files (template_id, relative_path, content) VALUES (?, ?, ?)').run(
           id,
           file.relativePath,
           file.content
-        ]);
+        );
       }
     }
 
     // Replace tokens if provided
     if (input.tokens !== undefined) {
-      await this.db.run('DELETE FROM template_tokens WHERE template_id = ?', [id]);
+      this.db.prepare('DELETE FROM template_tokens WHERE template_id = ?').run(id);
       for (const token of input.tokens) {
-        await this.db.run(
-          'INSERT INTO template_tokens (template_id, key, label, default_value) VALUES (?, ?, ?, ?)',
-          [id, token.key, token.label, token.defaultValue ?? null]
-        );
+        this.db.prepare(
+          'INSERT INTO template_tokens (template_id, key, label, default_value) VALUES (?, ?, ?, ?)'
+        ).run(id, token.key, token.label, token.defaultValue ?? null);
       }
     }
 
@@ -187,35 +179,26 @@ export class TemplatesRepository {
   }
 
   async delete(id: string): Promise<boolean> {
-    const result = await this.db.run('DELETE FROM templates WHERE id = ?', [id]);
-    return (result.changes ?? 0) > 0;
+    const result = this.db.prepare('DELETE FROM templates WHERE id = ?').run(id);
+    return result.changes > 0;
   }
 
   async assignToWorkspace(workspaceId: string, templateId: string): Promise<void> {
     const now = new Date().toISOString();
-    await this.db.run(
-      'INSERT OR REPLACE INTO workspace_templates (workspace_id, template_id, assigned_at) VALUES (?, ?, ?)',
-      [workspaceId, templateId, now]
-    );
+    this.db.prepare(
+      'INSERT OR REPLACE INTO workspace_templates (workspace_id, template_id, assigned_at) VALUES (?, ?, ?)'
+    ).run(workspaceId, templateId, now);
   }
 
   async unassignFromWorkspace(workspaceId: string, templateId: string): Promise<void> {
-    await this.db.run('DELETE FROM workspace_templates WHERE workspace_id = ? AND template_id = ?', [
+    this.db.prepare('DELETE FROM workspace_templates WHERE workspace_id = ? AND template_id = ?').run(
       workspaceId,
       templateId
-    ]);
+    );
   }
 
   async findWorkspaceTemplates(workspaceId: string): Promise<TemplateSummaryV2[]> {
-    const rows = await this.db.all<
-      Array<{
-        id: string;
-        name: string;
-        description: string | null;
-        created_at: string;
-        updated_at: string;
-      }>
-    >(
+    const rows = this.db.prepare(
       `
       SELECT
         t.id,
@@ -232,9 +215,14 @@ export class TemplatesRepository {
       WHERE wt.workspace_id = ?
       GROUP BY t.id
       ORDER BY wt.assigned_at DESC
-    `,
-      [workspaceId]
-    );
+    `
+    ).all(workspaceId) as Array<{
+      id: string;
+      name: string;
+      description: string | null;
+      created_at: string;
+      updated_at: string;
+    }>;
 
     return rows.map((row) => ({
       id: row.id,

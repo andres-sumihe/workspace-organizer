@@ -1,4 +1,4 @@
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -90,7 +90,7 @@ export const localAuthProvider = {
     const db = await getDb();
     
     // SECURITY: Check if a user already exists (single user enforcement)
-    const existingCount = await db.get('SELECT COUNT(*) as count FROM local_users');
+    const existingCount = db.prepare('SELECT COUNT(*) as count FROM local_users').get();
     if ((existingCount as { count: number })?.count > 0) {
       throw new Error('USER_ALREADY_EXISTS');
     }
@@ -99,13 +99,12 @@ export const localAuthProvider = {
     const passwordHash = await bcrypt.hash(request.password, BCRYPT_ROUNDS);
     const now = new Date().toISOString();
 
-    await db.run(
+    db.prepare(
       `INSERT INTO local_users (id, username, email, password_hash, display_name, is_active, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, 1, ?, ?)`,
-      [userId, request.username, request.email, passwordHash, request.displayName ?? null, now, now]
-    );
+       VALUES (?, ?, ?, ?, ?, 1, ?, ?)`
+    ).run(userId, request.username, request.email, passwordHash, request.displayName ?? null, now, now);
 
-    const row = await db.get('SELECT * FROM local_users WHERE id = ?', [userId]);
+    const row = db.prepare('SELECT * FROM local_users WHERE id = ?').get(userId);
     if (!isLocalUserRow(row)) {
       throw new Error('Failed to create local user');
     }
@@ -119,10 +118,9 @@ export const localAuthProvider = {
    */
   async login(request: LoginRequest, context?: LoginContext): Promise<LoginResponse> {
     const db = await getDb();
-    const row = await db.get(
-      'SELECT * FROM local_users WHERE username = ? OR email = ?',
-      [request.username, request.username]
-    );
+    const row = db.prepare(
+      'SELECT * FROM local_users WHERE username = ? OR email = ?'
+    ).get(request.username, request.username);
 
     if (!isLocalUserRow(row)) {
       throw new Error('INVALID_CREDENTIALS');
@@ -138,7 +136,7 @@ export const localAuthProvider = {
     }
 
     // SECURITY: Invalidate all existing sessions (single session enforcement)
-    await db.run('DELETE FROM local_sessions WHERE user_id = ?', [row.id]);
+    db.prepare('DELETE FROM local_sessions WHERE user_id = ?').run(row.id);
 
     // Get current mode dynamically
     const mode = await modeService.getMode();
@@ -157,11 +155,10 @@ export const localAuthProvider = {
     const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
     // Store refresh token with session metadata
-    await db.run(
+    db.prepare(
       `INSERT INTO local_sessions (id, user_id, refresh_token, expires_at, created_at, last_activity_at, ip_address, user_agent)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [sessionId, row.id, refreshToken, expiresAt, now, now, context?.ipAddress ?? null, context?.userAgent ?? null]
-    );
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(sessionId, row.id, refreshToken, expiresAt, now, now, context?.ipAddress ?? null, context?.userAgent ?? null);
 
     return {
       accessToken,
@@ -187,10 +184,9 @@ export const localAuthProvider = {
   async refreshToken(refreshToken: string): Promise<LoginResponse> {
     const db = await getDb();
     
-    const sessionRow = await db.get(
-      'SELECT * FROM local_sessions WHERE refresh_token = ?',
-      [refreshToken]
-    );
+    const sessionRow = db.prepare(
+      'SELECT * FROM local_sessions WHERE refresh_token = ?'
+    ).get(refreshToken);
 
     if (!isLocalSessionRow(sessionRow)) {
       throw new Error('INVALID_REFRESH_TOKEN');
@@ -198,12 +194,12 @@ export const localAuthProvider = {
 
     // Check expiration
     if (new Date(sessionRow.expires_at) < new Date()) {
-      await db.run('DELETE FROM local_sessions WHERE id = ?', [sessionRow.id]);
+      db.prepare('DELETE FROM local_sessions WHERE id = ?').run(sessionRow.id);
       throw new Error('REFRESH_TOKEN_EXPIRED');
     }
 
     // Get user
-    const userRow = await db.get('SELECT * FROM local_users WHERE id = ?', [sessionRow.user_id]);
+    const userRow = db.prepare('SELECT * FROM local_users WHERE id = ?').get(sessionRow.user_id);
     if (!isLocalUserRow(userRow)) {
       throw new Error('USER_NOT_FOUND');
     }
@@ -259,7 +255,7 @@ export const localAuthProvider = {
    */
   async getUserById(userId: string): Promise<LocalUser | null> {
     const db = await getDb();
-    const row = await db.get('SELECT * FROM local_users WHERE id = ?', [userId]);
+    const row = db.prepare('SELECT * FROM local_users WHERE id = ?').get(userId);
     if (!isLocalUserRow(row)) return null;
     return mapRowToLocalUser(row);
   },
@@ -269,7 +265,7 @@ export const localAuthProvider = {
    */
   async logout(refreshToken: string): Promise<void> {
     const db = await getDb();
-    await db.run('DELETE FROM local_sessions WHERE refresh_token = ?', [refreshToken]);
+    db.prepare('DELETE FROM local_sessions WHERE refresh_token = ?').run(refreshToken);
   },
 
   /**
@@ -277,7 +273,7 @@ export const localAuthProvider = {
    */
   async changePassword(userId: string, oldPassword: string, newPassword: string): Promise<void> {
     const db = await getDb();
-    const row = await db.get('SELECT * FROM local_users WHERE id = ?', [userId]);
+    const row = db.prepare('SELECT * FROM local_users WHERE id = ?').get(userId);
     
     if (!isLocalUserRow(row)) {
       throw new Error('USER_NOT_FOUND');
@@ -289,10 +285,9 @@ export const localAuthProvider = {
     }
 
     const newPasswordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
-    await db.run(
-      'UPDATE local_users SET password_hash = ?, updated_at = ? WHERE id = ?',
-      [newPasswordHash, new Date().toISOString(), userId]
-    );
+    db.prepare(
+      'UPDATE local_users SET password_hash = ?, updated_at = ? WHERE id = ?'
+    ).run(newPasswordHash, new Date().toISOString(), userId);
   },
 
   /**
@@ -300,7 +295,7 @@ export const localAuthProvider = {
    */
   async hasLocalUser(): Promise<boolean> {
     const db = await getDb();
-    const row = await db.get('SELECT COUNT(*) as count FROM local_users');
+    const row = db.prepare('SELECT COUNT(*) as count FROM local_users').get();
     return (row as { count: number })?.count > 0;
   },
 
@@ -309,7 +304,7 @@ export const localAuthProvider = {
    */
   async getUserCount(): Promise<number> {
     const db = await getDb();
-    const row = await db.get('SELECT COUNT(*) as count FROM local_users');
+    const row = db.prepare('SELECT COUNT(*) as count FROM local_users').get();
     return (row as { count: number })?.count ?? 0;
   },
 
@@ -325,10 +320,10 @@ export const localAuthProvider = {
     const db = await getDb();
     
     // Delete all sessions first (foreign key constraint)
-    await db.run('DELETE FROM local_sessions');
+    db.prepare('DELETE FROM local_sessions').run();
     
     // Delete all local users
-    await db.run('DELETE FROM local_users');
+    db.prepare('DELETE FROM local_users').run();
     
     // Clear team binding if exists
     await settingsRepository.delete('team_binding');
