@@ -36,9 +36,9 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
 
   const body: { error: ErrorPayload } = { error: payload };
 
-  if (process.env.NODE_ENV !== 'production') {
-    console.error(err);
-  }
+  // Always log errors in Electron production builds
+  console.error('[API Error]', err.message);
+  console.error('[API Error Stack]', err.stack);
 
   res.status(500).json(body);
 };

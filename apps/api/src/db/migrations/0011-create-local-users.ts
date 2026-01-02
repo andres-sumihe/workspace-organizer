@@ -1,4 +1,4 @@
-import type { Database } from 'sqlite';
+import type Database from 'better-sqlite3';
 
 export const id = '0011-create-local-users';
 
@@ -8,8 +8,8 @@ export const id = '0011-create-local-users';
  * Creates the local_users table for offline-capable single-user authentication.
  * This table is used in Solo mode when the app runs without a shared database.
  */
-export const up = async (db: Database) => {
-  await db.exec(`
+export const up = async (db: Database.Database) => {
+  db.exec(`
     CREATE TABLE IF NOT EXISTS local_users (
       id TEXT PRIMARY KEY,
       username TEXT UNIQUE NOT NULL,
@@ -26,3 +26,6 @@ export const up = async (db: Database) => {
     CREATE INDEX IF NOT EXISTS idx_local_users_active ON local_users(is_active);
   `);
 };
+
+
+

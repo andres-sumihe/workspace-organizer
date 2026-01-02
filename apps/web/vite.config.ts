@@ -7,6 +7,7 @@ import { defineConfig } from 'vite';
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
+// Development proxy to local API server on port 4000
 const API_PROXY_TARGET = process.env.VITE_API_PROXY ?? 'http://localhost:4000';
 
 export default defineConfig({

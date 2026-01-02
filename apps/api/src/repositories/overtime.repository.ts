@@ -71,20 +71,19 @@ export const overtimeRepository = {
   async createEntry(data: CreateOvertimeEntryData): Promise<OvertimeEntry> {
     const db = await getDb();
 
-    await db.run(
+    db.prepare(
       `INSERT INTO overtime_entries (id, date, day_type, start_time, end_time, total_hours, pay_amount, base_salary, note)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        data.id,
-        data.date,
-        data.dayType,
-        data.startTime,
-        data.endTime,
-        data.totalHours,
-        data.payAmount,
-        data.baseSalary,
-        data.note ?? null
-      ]
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      data.id,
+      data.date,
+      data.dayType,
+      data.startTime,
+      data.endTime,
+      data.totalHours,
+      data.payAmount,
+      data.baseSalary,
+      data.note ?? null
     );
 
     const entry = await this.getById(data.id);
@@ -97,7 +96,7 @@ export const overtimeRepository = {
    */
   async getById(id: string): Promise<OvertimeEntry | null> {
     const db = await getDb();
-    const row = await db.get('SELECT * FROM overtime_entries WHERE id = ?', [id]);
+    const row = db.prepare('SELECT * FROM overtime_entries WHERE id = ?').get(id);
     if (!isOvertimeEntryRow(row)) return null;
     return mapRowToEntry(row);
   },
@@ -124,8 +123,7 @@ export const overtimeRepository = {
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     const query = `SELECT * FROM overtime_entries ${whereClause} ORDER BY date DESC, created_at DESC`;
 
-    const rows = await db.all(query, queryParams);
-    if (!Array.isArray(rows)) return [];
+    const rows = db.prepare(query).all(...queryParams) as unknown[];
     return rows.filter(isOvertimeEntryRow).map(mapRowToEntry);
   },
 
@@ -135,8 +133,8 @@ export const overtimeRepository = {
    */
   async deleteEntry(id: string): Promise<boolean> {
     const db = await getDb();
-    const result = await db.run('DELETE FROM overtime_entries WHERE id = ?', [id]);
-    return (result.changes ?? 0) > 0;
+    const result = db.prepare('DELETE FROM overtime_entries WHERE id = ?').run(id);
+    return result.changes > 0;
   },
 
   /**
@@ -170,7 +168,7 @@ export const overtimeRepository = {
       FROM overtime_entries ${whereClause}
     `;
 
-    const result = await db.get(query, queryParams);
+    const result = db.prepare(query).get(...queryParams);
     
     if (!result || typeof result !== 'object') {
       return { totalEntries: 0, totalHours: 0, totalPay: 0 };

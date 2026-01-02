@@ -40,7 +40,7 @@ const mapRowToProject = (row: ProjectRow): WorkspaceProject => ({
 
 export const listProjectsByWorkspace = async (workspaceId: string): Promise<WorkspaceProject[]> => {
   const db = await getDb();
-  const rowsRaw = await db.all('SELECT * FROM projects WHERE workspace_id = ? ORDER BY name', [workspaceId]);
+  const rowsRaw = db.prepare('SELECT * FROM projects WHERE workspace_id = ? ORDER BY name').all(workspaceId);
 
   const projects: WorkspaceProject[] = [];
   if (Array.isArray(rowsRaw)) {
@@ -66,21 +66,20 @@ export interface CreateProjectInput {
 
 export const createProject = async (input: CreateProjectInput): Promise<WorkspaceProject> => {
   const db = await getDb();
-  await db.run(
+  db.prepare(
     `INSERT INTO projects (id, name, description, workspace_id, relative_path, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [
-      input.id,
-      input.name,
-      input.description ?? null,
-      input.workspaceId,
-      input.relativePath,
-      input.createdAt,
-      input.updatedAt
-    ]
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    input.id,
+    input.name,
+    input.description ?? null,
+    input.workspaceId,
+    input.relativePath,
+    input.createdAt,
+    input.updatedAt
   );
 
-  const row = await db.get('SELECT * FROM projects WHERE id = ?', [input.id]);
+  const row = db.prepare('SELECT * FROM projects WHERE id = ?').get(input.id);
   if (!isProjectRow(row)) {
     throw new Error('Failed to load created project');
   }
@@ -90,10 +89,10 @@ export const createProject = async (input: CreateProjectInput): Promise<Workspac
 
 export const findProjectByWorkspaceAndPath = async (workspaceId: string, relativePath: string) => {
   const db = await getDb();
-  const row = await db.get('SELECT * FROM projects WHERE workspace_id = ? AND relative_path = ?', [
+  const row = db.prepare('SELECT * FROM projects WHERE workspace_id = ? AND relative_path = ?').get(
     workspaceId,
     relativePath
-  ]);
+  );
 
   if (!isProjectRow(row)) {
     return null;

@@ -1,9 +1,9 @@
-import type { Database } from 'sqlite';
+import type Database from 'better-sqlite3';
 
 export const id = '0006-create-settings';
 
-export const up = async (db: Database) => {
-  await db.exec(`
+export const up = async (db: Database.Database) => {
+  db.exec(`
     -- Application settings table (key-value store with JSON values)
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
@@ -30,3 +30,6 @@ export const up = async (db: Database) => {
       ('validation.swiftMT.enabled', 'false', 'Whether SWIFT MT validation is enabled');
   `);
 };
+
+
+
