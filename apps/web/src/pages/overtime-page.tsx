@@ -184,7 +184,7 @@ export const OvertimePage = () => {
     year: String(getCurrentYear())
   });
   
-  // Visibility state for salary
+  // Visibility state for salary (shared between calculator and tracker)
   const [showSalary, setShowSalary] = useState(false);
   
   // UI state
@@ -440,14 +440,14 @@ export const OvertimePage = () => {
                         </div>
                         <p className="text-2xl font-bold">
                           {savedBaseSalary ? (
-                            showSalary ? formatCurrency(savedBaseSalary) : '••••••••'
+                            showSalary ? formatCurrency(savedBaseSalary) : 'Rp ••••••••'
                           ) : (
                             '-'
                           )}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
                           Hourly rate: {savedBaseSalary ? (
-                            showSalary ? formatCurrency(savedBaseSalary / 173) : '••••••'
+                            showSalary ? formatCurrency(savedBaseSalary / 173) : 'Rp ••••••'
                           ) : (
                             '-'
                           )} (salary ÷ 173)
@@ -697,7 +697,20 @@ export const OvertimePage = () => {
                         <TableHead>Type</TableHead>
                         <TableHead>Time</TableHead>
                         <TableHead className="text-right">Hours</TableHead>
-                        <TableHead className="text-right">Salary</TableHead>
+                        <TableHead className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <span>Salary</span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                              onClick={() => setShowSalary(!showSalary)}
+                              title={showSalary ? 'Hide salary column' : 'Show salary column'}
+                            >
+                              {showSalary ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                            </Button>
+                          </div>
+                        </TableHead>
                         <TableHead className="text-right">Pay</TableHead>
                         <TableHead>Note</TableHead>
                         <TableHead className="w-[50px]"></TableHead>
@@ -723,7 +736,7 @@ export const OvertimePage = () => {
                             {entry.totalHours.toFixed(1)}h
                           </TableCell>
                           <TableCell className="text-right font-mono text-muted-foreground">
-                            {formatCurrency(entry.baseSalary)}
+                            {showSalary ? formatCurrency(entry.baseSalary) : '••••••'}
                           </TableCell>
                           <TableCell className="text-right font-mono font-medium text-primary">
                             {formatCurrency(entry.payAmount)}
