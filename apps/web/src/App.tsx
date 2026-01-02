@@ -1,4 +1,4 @@
-import { FolderGit2, LayoutDashboard, LineChart, Settings, FileCode, Loader2, Users } from 'lucide-react';
+import { FolderGit2, LayoutDashboard, LineChart, Settings, FileCode, Loader2, Users, Wrench } from 'lucide-react';
 import { useEffect, useMemo, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 
@@ -15,6 +15,7 @@ import { AuthenticatedLayout } from '@/layouts/authenticated-layout';
 import { DashboardPage } from '@/pages/dashboard-page';
 import { InstallationPage } from '@/pages/installation-page';
 import { LoginPage } from '@/pages/login-page';
+import { OvertimePage } from '@/pages/overtime-page';
 import { ScriptsPage } from '@/pages/scripts-page';
 import { SettingsPage } from '@/pages/settings-page';
 import { SetupPage } from '@/pages/setup-page';
@@ -157,36 +158,59 @@ function AppContent() {
       },
       // Teams sidebar item only visible in Shared mode
       ...(!isSoloMode ? [{ key: 'teams', label: 'Teams', icon: Users }] : []),
+      { 
+        key: 'tools', 
+        label: 'Tools', 
+        icon: Wrench,
+        subItems: [
+          { key: 'overtime', label: 'Overtime' }
+        ]
+      },
       { key: 'analytics', label: 'Analytics', icon: LineChart },
       { key: 'settings', label: 'Settings', icon: Settings },
     ],
     [isSoloMode]
   );
 
-  // Determine active key from route
-  const getActiveKey = () => {
+  // Determine active key and subkey from route
+  const getActiveKey = (): string => {
     const path = location.pathname;
     if (path.startsWith('/workspaces')) return 'workspaces';
     if (path.startsWith('/scripts')) return 'scripts';
     if (path.startsWith('/teams')) return 'teams';
+    if (path.startsWith('/tools')) return 'tools';
     if (path.startsWith('/analytics')) return 'analytics';
     if (path.startsWith('/settings')) return 'settings';
     return 'dashboard';
+  };
+
+  const getActiveSubKey = (): string | undefined => {
+    const path = location.pathname;
+    if (path.startsWith('/tools/overtime')) return 'overtime';
+    return undefined;
   };
 
   return (
     <AuthenticatedLayout
       sidebarItems={sidebarItems}
       activeSidebarKey={getActiveKey()}
-      onNavigate={(key) => {
+      activeSidebarSubKey={getActiveSubKey()}
+      onNavigate={(key, subKey) => {
         if (key === 'workspaces') {
           // Navigate to last visited workspace route (or list if none)
           navigate(lastWorkspaceRoute.current);
+        } else if (key === 'tools' && subKey) {
+          // Navigate to tools sub-page
+          const toolsRoutes: Record<string, string> = {
+            overtime: '/tools/overtime'
+          };
+          navigate(toolsRoutes[subKey] || '/tools');
         } else {
           const routes: Record<string, string> = {
             dashboard: '/',
             scripts: '/scripts',
             teams: '/teams',
+            tools: '/tools',
             analytics: '/analytics',
             settings: '/settings'
           };
@@ -203,6 +227,7 @@ function AppContent() {
         <Route path="/scripts" element={<ScriptsPage />} />
         <Route path="/scripts/:scriptId" element={<ScriptsPage />} />
         <Route path="/teams" element={<TeamPage />} />
+        <Route path="/tools/overtime" element={<OvertimePage />} />
         <Route path="/analytics" element={renderPlaceholder('analytics')} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

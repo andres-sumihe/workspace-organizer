@@ -13,6 +13,7 @@ import { teamControlmJobsRouter } from './team-controlm-jobs.js';
 import { teamScriptsRouter } from './team-scripts.js';
 import { teamsRouter } from './teams.js';
 import templatesRouter from './templates.js';
+import toolsOvertimeRouter from './tools-overtime.js';
 import { workspacesRouter } from './workspaces.js';
 import { isSharedDbConnected } from '../../db/shared-client.js';
 import { installationService } from '../../services/installation.service.js';
@@ -35,6 +36,9 @@ v1Router.use('/auth', authRouter);
 v1Router.use('/workspaces', workspacesRouter);
 v1Router.use('/templates', templatesRouter);
 v1Router.use('/settings', settingsRouter);
+
+// Tools routes - always available (local data only, works in Solo and Shared modes)
+v1Router.use('/tools/overtime', toolsOvertimeRouter);
 
 // Middleware to check if shared database is connected for shared features
 const requireSharedDb = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {

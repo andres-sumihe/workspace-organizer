@@ -1,5 +1,7 @@
 import { settingsRepository, type Setting } from '../repositories/settings.repository.js';
 
+import type { ToolsGeneralSettings } from '@workspace/shared';
+
 // Validation settings types
 export interface ISO20022ValidationCriteria {
   senderDN: string;
@@ -39,6 +41,10 @@ const DEFAULT_SWIFT_MT_CRITERIA: SwiftMTValidationCriteria = {
   receiverBIC: '',
   validateFormat: false,
   expectedFormat: null
+};
+
+const DEFAULT_TOOLS_GENERAL_SETTINGS: ToolsGeneralSettings = {
+  baseSalary: null
 };
 
 export const settingsService = {
@@ -156,5 +162,47 @@ export const settingsService = {
         criteria: DEFAULT_SWIFT_MT_CRITERIA
       }
     };
+  },
+
+  /**
+   * Get tools general settings (base salary for overtime calculator, etc.)
+   */
+  async getToolsGeneralSettings(): Promise<ToolsGeneralSettings> {
+    const setting = await settingsRepository.get<ToolsGeneralSettings>('tools.general');
+    return {
+      ...DEFAULT_TOOLS_GENERAL_SETTINGS,
+      ...setting?.value
+    };
+  },
+
+  /**
+   * Update tools general settings
+   * @param input - Partial settings to update
+   * @returns Updated settings
+   * @throws Error if baseSalary is invalid (must be null or > 0)
+   */
+  async updateToolsGeneralSettings(
+    input: Partial<ToolsGeneralSettings>
+  ): Promise<ToolsGeneralSettings> {
+    // Validate baseSalary if provided
+    if (input.baseSalary !== undefined && input.baseSalary !== null) {
+      if (typeof input.baseSalary !== 'number' || input.baseSalary <= 0) {
+        throw new Error('Base salary must be a positive number or null');
+      }
+    }
+
+    const current = await this.getToolsGeneralSettings();
+    const merged: ToolsGeneralSettings = {
+      ...current,
+      ...input
+    };
+
+    await settingsRepository.set(
+      'tools.general',
+      merged,
+      'Tools general settings including base salary for overtime calculations'
+    );
+
+    return merged;
   }
 };

@@ -1,8 +1,9 @@
-import { Database } from 'lucide-react';
+import { ChevronRight, Database } from 'lucide-react';
 
 import type { LucideIcon } from 'lucide-react';
 
 import LogoMark from '@/assets/logo-rounded.png';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Sidebar,
   SidebarContent,
@@ -15,26 +16,36 @@ import {
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
   SidebarRail,
   SidebarSeparator,
 } from '@/components/ui/sidebar';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+
+export interface SidebarNavSubItem {
+  key: string;
+  label: string;
+}
 
 export interface SidebarNavItem {
   key: string;
   label: string;
   icon: LucideIcon;
   badge?: string;
+  subItems?: SidebarNavSubItem[];
 }
 
 interface AppSidebarProps {
   items: SidebarNavItem[];
   activeKey: string;
-  onNavigate: (key: string) => void;
+  activeSubKey?: string;
+  onNavigate: (key: string, subKey?: string) => void;
   connectionLabel?: string;
 }
 
-export const AppSidebar = ({ items, activeKey, onNavigate, connectionLabel }: AppSidebarProps) => {
+export const AppSidebar = ({ items, activeKey, activeSubKey, onNavigate, connectionLabel }: AppSidebarProps) => {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="gap-3">
@@ -59,18 +70,59 @@ export const AppSidebar = ({ items, activeKey, onNavigate, connectionLabel }: Ap
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (
-                <SidebarMenuItem key={item.key}>
-                  <SidebarMenuButton
-                    type="button"
-                    isActive={item.key === activeKey}
-                    onClick={() => onNavigate(item.key)}
-                    tooltip={item.label}
+                item.subItems && item.subItems.length > 0 ? (
+                  <Collapsible
+                    key={item.key}
+                    asChild
+                    defaultOpen={item.key === activeKey}
+                    className="group/collapsible"
                   >
-                    <item.icon className="size-4" />
-                    <span>{item.label}</span>
-                  </SidebarMenuButton>
-                  {item.badge ? <SidebarMenuBadge>{item.badge}</SidebarMenuBadge> : null}
-                </SidebarMenuItem>
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton
+                          type="button"
+                          isActive={item.key === activeKey}
+                          tooltip={item.label}
+                        >
+                          <item.icon className="size-4" />
+                          <span>{item.label}</span>
+                          <ChevronRight className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenuSub>
+                          {item.subItems.map((subItem) => (
+                            <SidebarMenuSubItem key={subItem.key}>
+                              <SidebarMenuSubButton
+                                asChild
+                                isActive={item.key === activeKey && subItem.key === activeSubKey}
+                                onClick={() => onNavigate(item.key, subItem.key)}
+                              >
+                                <button type="button">
+                                  <span>{subItem.label}</span>
+                                </button>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          ))}
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
+                      {item.badge ? <SidebarMenuBadge>{item.badge}</SidebarMenuBadge> : null}
+                    </SidebarMenuItem>
+                  </Collapsible>
+                ) : (
+                  <SidebarMenuItem key={item.key}>
+                    <SidebarMenuButton
+                      type="button"
+                      isActive={item.key === activeKey}
+                      onClick={() => onNavigate(item.key)}
+                      tooltip={item.label}
+                    >
+                      <item.icon className="size-4" />
+                      <span>{item.label}</span>
+                    </SidebarMenuButton>
+                    {item.badge ? <SidebarMenuBadge>{item.badge}</SidebarMenuBadge> : null}
+                  </SidebarMenuItem>
+                )
               ))}
             </SidebarMenu>
           </SidebarGroupContent>

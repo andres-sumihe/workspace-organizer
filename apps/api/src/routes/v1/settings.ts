@@ -19,4 +19,10 @@ router.put('/validation/swift-mt', settingsController.updateSwiftMTSettings);
 // POST /api/v1/settings/validation/reset - Reset to defaults
 router.post('/validation/reset', settingsController.resetValidationSettings);
 
+// GET /api/v1/settings/tools/general - Get tools general settings (base salary)
+router.get('/tools/general', settingsController.getToolsGeneralSettings);
+
+// PUT /api/v1/settings/tools/general - Update tools general settings
+router.put('/tools/general', settingsController.updateToolsGeneralSettings);
+
 export default router;

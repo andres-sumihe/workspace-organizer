@@ -11,6 +11,8 @@ import * as migration0010 from './0010-create-shared-config.js';
 import * as migration0011 from './0011-create-local-users.js';
 import * as migration0012 from './0012-create-local-sessions.js';
 import * as migration0013 from './0013-add-session-metadata-columns.js';
+import * as migration0014 from './0014-create-overtime-entries.js';
+import * as migration0015 from './0015-add-overtime-time-columns.js';
 
 import type { Database } from 'sqlite';
 
@@ -32,7 +34,9 @@ const migrations: Migration[] = [
   { id: migration0010.id, up: migration0010.up },
   { id: migration0011.id, up: migration0011.up },
   { id: migration0012.id, up: migration0012.up },
-  { id: migration0013.id, up: migration0013.up }
+  { id: migration0013.id, up: migration0013.up },
+  { id: migration0014.id, up: migration0014.up },
+  { id: migration0015.id, up: migration0015.up }
 ];
 
 export const runMigrations = async (db: Database) => {
