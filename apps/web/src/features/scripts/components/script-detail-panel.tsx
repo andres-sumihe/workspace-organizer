@@ -1,7 +1,8 @@
-import { Loader2, FileCode, MapPin, Tag, Link2, AlertTriangle, Trash2, Edit, Server, ExternalLink } from 'lucide-react';
+import { Loader2, FileCode, MapPin, Tag, Link2, AlertTriangle, Trash2, Edit, Server, ExternalLink, History } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 import { DriveConflictAlert } from './drive-conflict-alert';
+import { ScriptActivityLog } from './script-activity-log';
 
 import type { BatchScriptDetail, DriveConflict } from '@workspace/shared';
 
@@ -16,6 +17,7 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface ScriptDetailPanelProps {
   script: BatchScriptDetail | null;
@@ -108,175 +110,195 @@ export const ScriptDetailPanel = ({ script, loading, onEdit, onDelete, conflicts
 
       <Separator className="my-6" />
 
-      {/* Drive Mappings */}
-      <div className="mb-6">
-        <div className="mb-3 flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-semibold text-foreground">Drive Mappings</h3>
-          <Badge variant="secondary">{script.driveMappings.length}</Badge>
-        </div>
-        {script.driveMappings.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No drive mappings found</p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Drive</TableHead>
-                <TableHead>Network Path</TableHead>
-                <TableHead>Server</TableHead>
-                <TableHead>Credentials</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {script.driveMappings.map((mapping) => (
-                <TableRow key={mapping.id}>
-                  <TableCell className="font-mono font-semibold">{mapping.driveLetter}</TableCell>
-                  <TableCell className="font-mono text-xs">{mapping.networkPath}</TableCell>
-                  <TableCell>{mapping.serverName || '—'}</TableCell>
-                  <TableCell>
-                    {mapping.hasCredentials ? (
-                      <Badge variant="outline" className="text-orange-600">
-                        {mapping.username || 'Yes'}
-                      </Badge>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </div>
+      {/* Tabs for Details and Activity */}
+      <Tabs defaultValue="details" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="details">
+            <FileCode className="mr-2 h-4 w-4" />
+            Details
+          </TabsTrigger>
+          <TabsTrigger value="activity">
+            <History className="mr-2 h-4 w-4" />
+            Activity Log
+          </TabsTrigger>
+        </TabsList>
 
-      <Separator className="my-6" />
-
-      {/* Tags */}
-      <div className="mb-6">
-        <div className="mb-3 flex items-center gap-2">
-          <Tag className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-semibold text-foreground">Tags</h3>
-        </div>
-        {script.tags.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No tags</p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {script.tags.map((tag) => (
-              <Badge key={tag.id} variant="outline" style={{ backgroundColor: tag.color }}>
-                {tag.name}
-              </Badge>
-            ))}
+        <TabsContent value="details" className="mt-6">
+          {/* Drive Mappings */}
+          <div className="mb-6">
+            <div className="mb-3 flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-sm font-semibold text-foreground">Drive Mappings</h3>
+              <Badge variant="secondary">{script.driveMappings.length}</Badge>
+            </div>
+            {script.driveMappings.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No drive mappings found</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Drive</TableHead>
+                    <TableHead>Network Path</TableHead>
+                    <TableHead>Server</TableHead>
+                    <TableHead>Credentials</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {script.driveMappings.map((mapping) => (
+                    <TableRow key={mapping.id}>
+                      <TableCell className="font-mono font-semibold">{mapping.driveLetter}</TableCell>
+                      <TableCell className="font-mono text-xs">{mapping.networkPath}</TableCell>
+                      <TableCell>{mapping.serverName || '—'}</TableCell>
+                      <TableCell>
+                        {mapping.hasCredentials ? (
+                          <Badge variant="outline" className="text-orange-600">
+                            {mapping.username || 'Yes'}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </div>
-        )}
-      </div>
 
-      <Separator className="my-6" />
+          <Separator className="my-6" />
 
-      {/* Dependencies */}
-      <div className="mb-6">
-        <div className="mb-3 flex items-center gap-2">
-          <Link2 className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-semibold text-foreground">Dependencies</h3>
-        </div>
-        {script.dependencies.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No dependencies</p>
-        ) : (
-          <div className="space-y-2">
-            {script.dependencies.map((dep) => (
-              <div key={dep.id} className="rounded border border-border p-2">
-                <p className="text-sm font-medium text-foreground">{dep.name}</p>
-                <p className="text-xs text-muted-foreground">{dep.filePath}</p>
+          {/* Tags */}
+          <div className="mb-6">
+            <div className="mb-3 flex items-center gap-2">
+              <Tag className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-sm font-semibold text-foreground">Tags</h3>
+            </div>
+            {script.tags.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No tags</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {script.tags.map((tag) => (
+                  <Badge key={tag.id} variant="outline" style={{ backgroundColor: tag.color }}>
+                    {tag.name}
+                  </Badge>
+                ))}
               </div>
-            ))}
+            )}
           </div>
-        )}
-      </div>
 
-      {/* Dependents */}
-      {script.dependents.length > 0 && (
-        <div className="mb-6">
-          <div className="mb-3 flex items-center gap-2">
-            <Link2 className="h-4 w-4 rotate-180 text-muted-foreground" />
-            <h3 className="text-sm font-semibold text-foreground">Used By Scripts</h3>
-          </div>
-          <div className="space-y-2">
-            {script.dependents.map((dep) => (
-              <div key={dep.id} className="rounded border border-border p-2">
-                <p className="text-sm font-medium text-foreground">{dep.name}</p>
-                <p className="text-xs text-muted-foreground">{dep.filePath}</p>
+          <Separator className="my-6" />
+
+          {/* Dependencies */}
+          <div className="mb-6">
+            <div className="mb-3 flex items-center gap-2">
+              <Link2 className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-sm font-semibold text-foreground">Dependencies</h3>
+            </div>
+            {script.dependencies.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No dependencies</p>
+            ) : (
+              <div className="space-y-2">
+                {script.dependencies.map((dep) => (
+                  <div key={dep.id} className="rounded border border-border p-2">
+                    <p className="text-sm font-medium text-foreground">{dep.name}</p>
+                    <p className="text-xs text-muted-foreground">{dep.filePath}</p>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
-        </div>
-      )}
 
-      <Separator className="my-6" />
-
-      {/* Used by Control-M Jobs */}
-      <div className="mb-6">
-        <div className="mb-3 flex items-center gap-2">
-          <Server className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-semibold text-foreground">Used by Control-M Jobs</h3>
-          {script.linkedJobs && script.linkedJobs.length > 0 && (
-            <Badge variant="secondary">{script.linkedJobs.length}</Badge>
+          {/* Dependents */}
+          {script.dependents.length > 0 && (
+            <div className="mb-6">
+              <div className="mb-3 flex items-center gap-2">
+                <Link2 className="h-4 w-4 rotate-180 text-muted-foreground" />
+                <h3 className="text-sm font-semibold text-foreground">Used By Scripts</h3>
+              </div>
+              <div className="space-y-2">
+                {script.dependents.map((dep) => (
+                  <div key={dep.id} className="rounded border border-border p-2">
+                    <p className="text-sm font-medium text-foreground">{dep.name}</p>
+                    <p className="text-xs text-muted-foreground">{dep.filePath}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
-        </div>
-        {!script.linkedJobs || script.linkedJobs.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No Control-M jobs are linked to this script</p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Job ID</TableHead>
-                <TableHead>Job Name</TableHead>
-                <TableHead>Application</TableHead>
-                <TableHead>Node</TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {script.linkedJobs.map((job) => (
-                <TableRow key={job.id}>
-                  <TableCell className="font-mono text-xs">{job.jobId}</TableCell>
-                  <TableCell className="font-medium">{job.jobName}</TableCell>
-                  <TableCell className="text-muted-foreground">{job.application}</TableCell>
-                  <TableCell className="text-muted-foreground">{job.nodeId}</TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2"
-                      onClick={() => navigate(`/scripts?tab=jobs&jobId=${job.id}`)}
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </div>
 
-      <Separator className="my-6" />
+          <Separator className="my-6" />
 
-      {/* Script Content */}
-      <div className="mb-6">
-        <div className="mb-3 flex items-center gap-2">
-          <FileCode className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-semibold text-foreground">Script Content</h3>
-        </div>
-        <div className="max-h-96 overflow-auto rounded-lg border border-border bg-muted/30 p-4 shadow-sm">
-          <pre className="text-xs font-mono text-foreground whitespace-pre-wrap wrap-break-word leading-relaxed">{script.content}</pre>
-        </div>
-      </div>
+          {/* Used by Control-M Jobs */}
+          <div className="mb-6">
+            <div className="mb-3 flex items-center gap-2">
+              <Server className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-sm font-semibold text-foreground">Used by Control-M Jobs</h3>
+              {script.linkedJobs && script.linkedJobs.length > 0 && (
+                <Badge variant="secondary">{script.linkedJobs.length}</Badge>
+              )}
+            </div>
+            {!script.linkedJobs || script.linkedJobs.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No Control-M jobs are linked to this script</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Job ID</TableHead>
+                    <TableHead>Job Name</TableHead>
+                    <TableHead>Application</TableHead>
+                    <TableHead>Node</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {script.linkedJobs.map((job) => (
+                    <TableRow key={job.id}>
+                      <TableCell className="font-mono text-xs">{job.jobId}</TableCell>
+                      <TableCell className="font-medium">{job.jobName}</TableCell>
+                      <TableCell className="text-muted-foreground">{job.application}</TableCell>
+                      <TableCell className="text-muted-foreground">{job.nodeId}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2"
+                          onClick={() => navigate(`/scripts?tab=jobs&jobId=${job.id}`)}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
 
-      {/* Metadata */}
-      <div className="text-xs text-muted-foreground">
-        <p>Created: {new Date(script.createdAt).toLocaleString()}</p>
-        <p>Updated: {new Date(script.updatedAt).toLocaleString()}</p>
-        {script.lastExecutedAt && <p>Last Executed: {new Date(script.lastExecutedAt).toLocaleString()}</p>}
-      </div>
+          <Separator className="my-6" />
+
+          {/* Script Content */}
+          <div className="mb-6">
+            <div className="mb-3 flex items-center gap-2">
+              <FileCode className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-sm font-semibold text-foreground">Script Content</h3>
+            </div>
+            <div className="max-h-96 overflow-auto rounded-lg border border-border bg-muted/30 p-4 shadow-sm">
+              <pre className="text-xs font-mono text-foreground whitespace-pre-wrap wrap-break-word leading-relaxed">{script.content}</pre>
+            </div>
+          </div>
+
+          {/* Metadata */}
+          <div className="text-xs text-muted-foreground">
+            <p>Created: {new Date(script.createdAt).toLocaleString()}</p>
+            <p>Updated: {new Date(script.updatedAt).toLocaleString()}</p>
+            {script.lastExecutedAt && <p>Last Executed: {new Date(script.lastExecutedAt).toLocaleString()}</p>}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="activity" className="mt-6">
+          <ScriptActivityLog scriptId={script.id} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

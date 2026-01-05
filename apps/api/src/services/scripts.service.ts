@@ -1,5 +1,6 @@
 import { driveAnalyzerService } from './drive-analyzer.service.js';
 import { scriptParserService } from './script-parser.service.js';
+import { auditService } from './audit.service.js';
 import { AppError } from '../errors/app-error.js';
 import { scriptsRepository } from '../repositories/scripts.repository.pg.js';
 
@@ -12,8 +13,18 @@ import type {
   DriveMapping,
   ScriptStats,
   BatchScript,
-  ScriptType
+  ScriptType,
+  PaginatedData,
+  AuditLogEntry
 } from '@workspace/shared';
+
+/** User context for audit logging */
+export interface UserContext {
+  memberEmail?: string;
+  memberDisplayName?: string;
+  ipAddress?: string;
+  userAgent?: string;
+}
 
 interface ScriptListOptions {
   page: number;
@@ -60,7 +71,7 @@ export const getScriptDetailById = async (scriptId: string): Promise<BatchScript
   return detail;
 };
 
-export const createScript = async (request: ScriptCreateRequest, userId?: string): Promise<BatchScriptDetail> => {
+export const createScript = async (request: ScriptCreateRequest, userContext?: UserContext): Promise<BatchScriptDetail> => {
   const { name, description, filePath, content, type = 'batch', isActive = true, tagIds } = request;
 
   // Parse the script content
@@ -75,7 +86,7 @@ export const createScript = async (request: ScriptCreateRequest, userId?: string
     type,
     isActive,
     tagIds
-  }, userId);
+  }, userContext?.memberEmail);
 
   // Add drive mappings
   for (const mapping of parsed.driveMappings) {
@@ -95,14 +106,35 @@ export const createScript = async (request: ScriptCreateRequest, userId?: string
     throw new AppError('Failed to create script.', 500, 'SCRIPT_CREATE_FAILED');
   }
 
+  // Log the create action
+  await auditService.logCreate(
+    userContext?.memberEmail,
+    'script',
+    detail.id,
+    { name: detail.name, filePath: detail.filePath, type: detail.type, isActive: detail.isActive },
+    { 
+      ipAddress: userContext?.ipAddress, 
+      userAgent: userContext?.userAgent,
+      memberDisplayName: userContext?.memberDisplayName
+    }
+  );
+
   return detail;
 };
 
-export const updateScript = async (scriptId: string, request: ScriptUpdateRequest, userId?: string): Promise<BatchScriptDetail> => {
+export const updateScript = async (scriptId: string, request: ScriptUpdateRequest, userContext?: UserContext): Promise<BatchScriptDetail> => {
   const existing = await scriptsRepository.getById(scriptId);
   if (!existing) {
     throw new AppError('Script not found.', 404, 'SCRIPT_NOT_FOUND');
   }
+
+  // Capture old values for audit
+  const oldValues = {
+    name: existing.name,
+    description: existing.description,
+    type: existing.type,
+    isActive: existing.isActive
+  };
 
   const { name, description, content, type, isActive, tagIds } = request;
 
@@ -132,7 +164,7 @@ export const updateScript = async (scriptId: string, request: ScriptUpdateReques
     type,
     isActive,
     tagIds
-  }, userId);
+  }, userContext?.memberEmail);
 
   // Return the full detail
   const detail = await scriptsRepository.getDetail(scriptId);
@@ -140,16 +172,60 @@ export const updateScript = async (scriptId: string, request: ScriptUpdateReques
     throw new AppError('Failed to update script.', 500, 'SCRIPT_UPDATE_FAILED');
   }
 
+  // Build new values for audit (only changed fields)
+  const newValues: Record<string, unknown> = {};
+  if (name !== undefined && name !== oldValues.name) newValues.name = name;
+  if (description !== undefined && description !== oldValues.description) newValues.description = description;
+  if (type !== undefined && type !== oldValues.type) newValues.type = type;
+  if (isActive !== undefined && isActive !== oldValues.isActive) newValues.isActive = isActive;
+  if (content !== undefined && content !== existing.content) newValues.contentUpdated = true;
+  if (tagIds !== undefined) newValues.tagsUpdated = true;
+
+  // Log the update action
+  await auditService.logUpdate(
+    userContext?.memberEmail,
+    'script',
+    scriptId,
+    oldValues,
+    newValues,
+    { 
+      ipAddress: userContext?.ipAddress, 
+      userAgent: userContext?.userAgent,
+      memberDisplayName: userContext?.memberDisplayName
+    }
+  );
+
   return detail;
 };
 
-export const deleteScript = async (scriptId: string): Promise<void> => {
+export const deleteScript = async (scriptId: string, userContext?: UserContext): Promise<void> => {
   const existing = await scriptsRepository.getById(scriptId);
   if (!existing) {
     throw new AppError('Script not found.', 404, 'SCRIPT_NOT_FOUND');
   }
 
+  // Capture old values for audit before deletion
+  const oldValues = {
+    name: existing.name,
+    filePath: existing.filePath,
+    type: existing.type,
+    isActive: existing.isActive
+  };
+
   await scriptsRepository.delete(scriptId);
+
+  // Log the delete action
+  await auditService.logDelete(
+    userContext?.memberEmail,
+    'script',
+    scriptId,
+    oldValues,
+    { 
+      ipAddress: userContext?.ipAddress, 
+      userAgent: userContext?.userAgent,
+      memberDisplayName: userContext?.memberDisplayName
+    }
+  );
 };
 
 export const getStats = async (): Promise<ScriptStats> => {
@@ -223,7 +299,7 @@ export const scanDirectory = async (
   recursive = false,
   filePattern = '*.bat',
   replaceExisting = false,
-  userId?: string
+  userContext?: UserContext
 ): Promise<BatchScript[]> => {
   const fs = await import('fs/promises');
   const path = await import('path');
@@ -286,7 +362,7 @@ export const scanDirectory = async (
                   isActive: true,
                   content,
                   tagIds
-                }, userId);
+                }, userContext);
               } else {
                 // Create new script
                 resultScript = await createScript({
@@ -297,7 +373,7 @@ export const scanDirectory = async (
                   isActive: true,
                   content,
                   tagIds
-                }, userId);
+                }, userContext);
               }
 
               discoveredScripts.push(resultScript);
@@ -316,4 +392,21 @@ export const scanDirectory = async (
 
   await scanDir(directoryPath);
   return discoveredScripts;
+};
+
+/**
+ * Get activity history for a specific script
+ */
+export const getScriptActivity = async (
+  scriptId: string,
+  page = 1,
+  pageSize = 50
+): Promise<PaginatedData<AuditLogEntry>> => {
+  // Verify script exists
+  const existing = await scriptsRepository.getById(scriptId);
+  if (!existing) {
+    throw new AppError('Script not found.', 404, 'SCRIPT_NOT_FOUND');
+  }
+
+  return auditService.getByResource('script', scriptId, page, pageSize);
 };

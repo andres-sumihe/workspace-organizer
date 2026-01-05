@@ -115,13 +115,15 @@ export const ScriptDialog = ({ open, onClose, mode, scriptId, onSuccess }: Scrip
           content: values.content
         });
       } else if (scriptId) {
-        await updateScript(scriptId, {
-          name: values.name,
-          description: values.description,
-          type: values.type,
-          isActive: values.isActive,
-          content: values.content
-        });
+        // Only send fields that might have changed
+        const updatePayload: Record<string, unknown> = {};
+        if (values.name) updatePayload.name = values.name;
+        if (values.description !== undefined) updatePayload.description = values.description;
+        if (values.type) updatePayload.type = values.type;
+        if (values.isActive !== undefined) updatePayload.isActive = values.isActive;
+        if (values.content && values.content.trim()) updatePayload.content = values.content;
+        
+        await updateScript(scriptId, updatePayload);
       }
 
       onSuccess?.();

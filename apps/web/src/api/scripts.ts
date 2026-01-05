@@ -10,7 +10,9 @@ import type {
   ScriptScanRequest,
   DriveConflict,
   ScriptTag,
-  BatchScript
+  BatchScript,
+  PaginatedData,
+  AuditLogEntry
 } from '@workspace/shared';
 
 export const fetchScriptList = (
@@ -80,4 +82,10 @@ export const fetchConflicts = () => {
 
 export const fetchTags = () => {
   return apiRequest<{ tags: ScriptTag[] }>('/api/v1/scripts/tags');
+};
+
+export const fetchScriptActivity = (scriptId: string, page = 1, pageSize = 50) => {
+  return apiRequest<PaginatedData<AuditLogEntry>>(`/api/v1/scripts/${scriptId}/activity`, {
+    query: { page, pageSize }
+  });
 };
