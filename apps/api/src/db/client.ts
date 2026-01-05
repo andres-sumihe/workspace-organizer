@@ -1,5 +1,6 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import Database from 'better-sqlite3';
 
@@ -8,14 +9,13 @@ import { runMigrations } from './migrations/index.js';
 let db: Database.Database | null = null;
 
 // __dirname compatibility for both ESM (dev) and CJS (bundled)
-// In CJS bundle, import.meta.url will be undefined, but __dirname will exist
+// In CJS bundle, import.meta.url may be undefined, but __dirname will exist
 const getCurrentDir = (): string => {
-  // Check if we're in CJS mode (bundled)
+  // Check if we're in CJS mode (bundled) - __dirname exists
   if (typeof __dirname !== 'undefined') {
     return __dirname;
   }
   // ESM mode - use import.meta.url
-  const { fileURLToPath } = require('node:url');
   return path.dirname(fileURLToPath(import.meta.url));
 };
 const __current_dir = getCurrentDir();

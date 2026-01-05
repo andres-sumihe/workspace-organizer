@@ -4,6 +4,11 @@ import * as migration0002 from './0002-create-audit-log.js';
 import * as migration0003 from './0003-create-scripts.js';
 import * as migration0004 from './0004-create-controlm-jobs.js';
 import * as migration0005 from './0005-create-app-info.js';
+import * as migration0006 from './0006-create-tags.js';
+import * as migration0007 from './0007-update-drive-mappings.js';
+import * as migration0008 from './0008-create-script-dependencies.js';
+import * as migration0009 from './0009-add-missing-script-columns.js';
+import * as migration0010 from './0010-fix-null-timestamps.js';
 import { SHARED_SCHEMA, getSearchPath, qualifyTable } from '../shared-schema.js';
 
 import type { Pool, PoolClient } from 'pg';
@@ -18,7 +23,12 @@ const migrations: SharedMigration[] = [
   { id: migration0002.id, up: migration0002.up },
   { id: migration0003.id, up: migration0003.up },
   { id: migration0004.id, up: migration0004.up },
-  { id: migration0005.id, up: migration0005.up }
+  { id: migration0005.id, up: migration0005.up },
+  { id: migration0006.id, up: migration0006.up },
+  { id: migration0007.id, up: migration0007.up },
+  { id: migration0008.id, up: migration0008.up },
+  { id: migration0009.id, up: migration0009.up },
+  { id: migration0010.id, up: migration0010.up }
 ];
 
 // Re-export schema utilities

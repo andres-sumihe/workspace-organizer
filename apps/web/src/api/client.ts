@@ -1,26 +1,19 @@
-// In Electron production builds using custom protocol (app://bundle/),
-// API requests should be relative so they get intercepted by the protocol handler.
-// In development (Vite dev server), we need absolute URLs to the API server.
-const isElectronProduction = () => {
-  return typeof window !== 'undefined' && 
-         window.location.protocol === 'app:';
-};
+// API requests should use relative URLs in both:
+// 1. Electron production (app:// protocol) - handled by custom protocol handler
+// 2. Development with Vite - handled by Vite's proxy configuration
+// Only use absolute URLs when VITE_API_URL is explicitly set.
 
 const resolveApiBaseUrl = () => {
-  // In Electron production (app:// protocol), use relative URLs
-  // The custom protocol handler will intercept /api/* requests
-  if (isElectronProduction()) {
-    return ''; // Empty string means relative URLs (/api/...)
-  }
-  
-  // Check for environment variable override
+  // Check for environment variable override first
   const envValue = (import.meta as { env?: Record<string, unknown> }).env?.VITE_API_URL;
   if (typeof envValue === 'string' && envValue.trim().length > 0) {
     return envValue.trim();
   }
 
-  // Default to localhost port 4000 for development
-  return 'http://127.0.0.1:4000';
+  // Use relative URLs by default
+  // - In Electron production: custom protocol handler intercepts /api/* requests
+  // - In Vite development: proxy configuration routes /api/* to backend server
+  return '';
 };
 
 const API_BASE_URL = resolveApiBaseUrl();

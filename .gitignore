@@ -32,3 +32,5 @@ out/
 .amazonq/*
 .github/
 docs/
+scripts/
+temp_scripts/
