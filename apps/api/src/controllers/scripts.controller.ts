@@ -9,11 +9,21 @@ import {
   getDriveAnalysis,
   getConflicts,
   getAllTags,
-  scanDirectory
+  scanDirectory,
+  getScriptActivity
 } from '../services/scripts.service.js';
 
 import type { ScriptType } from '@workspace/shared';
 import type { RequestHandler } from 'express';
+import type { AuthenticatedRequest } from '../middleware/auth.middleware.js';
+
+/** Helper to extract user context for audit logging */
+const getUserContext = (req: AuthenticatedRequest) => ({
+  memberEmail: req.user?.email,
+  memberDisplayName: req.user?.displayName || req.user?.username,
+  ipAddress: req.ip || req.socket.remoteAddress,
+  userAgent: req.get('user-agent')
+});
 
 export const listScriptsHandler: RequestHandler = async (req, res) => {
   const pagination = parsePaginationQuery(req.query);
@@ -63,6 +73,7 @@ export const createScriptHandler: RequestHandler = async (req, res) => {
     return res.status(400).json({ code: 'INVALID_REQUEST', message: 'Missing required fields: name, filePath, content' });
   }
 
+  const userContext = getUserContext(req as AuthenticatedRequest);
   const script = await createScriptService({
     name,
     description,
@@ -71,7 +82,7 @@ export const createScriptHandler: RequestHandler = async (req, res) => {
     type,
     isActive,
     tagIds
-  });
+  }, userContext);
 
   res.status(201).json({ script });
 };
@@ -91,6 +102,7 @@ export const updateScriptHandler: RequestHandler = async (req, res) => {
   const isActive = typeof body.isActive === 'boolean' ? body.isActive : undefined;
   const tagIds = Array.isArray(body.tagIds) ? body.tagIds.filter((id): id is string => typeof id === 'string') : undefined;
 
+  const userContext = getUserContext(req as AuthenticatedRequest);
   const script = await updateScriptService(scriptId, {
     name,
     description,
@@ -98,7 +110,7 @@ export const updateScriptHandler: RequestHandler = async (req, res) => {
     type,
     isActive,
     tagIds
-  });
+  }, userContext);
 
   res.json({ script });
 };
@@ -109,7 +121,8 @@ export const deleteScriptHandler: RequestHandler = async (req, res) => {
     return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'scriptId is required' } });
   }
 
-  await deleteScriptService(scriptId);
+  const userContext = getUserContext(req as AuthenticatedRequest);
+  await deleteScriptService(scriptId, userContext);
   res.status(204).send();
 };
 
@@ -125,7 +138,8 @@ export const scanScriptsHandler: RequestHandler = async (req, res) => {
     return res.status(400).json({ code: 'INVALID_REQUEST', message: 'Missing required field: directoryPath' });
   }
 
-  const scripts = await scanDirectory(directoryPath, recursive, filePattern, replaceExisting);
+  const userContext = getUserContext(req as AuthenticatedRequest);
+  const scripts = await scanDirectory(directoryPath, recursive, filePattern, replaceExisting, userContext);
   res.json({ scripts, count: scripts.length });
 };
 
@@ -147,4 +161,17 @@ export const getConflictsHandler: RequestHandler = async (_req, res) => {
 export const listTagsHandler: RequestHandler = async (_req, res) => {
   const tags = await getAllTags();
   res.json({ tags });
+};
+
+export const getScriptActivityHandler: RequestHandler = async (req, res) => {
+  const scriptId = req.params.scriptId;
+  if (!scriptId) {
+    return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'scriptId is required' } });
+  }
+
+  const page = typeof req.query.page === 'string' ? parseInt(req.query.page, 10) : 1;
+  const pageSize = typeof req.query.pageSize === 'string' ? parseInt(req.query.pageSize, 10) : 50;
+
+  const activity = await getScriptActivity(scriptId, page, pageSize);
+  res.json(activity);
 };

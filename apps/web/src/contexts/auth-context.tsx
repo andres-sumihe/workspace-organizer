@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 
+import { onAuthError } from '@/api/client';
+
 import type { LoginRequest, Permission, UserWithRoles, AppMode, SessionConfig } from '@workspace/shared';
 import type { ReactNode } from 'react';
 
@@ -352,6 +354,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     initAuth();
   }, [fetchCurrentUser, fetchSessionConfig]);
+
+  // Listen for global auth errors from API client
+  useEffect(() => {
+    const unsubscribe = onAuthError((event) => {
+      /**
+       * Best practice session handling:
+       * 
+       * LOCK SCREEN (can unlock with password):
+       * - session_expired: User was idle too long, session timed out
+       * - User still exists and is valid, just needs to re-authenticate
+       * 
+       * FORCE LOGOUT (must go to login page):
+       * - unauthorized: Token invalid, corrupted, or user doesn't exist
+       * - User was deleted, deactivated, or token was tampered with
+       */
+      if (event.type === 'session_expired' && state.user) {
+        // Session expired due to inactivity - show lock screen
+        // User can re-enter password to continue
+        setState((prev) => ({ ...prev, isLocked: true }));
+      } else {
+        // Unauthorized, invalid token, or no user context
+        // Force full logout - must go to login page
+        clearTokens();
+        setState({
+          user: null,
+          permissions: [],
+          isAuthenticated: false,
+          isLoading: false,
+          mode: 'solo',
+          isLocked: false,
+          sessionConfig: null,
+        });
+      }
+    });
+
+    return unsubscribe;
+  }, [state.user]);
 
   // Setup heartbeat and inactivity check when authenticated
   useEffect(() => {

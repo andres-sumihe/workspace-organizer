@@ -58,19 +58,43 @@ const buildUrl = (path: string, query?: RequestOptions['query']) => {
 
 const parseErrorBody = async (response: Response) => {
   try {
-    const payload = (await response.clone().json()) as { error?: { message?: string } };
+    const payload = (await response.clone().json()) as { error?: { message?: string }; code?: string; message?: string };
     if (payload?.error?.message) {
-      return payload.error.message;
+      return { message: payload.error.message, code: payload.code };
+    }
+    if (payload?.message) {
+      return { message: payload.message, code: payload.code };
     }
   } catch {
     // ignore – fallback to status text below
   }
 
-  return response.statusText || `Request failed with status ${response.status}`;
+  return { message: response.statusText || `Request failed with status ${response.status}`, code: undefined };
 };
 
 const getAuthToken = (): string | null => {
   return localStorage.getItem('auth_access_token');
+};
+
+const clearAuthTokens = () => {
+  localStorage.removeItem('auth_access_token');
+  localStorage.removeItem('auth_refresh_token');
+};
+
+/** Event emitter for auth-related events */
+type AuthEventListener = (event: { type: 'session_expired' | 'unauthorized'; message: string }) => void;
+const authEventListeners: AuthEventListener[] = [];
+
+export const onAuthError = (listener: AuthEventListener) => {
+  authEventListeners.push(listener);
+  return () => {
+    const index = authEventListeners.indexOf(listener);
+    if (index > -1) authEventListeners.splice(index, 1);
+  };
+};
+
+const emitAuthError = (type: 'session_expired' | 'unauthorized', message: string) => {
+  authEventListeners.forEach(listener => listener({ type, message }));
 };
 
 export const apiRequest = async <TResponse>(
@@ -92,7 +116,18 @@ export const apiRequest = async <TResponse>(
   });
 
   if (!response.ok) {
-    const message = await parseErrorBody(response);
+    const { message, code } = await parseErrorBody(response);
+    
+    // Handle authentication errors globally
+    if (response.status === 401) {
+      if (code === 'SESSION_EXPIRED' || code === 'TOKEN_EXPIRED') {
+        clearAuthTokens();
+        emitAuthError('session_expired', message);
+      } else {
+        emitAuthError('unauthorized', message);
+      }
+    }
+    
     throw new ApiError(message, response.status);
   }
 
