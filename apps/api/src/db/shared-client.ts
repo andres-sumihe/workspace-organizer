@@ -119,16 +119,22 @@ export const initializeSharedDb = async (connStr?: string): Promise<void> => {
 
   // Build pool with search_path set on every connection
   const searchPath = getSearchPath();
+  
+  // Append options to connection string to force ISO datestyle and search_path
+  let finalConnString = connString;
+  if (!finalConnString.includes('options=')) {
+     const separator = finalConnString.includes('?') ? '&' : '?';
+     // URL encode the search path (comma and space)
+     // Remove space to avoid issues with connection string parsing
+     const safeSearchPath = searchPath.replace(/\s/g, '');
+     finalConnString += `${separator}options=-c%20search_path=${safeSearchPath}%20-c%20datestyle=ISO`;
+  }
+
   pool = new Pool({
-    connectionString: connString,
+    connectionString: finalConnString,
     max: 20, // Maximum number of clients in the pool
     idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
     connectionTimeoutMillis: 10000 // Timeout for acquiring a connection
-  });
-
-  // Set search_path on each new connection
-  pool.on('connect', (client) => {
-    client.query(`SET search_path TO ${searchPath}`);
   });
 
   // Verify connection works and schema can be created/accessed
@@ -136,8 +142,6 @@ export const initializeSharedDb = async (connStr?: string): Promise<void> => {
   try {
     // Ensure schema exists (idempotent)
     await client.query(`CREATE SCHEMA IF NOT EXISTS ${SHARED_SCHEMA}`);
-    // Set search_path for this client explicitly (in case 'connect' event was missed)
-    await client.query(`SET search_path TO ${searchPath}`);
     await client.query('SELECT 1');
   } finally {
     client.release();

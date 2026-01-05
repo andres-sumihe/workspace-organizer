@@ -188,6 +188,11 @@ export const installationService = {
 
     try {
       await initializeSharedDb(connString);
+      
+      // Run pending migrations on startup
+      const pool = getSharedPool();
+      await runSharedMigrations(pool);
+      
       const { modeService } = await import('./mode.service.js');
       await modeService.enableSharedMode();
       return true;

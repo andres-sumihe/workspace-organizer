@@ -7,21 +7,18 @@ interface ApiHealthState {
   retryCount: number;
 }
 
-// Determine if running in Electron production mode
-const isElectronProduction = () => {
-  return typeof window !== 'undefined' && 
-         window.location.protocol === 'app:';
-};
-
 // Get the health check URL based on environment
 const getHealthUrl = () => {
-  if (isElectronProduction()) {
-    // In Electron production, use relative URL (will be handled by custom protocol)
-    return '/api/health';
+  // Check for environment variable override first
+  const baseUrl = import.meta.env.VITE_API_URL;
+  if (baseUrl && baseUrl.trim().length > 0) {
+    return `${baseUrl.trim()}/api/health`;
   }
-  // In development, use absolute URL to port 4000
-  const baseUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:4000';
-  return `${baseUrl}/api/health`;
+  
+  // Use relative URLs by default - works in both:
+  // - Electron production (custom protocol handler)
+  // - Vite development (proxy configuration)
+  return '/api/health';
 };
 
 const MAX_RETRIES = 10;

@@ -55,21 +55,31 @@ interface LinkedJobRow {
   node_id: string;
 }
 
+// Helper to convert PostgreSQL timestamp to ISO string
+const toISOString = (value: string | Date | null | undefined): string | undefined => {
+  if (!value) return undefined;
+  if (value instanceof Date) return value.toISOString();
+  return value;
+};
+
 // Map database row to BatchScript
-const mapRowToScript = (row: ScriptRow): BatchScript => ({
-  id: row.id,
-  name: row.name,
-  description: row.description ?? undefined,
-  filePath: row.file_path,
-  content: row.content,
-  type: row.type as ScriptType,
-  isActive: row.is_active,
-  hasCredentials: row.has_credentials,
-  executionCount: row.execution_count,
-  lastExecutedAt: row.last_executed_at ?? undefined,
-  createdAt: row.created_at,
-  updatedAt: row.updated_at
-});
+const mapRowToScript = (row: ScriptRow): BatchScript => {
+  const result: BatchScript = {
+    id: row.id,
+    name: row.name,
+    description: row.description ?? undefined,
+    filePath: row.file_path,
+    content: row.content,
+    type: row.type as ScriptType,
+    isActive: row.is_active,
+    hasCredentials: row.has_credentials ?? false,
+    executionCount: row.execution_count ?? 0,
+    lastExecutedAt: toISOString(row.last_executed_at),
+    createdAt: toISOString(row.created_at) || new Date().toISOString(),
+    updatedAt: toISOString(row.updated_at) || new Date().toISOString()
+  };
+  return result;
+};
 
 // Map database row to DriveMapping
 const mapRowToDriveMapping = (row: DriveMappingRow): DriveMapping => ({
@@ -79,10 +89,10 @@ const mapRowToDriveMapping = (row: DriveMappingRow): DriveMapping => ({
   networkPath: row.network_path,
   serverName: row.server_name ?? undefined,
   shareName: row.share_name ?? undefined,
-  hasCredentials: row.has_credentials,
+  hasCredentials: row.has_credentials ?? false,
   username: row.username ?? undefined,
-  createdAt: row.created_at,
-  updatedAt: row.updated_at
+  createdAt: toISOString(row.created_at) ?? new Date().toISOString(),
+  updatedAt: toISOString(row.updated_at) ?? new Date().toISOString()
 });
 
 // Map database row to ScriptTag
@@ -90,8 +100,8 @@ const mapRowToTag = (row: TagRow): ScriptTag => ({
   id: row.id,
   name: row.name,
   color: row.color ?? undefined,
-  createdAt: row.created_at,
-  updatedAt: row.updated_at
+  createdAt: toISOString(row.created_at) ?? new Date().toISOString(),
+  updatedAt: toISOString(row.updated_at) ?? new Date().toISOString()
 });
 
 export interface ListScriptsParams {

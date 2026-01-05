@@ -24,7 +24,7 @@ export const createApp = async (): Promise<Express> => {
     console.error('Failed to cleanup sessions:', error);
   }
 
-  // Initialize shared database if configured
+  // Initialize shared database if configured (runs pending migrations)
   try {
     await installationService.initializeOnStartup();
   } catch (error) {

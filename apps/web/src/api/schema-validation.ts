@@ -1,4 +1,5 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+// Use relative URLs by default - works with both Vite proxy and Electron protocol handler
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 export interface ColumnInfo {
   column_name: string;
