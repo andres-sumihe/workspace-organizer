@@ -30,6 +30,12 @@ const nativeModulePlugin = {
   }
 };
 
+// Banner to define __dirname/__filename for CJS compatibility
+const cjsBanner = `
+var __bundled_dirname = typeof __dirname !== 'undefined' ? __dirname : require('path').dirname(__filename);
+var __bundled_filename = typeof __filename !== 'undefined' ? __filename : '';
+`;
+
 // Bundle the app.js for Electron (single file with all dependencies)
 // All pure JS dependencies are bundled, native modules use require()
 await esbuild.build({
@@ -40,7 +46,12 @@ await esbuild.build({
   format: 'cjs', // Use CommonJS so require() works for native modules
   outfile: join(apiRoot, 'dist', 'app.bundle.cjs'),
   plugins: [nativeModulePlugin],
-  // No banner needed - CJS already has __dirname and __filename
+  banner: { js: cjsBanner },
+  logLevel: 'warning',
+  // Define import.meta.url replacement to avoid CJS incompatibility
+  define: {
+    'import.meta.url': 'undefined'
+  }
 });
 
 console.log('API bundled to dist/app.bundle.cjs');

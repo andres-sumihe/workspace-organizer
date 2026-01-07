@@ -127,6 +127,17 @@ function startApiServer() {
       Module.globalPaths.unshift(unpackedNodeModules);
       log(`[API] Added to global module paths: ${unpackedNodeModules}`);
       
+      // Verify better-sqlite3 can be loaded before proceeding
+      try {
+        const testSqlite = require('better-sqlite3');
+        log(`[API] better-sqlite3 loaded successfully: ${typeof testSqlite}`);
+      } catch (sqliteErr) {
+        log(`[API] CRITICAL: Failed to load better-sqlite3: ${sqliteErr.message}`);
+        log(`[API] Stack: ${sqliteErr.stack}`);
+        resolve(false);
+        return;
+      }
+      
       // Use bundled app.js which uses CJS require() for native modules
       let apiAppPath;
       if (appPath.includes('.asar')) {

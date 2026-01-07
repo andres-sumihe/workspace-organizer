@@ -11,6 +11,7 @@ yarn.lock
 package-lock.json
 .npmrc
 /apps/api/data/*.sqlite
+/apps/data/*.sqlite
 
 # Electron build outputs
 release/
