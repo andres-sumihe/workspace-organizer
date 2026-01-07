@@ -1,5 +1,6 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { RefreshCw, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { JobDetailPanel } from './job-detail-panel';
 import { JobImportDialog } from './job-import-dialog';
@@ -9,7 +10,6 @@ import type { ControlMJob, ControlMJobDetail } from '@workspace/shared';
 
 import {
   fetchJobDetail,
-  fetchJobStats,
   clearAllJobs
 } from '@/api/controlm-jobs';
 import {
@@ -24,38 +24,23 @@ import {
   AlertDialogTrigger
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { useJobStats } from '@/hooks/use-jobs';
+import { queryKeys } from '@/lib/query-client';
 
-
-interface JobStats {
-  totalJobs: number;
-  activeJobs: number;
-  cyclicJobs: number;
-}
 
 interface JobsTabProps {
   initialJobId?: string;
 }
 
 export const JobsTab = ({ initialJobId }: JobsTabProps) => {
+  const queryClient = useQueryClient();
   const [selectedJob, setSelectedJob] = useState<ControlMJob | null>(null);
   const [jobDetail, setJobDetail] = useState<ControlMJobDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [stats, setStats] = useState<JobStats | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
 
-  // Load stats
-  const loadStats = useCallback(async () => {
-    try {
-      const response = await fetchJobStats();
-      setStats(response.stats);
-    } catch (err) {
-      console.error('Failed to load stats:', err);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadStats();
-  }, [loadStats, refreshKey]);
+  // Use cached stats
+  const { data: statsResponse } = useJobStats();
+  const stats = statsResponse?.stats ?? null;
 
   // Load job detail when selected
   useEffect(() => {
@@ -72,7 +57,12 @@ export const JobsTab = ({ initialJobId }: JobsTabProps) => {
   }, [selectedJob]);
 
   const handleImportComplete = () => {
-    setRefreshKey(k => k + 1);
+    // Invalidate all job-related queries
+    queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+  };
+
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
   };
 
   const handleClearAll = async () => {
@@ -80,7 +70,7 @@ export const JobsTab = ({ initialJobId }: JobsTabProps) => {
       await clearAllJobs();
       setSelectedJob(null);
       setJobDetail(null);
-      setRefreshKey(k => k + 1);
+      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
     } catch (err) {
       console.error('Failed to clear jobs:', err);
     }
@@ -134,7 +124,7 @@ export const JobsTab = ({ initialJobId }: JobsTabProps) => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setRefreshKey(k => k + 1)}
+            onClick={handleRefresh}
             title="Refresh"
           >
             <RefreshCw className="h-4 w-4" />
@@ -170,7 +160,6 @@ export const JobsTab = ({ initialJobId }: JobsTabProps) => {
         {/* Job List */}
         <div className="flex-1 border-r overflow-hidden">
           <JobList
-            refreshKey={refreshKey}
             onJobSelect={setSelectedJob}
             selectedJobId={selectedJob?.id}
           />

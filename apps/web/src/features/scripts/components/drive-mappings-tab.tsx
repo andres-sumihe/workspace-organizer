@@ -1,27 +1,57 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { HardDrive, RefreshCw, Server, Users } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { DriveUsageMap } from './drive-usage-map';
 
-import type { DriveAnalysis, DriveMapping } from '@workspace/shared';
+import type { DriveMapping } from '@workspace/shared';
 
-import { fetchDriveAnalysis } from '@/api/scripts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
+import { PageLoader } from '@/components/ui/page-loader';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useDriveAnalysis } from '@/hooks/use-scripts';
+import { queryKeys } from '@/lib/query-client';
 
 interface DriveMappingWithScript extends DriveMapping {
   scriptName: string;
 }
 
 export const DriveMappingsTab = () => {
-  const [analysis, setAnalysis] = useState<DriveAnalysis | null>(null);
-  const [allMappings, setAllMappings] = useState<DriveMappingWithScript[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const { data: analysisResponse, isLoading, error, refetch } = useDriveAnalysis();
   const [selectedDrives, setSelectedDrives] = useState<Set<string>>(new Set());
+
+  const analysis = analysisResponse?.analysis ?? null;
+
+  // Build all mappings from analysis data
+  const allMappings = useMemo(() => {
+    if (!analysis) return [];
+    
+    const mappings: DriveMappingWithScript[] = [];
+    let idx = 0;
+    
+    // Use driveUsage which contains ALL drive mappings (including single-script drives)
+    const driveUsageData = analysis.driveUsage ?? analysis.conflicts;
+    
+    for (const usage of driveUsageData) {
+      for (const script of usage.scripts) {
+        mappings.push({
+          id: `${usage.driveLetter}-${script.scriptId}-${idx++}`,
+          scriptId: script.scriptId,
+          scriptName: script.scriptName,
+          driveLetter: usage.driveLetter,
+          networkPath: script.networkPath,
+          hasCredentials: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+      }
+    }
+    
+    return mappings;
+  }, [analysis]);
 
   // Build usage count map from analysis data
   const usageCountMap = useMemo(() => {
@@ -54,78 +84,34 @@ export const DriveMappingsTab = () => {
     return allMappings.filter((m) => selectedDrives.has(m.driveLetter));
   }, [allMappings, selectedDrives]);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      // Fetch drive analysis
-      const analysisResponse = await fetchDriveAnalysis();
+  const handleRefresh = () => {
+    // Invalidate and refetch
+    queryClient.invalidateQueries({ queryKey: queryKeys.scripts.driveAnalysis() });
+    refetch();
+  };
 
-      setAnalysis(analysisResponse.analysis);
-
-      // Create mapping list from driveUsage (all drives, not just conflicts)
-      const mappings: DriveMappingWithScript[] = [];
-      let idx = 0;
-      
-      // Use driveUsage which contains ALL drive mappings (including single-script drives)
-      const driveUsageData = analysisResponse.analysis.driveUsage ?? analysisResponse.analysis.conflicts;
-      
-      for (const usage of driveUsageData) {
-        for (const script of usage.scripts) {
-          mappings.push({
-            id: `${usage.driveLetter}-${script.scriptId}-${idx++}`,
-            scriptId: script.scriptId,
-            scriptName: script.scriptName,
-            driveLetter: usage.driveLetter,
-            networkPath: script.networkPath,
-            hasCredentials: false,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          });
-        }
-      }
-
-      setAllMappings(mappings);
-    } catch (err) {
-      console.error('Failed to load drive analysis:', err);
-      setError('Failed to load drive analysis data');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="space-y-6 p-6">
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-9 w-24" />
-        </div>
-        <div className="grid gap-4 md:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-24" />
-          ))}
-        </div>
-        <Skeleton className="h-48" />
-        <Skeleton className="h-64" />
+      <div className="relative flex-1 min-h-[400px]">
+        <PageLoader message="Loading drive mappings..." />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 text-center">
-        <HardDrive className="h-12 w-12 text-destructive mb-4" />
-        <h3 className="text-lg font-semibold mb-2">Failed to Load Data</h3>
-        <p className="text-muted-foreground mb-4">{error}</p>
-        <Button onClick={loadData} variant="outline">
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Retry
-        </Button>
+      <div className="relative flex-1 min-h-[400px]">
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-12 text-center">
+          <HardDrive className="h-12 w-12 text-destructive mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Failed to Load Data</h3>
+          <p className="text-muted-foreground mb-4">
+            {error instanceof Error ? error.message : 'Failed to load drive analysis data'}
+          </p>
+          <Button onClick={handleRefresh} variant="outline">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Retry
+          </Button>
+        </div>
       </div>
     );
   }
@@ -143,14 +129,14 @@ export const DriveMappingsTab = () => {
             Overview of all network drive mappings across your scripts
           </p>
         </div>
-        <Button onClick={loadData} variant="outline" size="sm">
+        <Button onClick={handleRefresh} variant="outline" size="sm">
           <RefreshCw className="mr-2 h-4 w-4" />
           Refresh
         </Button>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Scripts</CardTitle>
@@ -176,7 +162,7 @@ export const DriveMappingsTab = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Drives In Use</CardTitle>
-            <HardDrive className="h-4 w-4 text-info" />
+            <HardDrive className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{analysis.usedDrives.length}</div>
@@ -238,7 +224,6 @@ export const DriveMappingsTab = () => {
                     <TableHead className="w-20">Drive</TableHead>
                     <TableHead>Script</TableHead>
                     <TableHead>Network Path</TableHead>
-                    <TableHead className="w-32">Usage Count</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -259,12 +244,6 @@ export const DriveMappingsTab = () => {
                         </TableCell>
                         <TableCell className="font-mono text-xs text-muted-foreground">
                           {mapping.networkPath}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            <Users className="mr-1 h-3 w-3" />
-                            {usageCount} script{usageCount > 1 ? 's' : ''}
-                          </Badge>
                         </TableCell>
                       </TableRow>
                     );
