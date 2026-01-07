@@ -1,3 +1,7 @@
+import React from 'react';
+
+import { useTheme } from '@/components/theme-provider';
+
 interface DriveUsageMapProps {
   usedDrives: string[];
   availableDrives: string[];
@@ -10,29 +14,64 @@ interface DriveUsageMapProps {
 }
 
 /**
- * Get color classes based on usage count
- * Uses a heat map color scheme: neutral (0) → success (1) → warning gradient (2-3) → destructive (4+)
+ * Get inline styles based on usage count for reliable dark/light mode support
+ * Using inline styles to avoid Tailwind purging issues with dynamic classes
  */
-const getUsageColorClasses = (count: number): string => {
+const getUsageStyles = (count: number, isDark: boolean): React.CSSProperties => {
   if (count === 0) {
     // Not used - neutral gray
-    return 'border-slate-400 bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400';
+    return {
+      borderColor: isDark ? '#525252' : '#a3a3a3',
+      backgroundColor: isDark ? '#262626' : '#f5f5f5',
+      color: isDark ? '#a3a3a3' : '#525252',
+    };
   }
   if (count === 1) {
-    // Low usage - success (green)
-    return 'border-success bg-success-muted text-success dark:bg-success-muted';
+    // Low usage - green
+    return {
+      borderColor: isDark ? '#22c55e' : '#16a34a',
+      backgroundColor: isDark ? '#14532d' : '#dcfce7',
+      color: isDark ? '#86efac' : '#166534',
+    };
   }
   if (count === 2) {
-    // Medium-low - warning (yellow/amber)
-    return 'border-warning bg-warning-muted text-warning-foreground dark:bg-warning-muted';
+    // Medium-low - yellow
+    return {
+      borderColor: isDark ? '#eab308' : '#ca8a04',
+      backgroundColor: isDark ? '#422006' : '#fef9c3',
+      color: isDark ? '#fde047' : '#854d0e',
+    };
   }
   if (count === 3) {
-    // Medium-high - orange (between warning and destructive)
-    return 'border-orange-500 bg-orange-200 text-orange-900 dark:bg-orange-950 dark:text-orange-300';
+    // Medium-high - orange
+    return {
+      borderColor: isDark ? '#f97316' : '#ea580c',
+      backgroundColor: isDark ? '#431407' : '#ffedd5',
+      color: isDark ? '#fdba74' : '#9a3412',
+    };
   }
-  // 4+ scripts - high usage - destructive (red)
-  return 'border-destructive bg-destructive/20 text-destructive dark:bg-destructive/30';
+  // 4+ scripts - red
+  return {
+    borderColor: isDark ? '#ef4444' : '#dc2626',
+    backgroundColor: isDark ? '#450a0a' : '#fee2e2',
+    color: isDark ? '#fca5a5' : '#991b1b',
+  };
 };
+
+/** Get system drive styles */
+const getSystemStyles = (isDark: boolean): React.CSSProperties => ({
+  borderColor: isDark ? '#404040' : '#d4d4d4',
+  backgroundColor: isDark ? '#171717' : '#e5e5e5',
+  color: isDark ? '#737373' : '#737373',
+});
+
+/** Get selected drive styles */
+const getSelectedStyles = (): React.CSSProperties => ({
+  outline: '1px solid #3b82f6',
+  outlineOffset: '2px',
+  zIndex: 10,
+  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+});
 
 export const DriveUsageMap = ({ 
   usedDrives, 
@@ -42,6 +81,10 @@ export const DriveUsageMap = ({
   onSelectionChange 
 }: DriveUsageMapProps) => {
   const allDrives = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  
+  // Use theme context for proper dark mode detection
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
   
   // System reserved drives (A-F typically)
   const systemDrives = new Set(
@@ -75,13 +118,13 @@ export const DriveUsageMap = ({
         {selectedDrives && selectedDrives.size > 0 && (
           <button
             onClick={clearSelection}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            className="text-xs text-primary hover:text-primary/80 transition-colors font-medium"
           >
             Clear selection ({selectedDrives.size})
           </button>
         )}
       </div>
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-2">
         {allDrives.map((drive) => {
           const isUsed = usedDrives.includes(drive);
           const isSystem = systemDrives.has(drive);
@@ -90,36 +133,37 @@ export const DriveUsageMap = ({
           const isClickable = isUsed && onSelectionChange;
           
           // Determine styling based on usage
-          let colorClasses: string;
+          let styles: React.CSSProperties;
           let title: string;
           
           if (isSystem) {
-            // System reserved (not in usedDrives or availableDrives)
-            colorClasses = 'border-border bg-muted text-muted-foreground';
+            styles = getSystemStyles(isDark);
             title = `${drive}: System reserved`;
           } else if (isUsed) {
-            // Used by scripts - color intensity based on count
-            colorClasses = getUsageColorClasses(count);
+            styles = getUsageStyles(count, isDark);
             title = `${drive}: Used by ${count} script${count > 1 ? 's' : ''} (click to ${isSelected ? 'deselect' : 'select'})`;
           } else {
-            // Available (in network range but not used)
-            colorClasses = getUsageColorClasses(0);
+            styles = getUsageStyles(0, isDark);
             title = `${drive}: Not used`;
           }
 
-          // Add selection highlight - use outline instead of ring to avoid overlap
-          const selectionClasses = isSelected 
-            ? 'outline outline-[2px] outline-primary z-10' 
-            : '';
-          
-          // Add cursor style for clickable drives
-          const cursorClasses = isClickable ? 'cursor-pointer' : 'cursor-default';
+          // Add selection styles
+          if (isSelected) {
+            styles = { ...styles, ...getSelectedStyles() };
+          }
           
           return (
             <div
               key={drive}
               onClick={() => handleDriveClick(drive)}
-              className={`flex h-9 w-9 items-center justify-center rounded-md border text-xs font-mono font-semibold transition-colors shadow-sm ${colorClasses} ${selectionClasses} ${cursorClasses}`}
+              style={{
+                ...styles,
+                borderWidth: '2px',
+                borderStyle: 'solid',
+                cursor: isClickable ? 'pointer' : 'default',
+                transition: 'all 150ms ease',
+              }}
+              className={`flex h-10 w-10 items-center justify-center rounded-md text-sm font-mono font-bold shadow-sm ${isClickable ? 'hover:shadow-md' : ''}`}
               title={title}
             >
               {drive}
@@ -128,29 +172,83 @@ export const DriveUsageMap = ({
         })}
       </div>
       <div className="mt-3 flex flex-wrap gap-4 text-xs">
-        <div className="flex items-center gap-1">
-          <div className="h-3 w-3 rounded border border-slate-400 bg-slate-100 dark:bg-slate-800" />
+        <div className="flex items-center gap-1.5">
+          <div 
+            className="h-3 w-3 rounded" 
+            style={{ 
+              ...getUsageStyles(0, isDark),
+              borderWidth: '2px',
+              borderStyle: 'solid',
+            }} 
+          />
           <span className="text-muted-foreground">Not Used</span>
         </div>
-        <div className="flex items-center gap-1">
-          <div className="h-3 w-3 rounded border border-success bg-success-muted" />
+        <div className="flex items-center gap-1.5">
+          <div 
+            className="h-3 w-3 rounded" 
+            style={{ 
+              ...getUsageStyles(1, isDark),
+              borderWidth: '2px',
+              borderStyle: 'solid',
+            }} 
+          />
           <span className="text-muted-foreground">1 Script</span>
         </div>
-        <div className="flex items-center gap-1">
-          <div className="h-3 w-3 rounded border border-warning bg-warning-muted" />
+        <div className="flex items-center gap-1.5">
+          <div 
+            className="h-3 w-3 rounded" 
+            style={{ 
+              ...getUsageStyles(2, isDark),
+              borderWidth: '2px',
+              borderStyle: 'solid',
+            }} 
+          />
           <span className="text-muted-foreground">2 Scripts</span>
         </div>
-        <div className="flex items-center gap-1">
-          <div className="h-3 w-3 rounded border border-orange-500 bg-orange-200 dark:bg-orange-950" />
+        <div className="flex items-center gap-1.5">
+          <div 
+            className="h-3 w-3 rounded" 
+            style={{ 
+              ...getUsageStyles(3, isDark),
+              borderWidth: '2px',
+              borderStyle: 'solid',
+            }} 
+          />
           <span className="text-muted-foreground">3 Scripts</span>
         </div>
-        <div className="flex items-center gap-1">
-          <div className="h-3 w-3 rounded border border-destructive bg-destructive/20" />
+        <div className="flex items-center gap-1.5">
+          <div 
+            className="h-3 w-3 rounded" 
+            style={{ 
+              ...getUsageStyles(4, isDark),
+              borderWidth: '2px',
+              borderStyle: 'solid',
+            }} 
+          />
           <span className="text-muted-foreground">4+ Scripts</span>
         </div>
-        <div className="flex items-center gap-1">
-          <div className="h-3 w-3 rounded border border-border bg-muted" />
+        <div className="flex items-center gap-1.5">
+          <div 
+            className="h-3 w-3 rounded" 
+            style={{ 
+              ...getSystemStyles(isDark),
+              borderWidth: '2px',
+              borderStyle: 'solid',
+            }} 
+          />
           <span className="text-muted-foreground">System</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div 
+            className="h-3 w-3 rounded" 
+            style={{ 
+              ...getUsageStyles(1, isDark),
+              ...getSelectedStyles(),
+              borderWidth: '2px',
+              borderStyle: 'solid',
+            }} 
+          />
+          <span className="text-muted-foreground">Selected</span>
         </div>
       </div>
     </div>

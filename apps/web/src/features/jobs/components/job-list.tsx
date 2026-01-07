@@ -1,12 +1,14 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { PlayCircle, PauseCircle, RefreshCw, Trash2 } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 
 import type { ControlMJob } from '@workspace/shared';
 
-import { fetchJobList, fetchJobFilters, deleteJob } from '@/api/controlm-jobs';
+import { deleteJob } from '@/api/controlm-jobs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PageLoader } from '@/components/ui/page-loader';
 import {
   Select,
   SelectContent,
@@ -14,7 +16,6 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
   TableBody,
@@ -23,6 +24,8 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table';
+import { useJobList, useJobFilters } from '@/hooks/use-jobs';
+import { queryKeys } from '@/lib/query-client';
 
 interface JobListProps {
   onJobSelect?: (job: ControlMJob) => void;
@@ -30,11 +33,8 @@ interface JobListProps {
   refreshKey?: number;
 }
 
-export const JobList = ({ onJobSelect, selectedJobId, refreshKey = 0 }: JobListProps) => {
-  const [jobs, setJobs] = useState<ControlMJob[]>([]);
-  const [filters, setFilters] = useState<{ applications: string[]; nodes: string[] } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [total, setTotal] = useState(0);
+export const JobList = ({ onJobSelect, selectedJobId }: JobListProps) => {
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [application, setApplication] = useState<string>('');
@@ -44,38 +44,30 @@ export const JobList = ({ onJobSelect, selectedJobId, refreshKey = 0 }: JobListP
 
   const pageSize = 20;
 
-  // Load available filters
-  useEffect(() => {
-    fetchJobFilters()
-      .then(setFilters)
-      .catch(console.error);
-  }, [refreshKey]);
+  // Load available filters (cached)
+  const { data: filters } = useJobFilters();
 
-  // Load jobs with current filters
-  useEffect(() => {
-    setLoading(true);
-    fetchJobList(page, pageSize, {
-      searchQuery: search || undefined,
-      application: application || undefined,
-      nodeId: nodeId || undefined,
-      taskType: taskType || undefined,
-      isActive: isActive === '' ? undefined : isActive === 'true'
-    })
-      .then((response) => {
-        setJobs(response.items);
-        setTotal(response.meta.total);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [refreshKey, page, search, application, nodeId, taskType, isActive]);
+  // Load jobs with current filters (cached + invalidated on mutations)
+  const { data: jobsResponse, isLoading } = useJobList({
+    page,
+    pageSize,
+    searchQuery: search || undefined,
+    application: application || undefined,
+    nodeId: nodeId || undefined,
+    taskType: taskType || undefined,
+    isActive: isActive === '' ? undefined : isActive === 'true'
+  });
+
+  const jobs = jobsResponse?.items ?? [];
+  const total = jobsResponse?.meta.total ?? 0;
 
   const handleDelete = async (jobId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm('Delete this job?')) return;
     try {
       await deleteJob(jobId);
-      setJobs(jobs.filter(j => j.id !== jobId));
-      setTotal(t => t - 1);
+      // Invalidate queries to refresh the list
+      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
     } catch (err) {
       console.error('Failed to delete job:', err);
     }
@@ -147,13 +139,9 @@ export const JobList = ({ onJobSelect, selectedJobId, refreshKey = 0 }: JobListP
       </div>
 
       {/* Table */}
-      <div className="flex-1 overflow-auto">
-        {loading ? (
-          <div className="p-4 space-y-2">
-            {[...Array(10)].map((_, i) => (
-              <Skeleton key={i} className="h-12 w-full" />
-            ))}
-          </div>
+      <div className="flex-1 overflow-auto relative">
+        {isLoading ? (
+          <PageLoader message="Loading jobs..." />
         ) : (
           <Table>
             <TableHeader>
