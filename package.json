@@ -23,6 +23,7 @@
     "postbuild:desktop:linux": "npm run rebuild:node",
     "build:desktop": "npm run rebuild:electron && npm run build && electron-builder",
     "build:desktop:win": "npm run rebuild:electron && npm run build && electron-builder --win",
+    "release:desktop:win": "npm run rebuild:electron && npm run build && electron-builder --win --publish always",
     "build:desktop:mac": "npm run rebuild:electron && npm run build && electron-builder --mac",
     "build:desktop:linux": "npm run rebuild:electron && npm run build && electron-builder --linux",
     "package:desktop": "npm run build && electron-builder --dir",
