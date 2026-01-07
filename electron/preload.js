@@ -31,5 +31,17 @@ contextBridge.exposeInMainWorld('api', {
     const listener = (event, data) => cb(data);
     ipcRenderer.on('apply-progress', listener);
     return () => ipcRenderer.removeListener('apply-progress', listener);
-  }
+  },
+  // Auto-update listeners
+  onUpdateAvailable: (callback) => {
+    const listener = (event, info) => callback(info);
+    ipcRenderer.on('update-available', listener);
+    return () => ipcRenderer.removeListener('update-available', listener);
+  },
+  onUpdateDownloaded: (callback) => {
+    const listener = (event, info) => callback(info);
+    ipcRenderer.on('update-downloaded', listener);
+    return () => ipcRenderer.removeListener('update-downloaded', listener);
+  },
+  restartAndInstall: () => ipcRenderer.invoke('restart-and-install')
 });

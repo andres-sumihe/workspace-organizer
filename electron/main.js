@@ -4,6 +4,14 @@ const http = require('http');
 const url = require('url');
 const fs = require('fs');
 
+// Auto-updater
+const { autoUpdater } = require('electron-updater');
+const electronLog = require('electron-log');
+
+// Configure auto-updater logging
+autoUpdater.logger = electronLog;
+autoUpdater.logger.transports.file.level = 'info';
+
 let expressApp = null;
 let mainWindow = null;
 
@@ -485,6 +493,11 @@ app.on('ready', async () => {
   log('[App] expressApp is:', expressApp ? 'loaded' : 'null');
   createWindow();
 
+  // Check for updates after window is created
+  if (app.isPackaged) {
+    autoUpdater.checkForUpdatesAndNotify();
+  }
+
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -498,6 +511,19 @@ app.on('window-all-closed', () => {
 });
 
 // Minimal IPC handlers (placeholders). Implementations will be provided by lib modules.
+ipcMain.handle('restart-and-install', () => {
+  autoUpdater.quitAndInstall();
+});
+
+// Forward specific updater events to renderer
+autoUpdater.on('update-available', (info) => {
+  if (mainWindow) mainWindow.webContents.send('update-available', info);
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  if (mainWindow) mainWindow.webContents.send('update-downloaded', info);
+});
+
 ipcMain.handle('list-templates', async () => {
   return { items: [] };
 });
