@@ -31,7 +31,9 @@ out/
 !build-assets/.gitkeep
 
 .amazonq/*
-.github/
+.github/prompts/
+.github/agents/
+.github/copilot-instructions.md
 docs/
 scripts/
 temp_scripts/
