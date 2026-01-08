@@ -25,10 +25,36 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
-      - name: Build and Release
+      - name: Extract Release Notes
+        id: extract_notes
+        shell: powershell
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag -replace 'v',''
+          $changelog = Get-Content CHANGELOG.md -Raw
+          # Regex to find content between "## [version]" and the next "## [" or end of file
+          $pattern = "(?ms)## \[$version\].*?\r?\n(.*?)(?=\r?\n## \[|$)"
+          if ($changelog -match $pattern) {
+            $notes = $matches[1].Trim()
+            $notes | Set-Content release_notes.md
+            Write-Host "Notes extracted successfully."
+          } else {
+            Write-Host "No specific notes found for $version."
+            "Release $tag" | Set-Content release_notes.md
+          }
+
+      - name: Build and Publish (Electron)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           npm run rebuild:electron
           npm run build
           npx electron-builder --win --publish always
+
+      - name: Update Release Notes
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: release_notes.md
+          tag_name: ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
