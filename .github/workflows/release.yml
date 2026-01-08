@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   release:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
@@ -20,39 +20,42 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'npm'
 
       - name: Install Dependencies
-        run: npm ci
+        run: npm install
+
+      - name: Build shared package
+        run: npm run build --workspace @workspace/shared
+
+      - name: Build application
+        run: npm run build
 
       - name: Extract Release Notes
         id: extract_notes
-        shell: powershell
         run: |
-          $tag = "${{ github.ref_name }}"
-          $version = $tag -replace 'v',''
-          $changelog = Get-Content CHANGELOG.md -Raw
-          # Regex to find content between "## [version]" and the next "## [" or end of file
-          $pattern = "(?ms)## \[$version\].*?\r?\n(.*?)(?=\r?\n## \[|$)"
-          if ($changelog -match $pattern) {
-            $notes = $matches[1].Trim()
-            $notes | Set-Content release_notes.md
-            Write-Host "Notes extracted successfully."
-          } else {
-            Write-Host "No specific notes found for $version."
-            "Release $tag" | Set-Content release_notes.md
-          }
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          if grep -q "## \[$VERSION\]" CHANGELOG.md; then
+            # Extract content between version header and next version header
+            sed -n "/## \[$VERSION\]/,/## \[/p" CHANGELOG.md | head -n -1 | tail -n +2 > release_notes.md
+          else
+            echo "Release $TAG" > release_notes.md
+          fi
 
-      - name: Build and Publish (Electron)
+      - name: Build and Publish Windows (Docker with Wine)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          npm run rebuild:electron
-          npm run build
-          npx electron-builder --win --publish always
+          docker run --rm \
+            -e GH_TOKEN \
+            -v "${PWD}:/project" \
+            -v ~/.cache/electron:/root/.cache/electron \
+            -v ~/.cache/electron-builder:/root/.cache/electron-builder \
+            electronuserland/builder:wine \
+            /bin/bash -c "cd /project && npm run rebuild:electron && npx electron-builder --win --publish always"
 
       - name: Update Release Notes
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           body_path: release_notes.md
           tag_name: ${{ github.ref_name }}
