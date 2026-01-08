@@ -16,20 +16,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Install Dependencies
-        run: npm install
-
-      - name: Build shared package
-        run: npm run build --workspace @workspace/shared
-
-      - name: Build application
-        run: npm run build
-
       - name: Extract Release Notes
         id: extract_notes
         run: |
@@ -52,7 +38,7 @@ jobs:
             -v ~/.cache/electron:/root/.cache/electron \
             -v ~/.cache/electron-builder:/root/.cache/electron-builder \
             electronuserland/builder:wine \
-            /bin/bash -c "cd /project && npm run rebuild:electron && npx electron-builder --win --publish always"
+            /bin/bash -c "cd /project && npm install && npm run build --workspace @workspace/shared && npm run build && npm run rebuild:electron && npx electron-builder --win --publish always"
 
       - name: Update Release Notes
         uses: softprops/action-gh-release@v2
