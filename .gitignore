@@ -35,5 +35,5 @@ out/
 .github/agents/
 .github/copilot-instructions.md
 docs/
-scripts/
+/scripts/
 temp_scripts/
