@@ -1,5 +1,6 @@
 import { modeAwareAuthProvider } from '../auth/mode-aware-auth.provider.js';
 import { sessionService } from '../services/session.service.js';
+import { authLogger } from '../utils/logger.js';
 
 import type { AuthenticatedUser } from '@workspace/shared';
 import type { Request, Response, NextFunction } from 'express';
@@ -38,6 +39,7 @@ export const authMiddleware = async (
     const parts = authHeader.split(' ');
 
     if (parts.length !== 2 || parts[0] !== 'Bearer') {
+      authLogger.warn({ partsLength: parts.length }, 'Invalid auth header format');
       res.status(401).json({
         code: 'UNAUTHORIZED',
         message: 'Invalid authorization header format. Use: Bearer <token>'
@@ -70,6 +72,7 @@ export const authMiddleware = async (
     }
 
     const sessionInfo = await sessionService.getSessionInfo(user.id);
+
     if (!sessionInfo || !sessionInfo.isActive) {
       res.status(401).json({
         code: 'SESSION_EXPIRED',

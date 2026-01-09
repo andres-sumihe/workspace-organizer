@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { randomBytes } from 'node:crypto';
 import { v4 as uuidv4 } from 'uuid';
 
 import { getDb } from '../db/client.js';
@@ -75,8 +76,8 @@ const getJwtSecret = async (): Promise<string> => {
     return setting.value;
   }
   
-  // Generate and store new secret
-  const secret = uuidv4() + uuidv4(); // 72 characters
+  // Generate cryptographically secure secret (256 bits = 32 bytes = 64 hex chars)
+  const secret = randomBytes(32).toString('hex');
   await settingsRepository.set('jwt_secret', secret, 'JWT secret for local authentication');
   return secret;
 };

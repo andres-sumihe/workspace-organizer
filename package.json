@@ -8,11 +8,14 @@
     "packages/*"
   ],
   "main": "electron/main.js",
+  "overrides": {
+    "node-gyp": "12.1.0"
+  },
   "scripts": {
     "dev": "concurrently \"npm run dev --workspace @workspace/api\" \"npm run dev --workspace @workspace/web\"",
     "dev:api": "npm run dev --workspace @workspace/api",
     "dev:web": "npm run dev --workspace @workspace/web",
-    "dev:desktop": "concurrently \"npm run dev --workspace @workspace/api\" \"npm run dev --workspace @workspace/web\" \"node ./scripts/wait-for-http.js http://127.0.0.1:5173 && electron .\"",
+    "dev:desktop": "npm run rebuild:electron && concurrently \"npm run dev --workspace @workspace/api\" \"npm run dev --workspace @workspace/web\" \"node ./scripts/wait-for-http.js http://127.0.0.1:5173 && electron .\"",
     "build": "npm run build:bundle --workspace @workspace/api && npm run build --workspace @workspace/web",
     "prebuild:desktop": "node scripts/validate-desktop-build.js",
     "rebuild:electron": "npx @electron/rebuild",
@@ -60,8 +63,10 @@
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import": "^2.30.0",
     "eslint-plugin-jsx-a11y": "^6.9.0",
+    "eslint-plugin-n": "^17.23.1",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-security": "^3.0.1",
     "png-to-ico": "^3.0.1",
     "prettier": "^3.6.2",
     "rimraf": "^6.0.1",

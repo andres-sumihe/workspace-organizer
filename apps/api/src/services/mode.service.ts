@@ -1,6 +1,7 @@
 import { getDb } from '../db/client.js';
 import { ensureSharedDbConnection, isSharedDbConnected } from '../db/shared-client.js';
 import { settingsRepository } from '../repositories/settings.repository.js';
+import { authLogger } from '../utils/logger.js';
 
 import type { AppMode, ModeStatus, ModeConfig } from '@workspace/shared';
 
@@ -94,7 +95,7 @@ export const modeService = {
       return (row as { count: number })?.count > 0;
     } catch (error) {
       // Table might not exist yet if migrations haven't completed
-      console.error('Error checking local users:', error);
+      authLogger.error({ err: error }, 'Error checking local users');
       return false;
     }
   }

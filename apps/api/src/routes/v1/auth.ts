@@ -3,6 +3,8 @@ import { Router } from 'express';
 import { localAuthProvider } from '../../auth/local-auth.provider.js';
 import { modeAwareAuthProvider } from '../../auth/mode-aware-auth.provider.js';
 import { authMiddleware } from '../../middleware/auth.middleware.js';
+import { validate } from '../../middleware/validate.middleware.js';
+import { loginSchema, refreshTokenSchema, changePasswordSchema } from '../../schemas/auth.schema.js';
 import { attestationService } from '../../services/attestation.service.js';
 import { modeService } from '../../services/mode.service.js';
 import { sessionService } from '../../services/session.service.js';
@@ -17,17 +19,9 @@ export const authRouter = Router();
  * POST /auth/login
  * Authenticate user
  */
-authRouter.post('/login', async (req: Request, res: Response) => {
+authRouter.post('/login', validate(loginSchema), async (req: Request, res: Response) => {
   try {
     const body = req.body as LoginRequest;
-
-    if (!body.username || !body.password) {
-      res.status(400).json({
-        code: 'VALIDATION_ERROR',
-        message: 'Username and password are required'
-      });
-      return;
-    }
 
     const ipAddress = req.ip || req.socket.remoteAddress;
     const userAgent = req.headers['user-agent'];
@@ -99,17 +93,9 @@ authRouter.get('/me', authMiddleware, async (req: AuthenticatedRequest, res: Res
  * POST /auth/refresh
  * Refresh access token using refresh token (mode-aware)
  */
-authRouter.post('/refresh', async (req: Request, res: Response) => {
+authRouter.post('/refresh', validate(refreshTokenSchema), async (req: Request, res: Response) => {
   try {
     const body = req.body as RefreshTokenRequest;
-
-    if (!body.refreshToken) {
-      res.status(400).json({
-        code: 'VALIDATION_ERROR',
-        message: 'Refresh token is required'
-      });
-      return;
-    }
 
     const result = await modeAwareAuthProvider.refreshToken(body.refreshToken);
 
@@ -130,6 +116,7 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
 authRouter.post(
   '/change-password',
   authMiddleware,
+  validate(changePasswordSchema),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       if (!req.userId) {
@@ -142,23 +129,7 @@ authRouter.post(
 
       const body = req.body as ChangePasswordRequest;
 
-      if (!body.currentPassword || !body.newPassword) {
-        res.status(400).json({
-          code: 'VALIDATION_ERROR',
-          message: 'Current password and new password are required'
-        });
-        return;
-      }
-
-      // Validate new password strength (min 8 chars)
-      if (body.newPassword.length < 8) {
-        res.status(400).json({
-          code: 'VALIDATION_ERROR',
-          message: 'Password must be at least 8 characters'
-        });
-        return;
-      }
-
+      // Password validation (min 8 chars) is handled by Zod schema
       await localAuthProvider.changePassword(req.userId, body.currentPassword, body.newPassword);
 
       res.json({ success: true, message: 'Password changed successfully' });

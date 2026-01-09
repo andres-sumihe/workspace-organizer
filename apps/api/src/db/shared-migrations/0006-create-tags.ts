@@ -1,4 +1,5 @@
 import type { PoolClient } from 'pg';
+import { dbLogger } from '../../utils/logger.js';
 
 export const id = '0006-create-tags';
 
@@ -66,7 +67,7 @@ export const up = async (client: PoolClient): Promise<void> => {
       }
     }
   } catch (error) {
-    console.warn('Failed to migrate existing tags:', error);
+    dbLogger.warn({ err: error }, 'Failed to migrate existing tags');
     // Continue even if migration fails (e.g. column doesn't exist)
   }
 };

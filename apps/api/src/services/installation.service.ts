@@ -9,6 +9,7 @@ import {
 } from '../db/shared-client.js';
 import { runSharedMigrations, getAllMigrationIds, getExecutedMigrations } from '../db/shared-migrations/index.js';
 import { settingsRepository } from '../repositories/settings.repository.js';
+import { dbLogger } from '../utils/logger.js';
 
 import type {
   ConfigureInstallationRequest,
@@ -197,7 +198,7 @@ export const installationService = {
       await modeService.enableSharedMode();
       return true;
     } catch (error) {
-      console.error('Failed to initialize shared database:', error);
+      dbLogger.error({ err: error }, 'Failed to initialize shared database');
       return false;
     }
   }

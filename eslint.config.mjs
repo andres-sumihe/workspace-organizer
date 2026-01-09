@@ -9,6 +9,8 @@ import importPlugin from 'eslint-plugin-import';
 import jsxA11yPlugin from 'eslint-plugin-jsx-a11y';
 import reactPlugin from 'eslint-plugin-react';
 import reactHooksPlugin from 'eslint-plugin-react-hooks';
+import securityPlugin from 'eslint-plugin-security';
+import nodePlugin from 'eslint-plugin-n';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -53,7 +55,9 @@ export default [
       react: reactPlugin,
       'react-hooks': reactHooksPlugin,
       'jsx-a11y': jsxA11yPlugin,
-      import: importPlugin
+      import: importPlugin,
+      security: securityPlugin,
+      n: nodePlugin
     },
     settings: {
       react: { version: 'detect' },
@@ -81,15 +85,37 @@ export default [
       'react-hooks/exhaustive-deps': 'warn',
       '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports', fixStyle: 'inline-type-imports' }],
       'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }]
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }],
+      
+      // Security rules - detect common vulnerabilities
+      'security/detect-object-injection': 'warn',
+      'security/detect-non-literal-regexp': 'warn',
+      'security/detect-unsafe-regex': 'error',
+      'security/detect-buffer-noassert': 'error',
+      'security/detect-child-process': 'warn',
+      'security/detect-disable-mustache-escape': 'error',
+      'security/detect-eval-with-expression': 'error',
+      'security/detect-new-buffer': 'error',
+      'security/detect-no-csrf-before-method-override': 'error',
+      'security/detect-possible-timing-attacks': 'warn',
+      'security/detect-pseudoRandomBytes': 'error'
     }
   },
 
-  // API server: Node environment and allow default exports
+  // API server: Node environment, allow default exports, and Node.js best practices
   {
     files: ['apps/api/**/*.{ts,tsx,js}'],
     languageOptions: { globals: { ...globals.node } },
-    rules: { 'import/no-default-export': 'off' }
+    rules: {
+      'import/no-default-export': 'off',
+      // Node.js best practices
+      'n/no-deprecated-api': 'error',
+      'n/no-process-exit': 'warn',
+      'n/prefer-global/buffer': ['error', 'always'],
+      'n/prefer-global/console': ['error', 'always'],
+      'n/prefer-global/process': ['error', 'always'],
+      'n/prefer-promises/fs': 'warn'
+    }
   },
 
   // Web: Browser globals

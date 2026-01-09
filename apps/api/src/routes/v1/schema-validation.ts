@@ -6,7 +6,7 @@ import { schemaValidationService } from '../../services/schema-validation.servic
 
 import type { Request, Response } from 'express';
 
-const schemaValidationRouter = Router();
+export const schemaValidationRouter = Router();
 
 /**
  * GET /api/v1/schema-validation/validate
@@ -62,5 +62,3 @@ schemaValidationRouter.post('/reset-and-migrate', async (_req: Request, res: Res
     });
   }
 });
-
-export default schemaValidationRouter;

@@ -1,4 +1,5 @@
 import type { PoolClient } from 'pg';
+import { dbLogger } from '../../utils/logger.js';
 
 export const id = '0008-create-script-dependencies';
 
@@ -20,5 +21,5 @@ export const up = async (client: PoolClient): Promise<void> => {
   await client.query('CREATE INDEX IF NOT EXISTS idx_script_dependencies_dependent ON script_dependencies(dependent_script_id)');
   await client.query('CREATE INDEX IF NOT EXISTS idx_script_dependencies_dependency ON script_dependencies(dependency_script_id)');
   
-  console.log('Migration 0008-create-script-dependencies completed.');
+  dbLogger.info('Migration 0008-create-script-dependencies completed');
 };

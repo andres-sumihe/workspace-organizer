@@ -43,5 +43,13 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('update-downloaded', listener);
     return () => ipcRenderer.removeListener('update-downloaded', listener);
   },
-  restartAndInstall: () => ipcRenderer.invoke('restart-and-install')
+  restartAndInstall: () => ipcRenderer.invoke('restart-and-install'),
+  // subscribe to menu events from main
+  onMenuCommand: (cb) => {
+    const handler = (event, payload) => cb(payload);
+    ipcRenderer.on('menu-command', handler);
+    return () => ipcRenderer.removeListener('menu-command', handler);
+  },
+  // allow renderer to invoke simple built-in actions if needed
+  invokeMainAction: (actionId, args) => ipcRenderer.invoke('main-action:' + actionId, args)
 });

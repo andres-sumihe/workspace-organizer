@@ -2,6 +2,7 @@ import { Pool } from 'pg';
 
 import { SHARED_SCHEMA, getSearchPath } from './shared-schema.js';
 import { settingsRepository } from '../repositories/settings.repository.js';
+import { dbLogger } from '../utils/logger.js';
 
 import type { PoolClient } from 'pg';
 
@@ -74,7 +75,7 @@ export const getSharedDbConnectionString = async (): Promise<string | null> => {
     const setting = await settingsRepository.get<string | null>('shared_db_connection');
     return setting?.value ?? null;
   } catch (error) {
-    console.error('Error getting connection string:', error);
+    dbLogger.error({ err: error }, 'Error getting connection string');
     return null;
   }
 };
@@ -162,7 +163,7 @@ export const ensureSharedDbConnection = async (): Promise<boolean> => {
     await initializeSharedDb();
     return true;
   } catch (error) {
-    console.error('Failed to initialize shared database connection:', error);
+    dbLogger.error({ err: error }, 'Failed to initialize shared database connection');
     return false;
   }
 };
