@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-01-09
+
+### Added
+- **Logging Infrastructure**: Integrated `pino` and `pino-http` for structured logging and request monitoring.
+- **Request Validation**: Added `Zod` schema validation for all API inputs (Body, Query, Params) with dedicated middleware.
+- **Security Plugins**: Added `eslint-plugin-security` and `eslint-plugin-n` to enforce security best practices.
+- **IPC Type Safety**: Introduced `TypedElectronAPI` for end-to-end type safety between Electron main and renderer processes.
+- **Desktop UI Components**: Added `AboutDialog`, `UpdateChecker`, and `UpdateNotifier` components for better application lifecycle management.
+- **Native Menu Integration**: Added `useMenuCommands` hook to handle Electron native menu actions in React.
+
+### Changed
+- **Performance**: Optimized React Query caching strategy for desktop usage (longer stale/GC times).
+- **Security**: Upgraded JWT secret generation to use `crypto.randomBytes(32)`.
+- **CORS**: Implemented dynamic origin validation for `app://` and `file://` protocols.
+- **Styling**: Migrated theme tokens to Tailwind CSS v4 CSS-first configuration.
+- **API Standards**: Enforced named exports for all routers and standardized error handling for Zod/JWT errors.
+
+### Fixed
+- **Auth Interception**: Fixed a critical bug where the request logger mutated headers, causing authentication failures.
+- **Session Management**: Optimized session activity tracking and inactivity cleanup logic.
+- **TypeScript**: Resolved `NodeJS.Timeout` vs `setInterval` return type mismatches.
+
+
 ## [0.1.0] - 2026-01-07
 
 ### Initial Release
