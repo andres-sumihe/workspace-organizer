@@ -16,45 +16,43 @@ import {
   getLinkingStatusHandler
 } from '../../controllers/controlm-jobs.controller.js';
 
-const router = Router();
+export const controlmJobsRouter = Router();
 
 // GET /api/v1/controlm-jobs - List jobs with pagination and filters
-router.get('/', listJobsHandler);
+controlmJobsRouter.get('/', listJobsHandler);
 
 // GET /api/v1/controlm-jobs/stats - Get job statistics
-router.get('/stats', getStatsHandler);
+controlmJobsRouter.get('/stats', getStatsHandler);
 
 // GET /api/v1/controlm-jobs/filters - Get available filter values
-router.get('/filters', getFiltersHandler);
+controlmJobsRouter.get('/filters', getFiltersHandler);
 
 // GET /api/v1/controlm-jobs/graph - Get dependency graph for visualization
-router.get('/graph', getDependencyGraphHandler);
+controlmJobsRouter.get('/graph', getDependencyGraphHandler);
 
 // GET /api/v1/controlm-jobs/linking-status - Get script linking status report
-router.get('/linking-status', getLinkingStatusHandler);
+controlmJobsRouter.get('/linking-status', getLinkingStatusHandler);
 
 // POST /api/v1/controlm-jobs/import - Import jobs from Control-M CSV
-router.post('/import', importJobsHandler);
+controlmJobsRouter.post('/import', importJobsHandler);
 
 // POST /api/v1/controlm-jobs/auto-link - Auto-link all jobs to scripts based on memName
-router.post('/auto-link', autoLinkHandler);
+controlmJobsRouter.post('/auto-link', autoLinkHandler);
 
 // DELETE /api/v1/controlm-jobs - Clear all jobs
-router.delete('/', clearAllJobsHandler);
+controlmJobsRouter.delete('/', clearAllJobsHandler);
 
 // GET /api/v1/controlm-jobs/:jobId - Get job detail
-router.get('/:jobId', getJobHandler);
+controlmJobsRouter.get('/:jobId', getJobHandler);
 
 // GET /api/v1/controlm-jobs/:jobId/script-suggestions - Get script suggestions for a job
-router.get('/:jobId/script-suggestions', getScriptSuggestionsHandler);
+controlmJobsRouter.get('/:jobId/script-suggestions', getScriptSuggestionsHandler);
 
 // DELETE /api/v1/controlm-jobs/:jobId - Delete a job
-router.delete('/:jobId', deleteJobHandler);
+controlmJobsRouter.delete('/:jobId', deleteJobHandler);
 
 // POST /api/v1/controlm-jobs/:jobId/link-script - Link job to a local script
-router.post('/:jobId/link-script', linkToScriptHandler);
+controlmJobsRouter.post('/:jobId/link-script', linkToScriptHandler);
 
 // DELETE /api/v1/controlm-jobs/:jobId/link-script - Unlink job from script
-router.delete('/:jobId/link-script', unlinkFromScriptHandler);
-
-export default router;
+controlmJobsRouter.delete('/:jobId/link-script', unlinkFromScriptHandler);

@@ -3,6 +3,7 @@ import { scriptParserService } from './script-parser.service.js';
 import { auditService } from './audit.service.js';
 import { AppError } from '../errors/app-error.js';
 import { scriptsRepository } from '../repositories/scripts.repository.pg.js';
+import { apiLogger } from '../utils/logger.js';
 
 import type {
   ScriptListResponse,
@@ -378,14 +379,14 @@ export const scanDirectory = async (
 
               discoveredScripts.push(resultScript);
             } catch (err) {
-              console.error(`Failed to process script ${fullPath}:`, err);
+              apiLogger.error({ err, fullPath }, 'Failed to process script');
               // Continue scanning other files
             }
           }
         }
       }
     } catch (err) {
-      console.error(`Failed to scan directory ${currentPath}:`, err);
+      apiLogger.error({ err, currentPath }, 'Failed to scan directory');
       throw new AppError(`Failed to scan directory: ${err instanceof Error ? err.message : 'Unknown error'}`, 500, 'SCAN_ERROR');
     }
   };

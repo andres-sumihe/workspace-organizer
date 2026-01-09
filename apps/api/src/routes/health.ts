@@ -2,24 +2,25 @@ import { Router } from 'express';
 
 import { getDb } from '../db/client.js';
 import { asyncHandler } from '../utils/async-handler.js';
+import { apiLogger } from '../utils/logger.js';
 
 export const healthRouter = Router();
 
 healthRouter.get(
   '/',
   asyncHandler(async (_req, res) => {
-    console.log('[Health] Health check starting');
+    apiLogger.debug('Health check starting');
     const startedAt = Date.now();
     let databaseStatus: 'connected' | 'error' = 'connected';
 
     try {
-      console.log('[Health] Getting database connection');
+      apiLogger.debug('Getting database connection');
       const db = await getDb();
-      console.log('[Health] Running SELECT 1 query');
+      apiLogger.debug('Running SELECT 1 query');
       db.prepare('SELECT 1').get();
-      console.log('[Health] Database check passed');
+      apiLogger.debug('Database check passed');
     } catch (error) {
-      console.error('[Health] Database error:', error);
+      apiLogger.error({ err: error }, 'Health check database error');
       databaseStatus = 'error';
     }
 
@@ -32,7 +33,7 @@ healthRouter.get(
       }
     };
 
-    console.log('[Health] Sending response:', payload.status);
+    apiLogger.debug({ status: payload.status }, 'Health check response');
 
     if (databaseStatus === 'error') {
       res.status(503);

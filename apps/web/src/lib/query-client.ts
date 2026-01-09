@@ -3,20 +3,26 @@ import { QueryClient } from '@tanstack/react-query';
 /**
  * Global QueryClient configuration for TanStack Query
  * 
- * Caching strategy:
- * - staleTime: 30 seconds - data is considered fresh for 30s (won't refetch)
- * - gcTime: 5 minutes - cached data is kept in memory for 5 min after becoming unused
- * - refetchOnWindowFocus: only when data is stale
- * - retry: 1 attempt on failure
+ * Optimized for desktop Electron app:
+ * - staleTime: 60 seconds - reduces unnecessary refetches for desktop usage
+ * - gcTime: 10 minutes - longer cache for offline-capable desktop app
+ * - refetchOnWindowFocus: false - desktop apps don't benefit from this
+ * - refetchOnReconnect: true - important for network recovery
+ * - retry: 2 attempts on failure with exponential backoff
  */
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30 * 1000, // 30 seconds - reduces unnecessary refetches
-      gcTime: 5 * 60 * 1000, // 5 minutes - keep unused data in cache
-      refetchOnWindowFocus: 'always',
+      staleTime: 60 * 1000, // 60 seconds - data stays fresh longer
+      gcTime: 10 * 60 * 1000, // 10 minutes - keep unused data in cache
+      refetchOnWindowFocus: false, // Desktop app doesn't need this
+      refetchOnReconnect: true, // Re-fetch when network recovers
+      retry: 2,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
+      refetchOnMount: 'always',
+    },
+    mutations: {
       retry: 1,
-      refetchOnMount: true,
     },
   },
 });

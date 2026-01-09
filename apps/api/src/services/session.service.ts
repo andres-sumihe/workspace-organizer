@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { getDb } from '../db/client.js';
 import { settingsRepository } from '../repositories/settings.repository.js';
+import { sessionLogger } from '../utils/logger.js';
 
 import type { SessionConfig, SessionInfo, SessionHeartbeatResponse } from '@workspace/shared';
 
@@ -188,14 +189,16 @@ export const sessionService = {
   async getSessionInfo(userId: string): Promise<SessionInfo | null> {
     const db = await getDb();
     const config = await this.getConfig();
-    
+
     const row = db.prepare(
       `SELECT * FROM local_sessions 
        WHERE user_id = ? AND expires_at > datetime('now') 
        ORDER BY created_at DESC LIMIT 1`
     ).get(userId);
 
-    if (!row) return null;
+    if (!row) {
+      return null;
+    }
 
     const session = row as {
       id: string;
@@ -216,6 +219,7 @@ export const sessionService = {
     const inactivityMs = config.inactivityTimeoutMinutes * 60 * 1000;
     const timeSinceActivity = now.getTime() - lastActivity.getTime();
     const isTimedOut = timeSinceActivity > inactivityMs;
+    const isActive = !isTimedOut && new Date(session.expires_at) > now;
 
     return {
       id: session.id,
@@ -225,7 +229,7 @@ export const sessionService = {
       lastActivityAt: session.last_activity_at ?? session.created_at,
       ipAddress: session.ip_address ?? undefined,
       userAgent: session.user_agent ?? undefined,
-      isActive: !isTimedOut && new Date(session.expires_at) > now
+      isActive
     };
   },
 
@@ -275,7 +279,7 @@ export const sessionService = {
    * Start periodic cleanup task (runs every hour)
    * Returns cleanup interval ID
    */
-  startPeriodicCleanup(): NodeJS.Timeout {
+  startPeriodicCleanup(): ReturnType<typeof setInterval> {
     const CLEANUP_INTERVAL = 60 * 60 * 1000; // 1 hour
     
     return setInterval(async () => {
@@ -285,10 +289,10 @@ export const sessionService = {
         
         // Only log if sessions were actually cleaned up
         if (expired > 0 || inactive > 0) {
-          console.log(`Session cleanup: ${expired} expired, ${inactive} inactive`);
+          sessionLogger.info({ expired, inactive }, 'Session cleanup completed');
         }
       } catch (error) {
-        console.error('Session cleanup failed:', error);
+        sessionLogger.error({ err: error }, 'Session cleanup failed');
       }
     }, CLEANUP_INTERVAL);
   },

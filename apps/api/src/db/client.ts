@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 
 import { runMigrations } from './migrations/index.js';
+import { dbLogger } from '../utils/logger.js';
 
 let db: Database.Database | null = null;
 
@@ -47,7 +48,7 @@ const ensureDataDirectory = async () => {
   }
 
   const dataDir = getDataDir();
-  console.log(`[DB] Ensuring data directory exists: ${dataDir}`);
+  dbLogger.debug({ dataDir }, 'Ensuring data directory exists');
   await fs.mkdir(dataDir, { recursive: true });
 };
 
@@ -55,7 +56,7 @@ const createConnection = async (): Promise<Database.Database> => {
   await ensureDataDirectory();
 
   const dbPath = getDatabasePath();
-  console.log(`[DB] Opening database at: ${dbPath}`);
+  dbLogger.info({ dbPath }, 'Opening database');
   
   const database = new Database(dbPath);
   database.pragma('foreign_keys = ON');

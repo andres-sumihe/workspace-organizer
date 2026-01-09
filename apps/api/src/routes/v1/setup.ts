@@ -2,19 +2,20 @@ import { Router } from 'express';
 
 import { localAuthProvider } from '../../auth/local-auth.provider.js';
 import { setupService } from '../../services/setup.service.js';
+import { authLogger } from '../../utils/logger.js';
 
-const router = Router();
+export const setupRouter = Router();
 
 /**
  * GET /api/v1/setup/status
  * Get setup status (whether first-time setup is needed)
  */
-router.get('/status', async (_req, res) => {
+setupRouter.get('/status', async (_req, res) => {
   try {
     const status = await setupService.getStatus();
     res.json(status);
   } catch (error) {
-    console.error('Setup status error:', error);
+    authLogger.error({ err: error }, 'Setup status error');
     res.status(500).json({
       code: 'SETUP_STATUS_ERROR',
       message: 'Failed to get setup status'
@@ -34,7 +35,7 @@ router.get('/status', async (_req, res) => {
  *   "displayName"?: string
  * }
  */
-router.post('/create-account', async (req, res) => {
+setupRouter.post('/create-account', async (req, res) => {
   try {
     const { username, email, password, displayName } = req.body;
 
@@ -61,7 +62,7 @@ router.post('/create-account', async (req, res) => {
       auth: loginResponse
     });
   } catch (error) {
-    console.error('Create account error:', error);
+    authLogger.error({ err: error }, 'Create account error');
 
     if (error instanceof Error) {
       if (error.message === 'SETUP_ALREADY_COMPLETE') {
@@ -120,5 +121,3 @@ router.post('/create-account', async (req, res) => {
     });
   }
 });
-
-export default router;

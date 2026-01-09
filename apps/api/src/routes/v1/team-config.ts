@@ -7,7 +7,7 @@ import { teamConfigService } from '../../services/team-config.service.js';
 
 import type { Request, Response } from 'express';
 
-const teamConfigRouter = Router();
+export const teamConfigRouter = Router();
 
 const extractConnectionString = (req: Request): string | null => {
   const { connectionString } = req.body ?? {};
@@ -185,5 +185,3 @@ teamConfigRouter.post('/run-migrations', async (_req: Request, res: Response) =>
     res.status(500).json({ success: false, message });
   }
 });
-
-export default teamConfigRouter;

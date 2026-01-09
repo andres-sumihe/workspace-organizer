@@ -1,16 +1,20 @@
 import { FolderGit2, LayoutDashboard, LineChart, Settings, FileCode, Loader2, Users, Wrench } from 'lucide-react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 
 import type { SidebarNavItem } from '@/components/layout/app-sidebar';
 
+import { AboutDialog } from '@/components/about-dialog';
 import { LockScreen } from '@/components/lock-screen';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { UpdateChecker } from '@/components/update-checker';
+import { UpdateNotifier } from '@/components/update-notifier';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { FileManagerProvider } from '@/contexts/file-manager-context';
 import { InstallationProvider, useInstallation } from '@/contexts/installation-context';
 import { ModeProvider, useMode } from '@/contexts/mode-context';
 import { WorkspaceProvider } from '@/contexts/workspace-context';
+import { useMenuCommands } from '@/hooks/useMenuCommands';
 import { AuthenticatedLayout } from '@/layouts/authenticated-layout';
 import { DashboardPage } from '@/pages/dashboard-page';
 import { InstallationPage } from '@/pages/installation-page';
@@ -131,6 +135,8 @@ function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
   const { isSoloMode } = useAuth();
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [updateCheckerOpen, setUpdateCheckerOpen] = useState(false);
   
   // Store the last visited workspace route so we can return to it
   const lastWorkspaceRoute = useRef<string>('/workspaces');
@@ -141,6 +147,38 @@ function AppContent() {
       lastWorkspaceRoute.current = location.pathname;
     }
   }, [location.pathname]);
+
+  // Handle menu commands from Electron
+  useMenuCommands({
+    'open-workspace-root': async () => {
+      try {
+        if (window.api?.invokeMainAction) {
+          const result = await window.api.invokeMainAction('open-workspace-root', {}) as { canceled?: boolean; path?: string };
+          if (result?.path) {
+            console.log('Selected workspace root:', result.path);
+            navigate('/workspaces');
+          }
+        }
+      } catch (error) {
+        console.error('Failed to open workspace root:', error);
+      }
+    },
+    'import-template': () => {
+      console.log('Import template clicked');
+    },
+    'toggle-sidebar': () => {
+      console.log('Toggle sidebar');
+    },
+    'toggle-devtools': () => {
+      console.log('Toggle DevTools - will open in Electron');
+    },
+    'check-updates': () => {
+      setUpdateCheckerOpen(true);
+    },
+    'about': () => {
+      setAboutOpen(true);
+    },
+  });
 
   // Build sidebar items based on mode
   // In Solo mode, Scripts is still shown but leads to a "Team Feature" placeholder
@@ -191,11 +229,14 @@ function AppContent() {
   };
 
   return (
-    <AuthenticatedLayout
-      sidebarItems={sidebarItems}
-      activeSidebarKey={getActiveKey()}
-      activeSidebarSubKey={getActiveSubKey()}
-      onNavigate={(key, subKey) => {
+    <>
+      <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
+      <UpdateChecker open={updateCheckerOpen} onOpenChange={setUpdateCheckerOpen} />
+      <AuthenticatedLayout
+        sidebarItems={sidebarItems}
+        activeSidebarKey={getActiveKey()}
+        activeSidebarSubKey={getActiveSubKey()}
+        onNavigate={(key, subKey) => {
         if (key === 'workspaces') {
           // Navigate to last visited workspace route (or list if none)
           navigate(lastWorkspaceRoute.current);
@@ -233,6 +274,7 @@ function AppContent() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AuthenticatedLayout>
+    </>
   );
 }
 
@@ -242,6 +284,7 @@ export function App() {
       <InstallationProvider>
         <ModeProvider>
           <AuthProvider>
+            <UpdateNotifier />
             <Routes>
               {/* Public routes - outside of auth protection */}
               <Route path="/install" element={<InstallationPage />} />

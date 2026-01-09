@@ -2,13 +2,11 @@ import { Router } from 'express';
 
 import * as templatesController from '../../controllers/templates.controller.js';
 
-const router = Router();
+export const templatesRouter = Router();
 
 // Template CRUD
-router.get('/', templatesController.listTemplates);
-router.post('/', templatesController.createTemplate);
-router.get('/:templateId', templatesController.getTemplate);
-router.patch('/:templateId', templatesController.updateTemplate);
-router.delete('/:templateId', templatesController.deleteTemplate);
-
-export default router;
+templatesRouter.get('/', templatesController.listTemplates);
+templatesRouter.post('/', templatesController.createTemplate);
+templatesRouter.get('/:templateId', templatesController.getTemplate);
+templatesRouter.patch('/:templateId', templatesController.updateTemplate);
+templatesRouter.delete('/:templateId', templatesController.deleteTemplate);

@@ -1175,3 +1175,6 @@ export interface OvertimeEntryListResponse {
 export interface OvertimeEntryResponse {
   entry: OvertimeEntry;
 }
+
+// IPC Types for Electron bridge
+export * from './ipc.types.js';

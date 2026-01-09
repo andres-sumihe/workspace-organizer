@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, clipboard, protocol, net } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, clipboard, protocol, net, Menu } = require('electron');
 const path = require('path');
 const http = require('http');
 const url = require('url');
@@ -14,6 +14,81 @@ autoUpdater.logger.transports.file.level = 'info';
 
 let expressApp = null;
 let mainWindow = null;
+
+// --- helper: command registry & menu builder ---
+function buildAppMenu(win) {
+  const platformIsMac = process.platform === 'darwin';
+
+  // small command map — menu items send a simple 'menu-command' with an id
+  const commands = [
+    {
+      label: 'Workspace',
+      items: [
+        {
+          id: 'open-workspace-root',
+          label: 'Open Workspace Root...',
+          accelerator: platformIsMac ? 'Cmd+Shift+O' : 'Ctrl+Shift+O'
+        },
+        {
+          id: 'import-template',
+          label: 'Import Template ZIP...',
+          accelerator: platformIsMac ? 'Cmd+I' : 'Ctrl+I'
+        }
+      ]
+    },
+    {
+      label: 'View',
+      items: [
+        { id: 'toggle-sidebar', label: 'Toggle Sidebar', accelerator: 'F9' },
+        { id: 'toggle-devtools', label: 'Toggle DevTools', accelerator: platformIsMac ? 'Alt+Cmd+I' : 'Ctrl+Shift+I' }
+      ]
+    },
+    {
+      label: 'Help',
+      items: [
+        { id: 'check-updates', label: 'Check for Updates' },
+        { id: 'about', label: 'About' }
+      ]
+    }
+  ];
+
+  // build Menu template from commands
+  const template = commands.map(group => {
+    return {
+      label: group.label,
+      submenu: group.items.map(item => {
+        return {
+          label: item.label,
+          accelerator: item.accelerator,
+          click: () => {
+            // send a single normalized event to renderer with id and metadata
+            if (win && !win.isDestroyed()) {
+              win.webContents.send('menu-command', { id: item.id });
+            }
+          }
+        };
+      })
+    };
+  });
+
+  // Add standard macOS app menu on Mac to keep native behaviors
+  if (platformIsMac) {
+    template.unshift({
+      label: app.name,
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'quit' }
+      ]
+    });
+  }
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
+}
 
 // Debug logging to file since console.log doesn't show in production
 let logFile = null;
@@ -487,11 +562,12 @@ app.on('ready', async () => {
   // Setup custom protocol handler before creating window
   setupProtocolHandler();
   log('[App] Protocol handler setup complete');
-  
+
   const apiReady = await startApiServer();
   log('[App] API ready status:', apiReady);
   log('[App] expressApp is:', expressApp ? 'loaded' : 'null');
-  createWindow();
+  const win = createWindow();
+  buildAppMenu(win);
 
   // Check for updates after window is created
   if (app.isPackaged) {
@@ -499,7 +575,10 @@ app.on('ready', async () => {
   }
 
   app.on('activate', function () {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) {
+      const win = createWindow();
+      buildAppMenu(win);
+    }
   });
 });
 
@@ -799,4 +878,12 @@ ipcMain.handle('workspace-templates:save', async (event, payload) => {
   } catch (err) {
     return { ok: false, error: String(err) };
   }
+});
+
+// Example: main process handler for open-workspace-root
+ipcMain.handle('main-action:open-workspace-root', async () => {
+  const focused = BrowserWindow.getFocusedWindow();
+  const res = await dialog.showOpenDialog(focused, { properties: ['openDirectory'] });
+  if (res.canceled) return { canceled: true };
+  return { canceled: false, path: res.filePaths[0] };
 });
