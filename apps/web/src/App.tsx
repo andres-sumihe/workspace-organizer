@@ -18,6 +18,7 @@ import { useMenuCommands } from '@/hooks/useMenuCommands';
 import { AuthenticatedLayout } from '@/layouts/authenticated-layout';
 import { DashboardPage } from '@/pages/dashboard-page';
 import { InstallationPage } from '@/pages/installation-page';
+import { JournalPage } from '@/pages/journal-page';
 import { LoginPage } from '@/pages/login-page';
 import { OvertimePage } from '@/pages/overtime-page';
 import { ScriptsPage } from '@/pages/scripts-page';
@@ -201,7 +202,8 @@ function AppContent() {
         label: 'Tools', 
         icon: Wrench,
         subItems: [
-          { key: 'overtime', label: 'Overtime' }
+          { key: 'overtime', label: 'Overtime' },
+          { key: 'journal', label: 'Journal' }
         ]
       },
       { key: 'analytics', label: 'Analytics', icon: LineChart },
@@ -225,6 +227,7 @@ function AppContent() {
   const getActiveSubKey = (): string | undefined => {
     const path = location.pathname;
     if (path.startsWith('/tools/overtime')) return 'overtime';
+    if (path.startsWith('/tools/journal')) return 'journal';
     return undefined;
   };
 
@@ -243,7 +246,8 @@ function AppContent() {
         } else if (key === 'tools' && subKey) {
           // Navigate to tools sub-page
           const toolsRoutes: Record<string, string> = {
-            overtime: '/tools/overtime'
+            overtime: '/tools/overtime',
+            journal: '/tools/journal'
           };
           navigate(toolsRoutes[subKey] || '/tools');
         } else {
@@ -269,6 +273,7 @@ function AppContent() {
         <Route path="/scripts/:scriptId" element={<ScriptsPage />} />
         <Route path="/teams" element={<TeamPage />} />
         <Route path="/tools/overtime" element={<OvertimePage />} />
+        <Route path="/tools/journal" element={<JournalPage />} />
         <Route path="/analytics" element={renderPlaceholder('analytics')} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,6 +1,6 @@
+import { auditService } from './audit.service.js';
 import { driveAnalyzerService } from './drive-analyzer.service.js';
 import { scriptParserService } from './script-parser.service.js';
-import { auditService } from './audit.service.js';
 import { AppError } from '../errors/app-error.js';
 import { scriptsRepository } from '../repositories/scripts.repository.pg.js';
 import { apiLogger } from '../utils/logger.js';

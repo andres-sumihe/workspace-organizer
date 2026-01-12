@@ -2,9 +2,11 @@ import { Loader2, History, User, Clock, FileEdit, FilePlus, Trash2, RefreshCcw, 
 import { useState } from 'react';
 
 import type { AuditLogEntry, AuditAction } from '@workspace/shared';
+import type React from 'react';
 
-import { Button } from '@/components/ui/button';
+
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { useScriptActivity } from '@/hooks/use-scripts';
 
 interface ScriptActivityLogProps {

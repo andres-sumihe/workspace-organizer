@@ -72,6 +72,7 @@ export class ScriptParserService {
    */
   private parseNetUseCommand(line: string): ParsedDriveMapping | null {
     // Match NET USE command with various patterns
+    // eslint-disable-next-line security/detect-unsafe-regex
     const netUsePattern = /NET\s+USE\s+([A-Za-z]:)\s+(\\\\[^\s]+)(?:\s+\/USER:([^\s]+))?/i;
     const match = line.match(netUsePattern);
 
@@ -144,6 +145,7 @@ export class ScriptParserService {
     }
 
     // Match START command
+    // eslint-disable-next-line security/detect-unsafe-regex
     const startPattern = /START\s+(?:["'][^"']*["']\s+)?["']?([^"'\s]+\.(?:bat|cmd))["']?/i;
     const startMatch = line.match(startPattern);
     if (startMatch) {

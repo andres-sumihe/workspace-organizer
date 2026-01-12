@@ -1,5 +1,6 @@
-import type { PoolClient } from 'pg';
 import { dbLogger } from '../../utils/logger.js';
+
+import type { PoolClient } from 'pg';
 
 export const id = '0006-create-tags';
 

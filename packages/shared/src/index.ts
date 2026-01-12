@@ -1176,5 +1176,156 @@ export interface OvertimeEntryResponse {
   entry: OvertimeEntry;
 }
 
+// ============================================================================
+// Work Journal (Daily Log) Types
+// ============================================================================
+
+/**
+ * Status of a work log entry.
+ */
+export type WorkLogStatus = 'todo' | 'in_progress' | 'done' | 'blocked';
+
+/**
+ * Priority level for work log entries.
+ */
+export type WorkLogPriority = 'low' | 'medium' | 'high';
+
+/**
+ * Global tag entity - reusable across multiple features (work logs, projects, etc.)
+ */
+export interface Tag {
+  id: string;
+  name: string;
+  color?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Work log entry stored in local SQLite database.
+ */
+export interface WorkLogEntry {
+  id: string;
+  date: string; // YYYY-MM-DD (Journal Entry Date / Board Column)
+  content: string; // Markdown supported description
+  status: WorkLogStatus;
+  priority?: WorkLogPriority;
+
+  // Task Planning Fields
+  startDate?: string; // ISO8601 (Planned Start)
+  dueDate?: string; // ISO8601 (Deadline)
+  actualEndDate?: string; // ISO8601 (Completion Date)
+
+  // Relations
+  projectId?: string; // Placeholder for future "Personal Projects" feature
+
+  // Resolved tags via polymorphic taggings
+  tags: Tag[];
+
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Request to create a new work log entry.
+ */
+export interface CreateWorkLogRequest {
+  date: string; // YYYY-MM-DD
+  content: string;
+  status?: WorkLogStatus;
+  priority?: WorkLogPriority;
+  startDate?: string;
+  dueDate?: string;
+  projectId?: string;
+  tagIds?: string[];
+}
+
+/**
+ * Request to update an existing work log entry.
+ */
+export interface UpdateWorkLogRequest {
+  date?: string;
+  content?: string;
+  status?: WorkLogStatus;
+  priority?: WorkLogPriority;
+  startDate?: string;
+  dueDate?: string;
+  actualEndDate?: string;
+  projectId?: string;
+  tagIds?: string[];
+}
+
+/**
+ * Request to rollover unfinished work logs to a new date.
+ */
+export interface RolloverWorkLogsRequest {
+  fromDate: string; // YYYY-MM-DD - source date to rollover from
+  toDate?: string; // YYYY-MM-DD - target date (defaults to today)
+  mode: 'move' | 'copy';
+}
+
+/**
+ * Response for rollover operation.
+ */
+export interface RolloverWorkLogsResponse {
+  rolledOverCount: number;
+  items: WorkLogEntry[];
+}
+
+/**
+ * Response containing a list of work log entries.
+ */
+export interface WorkLogListResponse {
+  items: WorkLogEntry[];
+}
+
+/**
+ * Response containing a single work log entry.
+ */
+export interface WorkLogResponse {
+  entry: WorkLogEntry;
+}
+
+/**
+ * Request to create a new tag.
+ */
+export interface CreateTagRequest {
+  name: string;
+  color?: string;
+}
+
+/**
+ * Request to update an existing tag.
+ */
+export interface UpdateTagRequest {
+  name?: string;
+  color?: string;
+}
+
+/**
+ * Response containing a list of tags.
+ */
+export interface TagListResponse {
+  items: Tag[];
+}
+
+/**
+ * Response containing a single tag.
+ */
+export interface TagResponse {
+  tag: Tag;
+}
+
+/**
+ * Tagging entity - links a tag to any taggable resource.
+ */
+export interface Tagging {
+  id: string;
+  tagId: string;
+  taggableType: string; // e.g., 'work_logs', 'projects'
+  taggableId: string;
+  createdAt: string;
+}
+
 // IPC Types for Electron bridge
 export * from './ipc.types.js';

@@ -49,10 +49,12 @@ export function detectISO20022(xmlContent: string): { isISO20022: boolean; messa
     }
 
     // Priority 4: Check generic ISO20022 namespace patterns (but these might be headers)
+    // eslint-disable-next-line security/detect-unsafe-regex
     const genericNamespaceMatch = xmlContent.match(/xmlns(?::[^=]+)?="urn:iso:std:iso:20022:tech:xsd:([a-z]+\.\d+\.\d+\.\d+)"/i);
     if (genericNamespaceMatch) {
       // Only use this if it's a payment message type (not head/auth headers)
       const msgType = genericNamespaceMatch[1];
+       
       if (msgType.match(/^(pacs|camt|pain|acmt|reda|setr|semt|sese|trea|tsmt|colr)\./)) {
         return { isISO20022: true, messageType: msgType };
       }

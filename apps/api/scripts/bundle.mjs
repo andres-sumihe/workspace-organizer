@@ -1,5 +1,5 @@
 import * as esbuild from 'esbuild';
-import { readFileSync, writeFileSync, cpSync } from 'fs';
+import { writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -15,7 +15,7 @@ const nativeModulePlugin = {
     const nativeModules = ['sqlite3', 'better-sqlite3'];
     
     nativeModules.forEach(mod => {
-      build.onResolve({ filter: new RegExp(`^${mod}$`) }, args => {
+      build.onResolve({ filter: new RegExp(`^${mod}$`) }, () => {
         return { path: mod, external: true, namespace: 'native-require' };
       });
     });
@@ -54,6 +54,7 @@ await esbuild.build({
   }
 });
 
+// eslint-disable-next-line no-undef
 console.log('API bundled to dist/app.bundle.cjs');
 
 // Also create a package.json in dist to mark it as ESM (for non-bundled files)
@@ -92,4 +93,5 @@ export default bundle;
 `
 );
 
+// eslint-disable-next-line no-undef
 console.log('Created ESM wrapper at dist/app.bundle.js');

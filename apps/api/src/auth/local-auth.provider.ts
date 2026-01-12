@@ -1,6 +1,7 @@
+import { randomBytes } from 'node:crypto';
+
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { randomBytes } from 'node:crypto';
 import { v4 as uuidv4 } from 'uuid';
 
 import { getDb } from '../db/client.js';
