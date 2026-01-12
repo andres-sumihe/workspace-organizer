@@ -13,9 +13,9 @@ import {
   getScriptActivity
 } from '../services/scripts.service.js';
 
+import type { AuthenticatedRequest } from '../middleware/auth.middleware.js';
 import type { ScriptType } from '@workspace/shared';
 import type { RequestHandler } from 'express';
-import type { AuthenticatedRequest } from '../middleware/auth.middleware.js';
 
 /** Helper to extract user context for audit logging */
 const getUserContext = (req: AuthenticatedRequest) => ({

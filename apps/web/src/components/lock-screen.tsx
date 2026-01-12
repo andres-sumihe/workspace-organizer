@@ -1,6 +1,8 @@
 import { Lock, AlertCircle } from 'lucide-react';
 import { useState } from 'react';
 
+import type React from 'react';
+
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';

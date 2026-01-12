@@ -1,9 +1,10 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 
-import { onAuthError } from '@/api/client';
 
 import type { LoginRequest, Permission, UserWithRoles, AppMode, SessionConfig } from '@workspace/shared';
 import type { ReactNode } from 'react';
+
+import { onAuthError } from '@/api/client';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 

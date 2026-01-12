@@ -11,7 +11,7 @@ const start = async () => {
     });
   } catch (error) {
     apiLogger.error({ err: error }, 'Failed to start server');
-    process.exit(1);
+    throw error;
   }
 };
 

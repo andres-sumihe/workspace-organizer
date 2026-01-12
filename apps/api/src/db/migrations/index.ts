@@ -13,6 +13,8 @@ import * as migration0012 from './0012-create-local-sessions.js';
 import * as migration0013 from './0013-add-session-metadata-columns.js';
 import * as migration0014 from './0014-create-overtime-entries.js';
 import * as migration0015 from './0015-add-overtime-time-columns.js';
+import * as migration0016 from './0016-create-tags.js';
+import * as migration0017 from './0017-create-work-logs.js';
 
 import type Database from 'better-sqlite3';
 
@@ -36,7 +38,9 @@ const migrations: Migration[] = [
   { id: migration0012.id, up: migration0012.up },
   { id: migration0013.id, up: migration0013.up },
   { id: migration0014.id, up: migration0014.up },
-  { id: migration0015.id, up: migration0015.up }
+  { id: migration0015.id, up: migration0015.up },
+  { id: migration0016.id, up: migration0016.up },
+  { id: migration0017.id, up: migration0017.up }
 ];
 
 export const runMigrations = async (db: Database.Database) => {
@@ -63,14 +67,10 @@ export const runMigrations = async (db: Database.Database) => {
       continue;
     }
 
-    try {
-      await migration.up(db);
-      db.prepare('INSERT INTO migrations (id, executed_at) VALUES (?, ?)').run(
-        migration.id,
-        new Date().toISOString()
-      );
-    } catch (error) {
-      throw error;
-    }
+    await migration.up(db);
+    db.prepare('INSERT INTO migrations (id, executed_at) VALUES (?, ?)').run(
+      migration.id,
+      new Date().toISOString()
+    );
   }
 };
