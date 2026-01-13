@@ -1,3 +1,5 @@
+import { DragDropProvider } from '@dnd-kit/react';
+import { useSortable } from '@dnd-kit/react/sortable';
 import {
   ArrowLeft,
   ArrowRight,
@@ -7,11 +9,12 @@ import {
   Circle,
   Clock,
   Copy,
-  Eye,
-  EyeOff,
-  Info,
+  Filter,
+  FolderOpen,
+  GripVertical,
   Loader2,
   MoveRight,
+  Pencil,
   Plus,
   RotateCcw,
   Trash2,
@@ -19,11 +22,12 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import type { WorkLogStatus, WorkLogPriority } from '@workspace/shared';
+import type { WorkLogStatus, WorkLogPriority, PersonalProject } from '@workspace/shared';
 
 import {
   tagsApi,
   workLogsApi,
+  personalProjectsApi,
   type Tag,
   type WorkLogEntry,
   type CreateWorkLogRequest,
@@ -43,6 +47,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DatePicker } from '@/components/ui/date-picker';
 import {
   Dialog,
   DialogContent,
@@ -55,10 +60,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
   SelectContent,
@@ -66,30 +72,29 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   formatDate,
-  formatDisplayDate,
-  getWeekDates,
+  formatDateDisplay,
+  formatTimestampDisplay,
   getWeekRangeLabel,
   getWeekStart,
   getTodayDate,
   getYesterdayDate,
-  isToday,
   parseContentForSuggestions
 } from '@/utils/journal-parser';
-
 
 // ============================================================================
 // Types & Constants
 // ============================================================================
 
-const STATUS_CONFIG: Record<WorkLogStatus, { label: string; icon: typeof Circle; color: string }> = {
-  todo: { label: 'To Do', icon: Circle, color: 'text-muted-foreground' },
-  in_progress: { label: 'In Progress', icon: Clock, color: 'text-blue-500' },
-  done: { label: 'Done', icon: Check, color: 'text-green-500' },
-  blocked: { label: 'Blocked', icon: X, color: 'text-red-500' }
+const STATUS_CONFIG: Record<WorkLogStatus, { label: string; icon: typeof Circle; color: string; bgColor: string }> = {
+  todo: { label: 'To Do', icon: Circle, color: 'text-muted-foreground', bgColor: 'bg-muted/50' },
+  in_progress: { label: 'In Progress', icon: Clock, color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
+  done: { label: 'Done', icon: Check, color: 'text-green-500', bgColor: 'bg-green-500/10' },
+  blocked: { label: 'Blocked', icon: X, color: 'text-red-500', bgColor: 'bg-red-500/10' }
 };
 
 const PRIORITY_CONFIG: Record<WorkLogPriority, { label: string; color: string }> = {
@@ -98,15 +103,17 @@ const PRIORITY_CONFIG: Record<WorkLogPriority, { label: string; color: string }>
   high: { label: 'High', color: 'bg-red-500' }
 };
 
-const FOCUS_MODE_KEY = 'journal_focus_mode';
+// Kanban columns in order
+const KANBAN_COLUMNS: WorkLogStatus[] = ['todo', 'in_progress', 'done'];
 
 // ============================================================================
 // Hooks
 // ============================================================================
 
-function useJournalData(weekStart: Date) {
+function useJournalData(weekStart: Date, projectFilter?: string) {
   const [entries, setEntries] = useState<WorkLogEntry[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
+  const [projects, setProjects] = useState<PersonalProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -119,90 +126,94 @@ function useJournalData(weekStart: Date) {
     setIsLoading(true);
     setError(null);
     try {
-      const [entriesRes, tagsRes] = await Promise.all([
-        workLogsApi.list({ from, to }),
-        tagsApi.list()
+      const [entriesRes, tagsRes, projectsRes] = await Promise.all([
+        workLogsApi.list({ from, to, projectId: projectFilter }),
+        tagsApi.list(),
+        personalProjectsApi.list()
       ]);
       setEntries(entriesRes.items);
       setTags(tagsRes.items);
+      setProjects(projectsRes.items);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load journal data');
     } finally {
       setIsLoading(false);
     }
-  }, [from, to]);
+  }, [from, to, projectFilter]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  return { entries, tags, isLoading, error, refetch: fetchData, setTags };
+  return { entries, tags, projects, isLoading, error, refetch: fetchData, setEntries, setTags, setProjects };
 }
 
 // ============================================================================
 // Sub-Components
 // ============================================================================
 
-interface LogEntryCardProps {
+interface KanbanCardProps {
   entry: WorkLogEntry;
-  onStatusChange: (id: string, status: WorkLogStatus) => void;
-  onEdit: (entry: WorkLogEntry) => void;
-  onDelete: (id: string) => void;
+  index: number;
+  isSelected: boolean;
+  onSelect: (entry: WorkLogEntry) => void;
 }
 
-function LogEntryCard({ entry, onStatusChange, onEdit, onDelete }: LogEntryCardProps) {
-  const statusConfig = STATUS_CONFIG[entry.status];
-  const StatusIcon = statusConfig.icon;
+function KanbanCard({ entry, index, isSelected, onSelect }: KanbanCardProps) {
+  const { ref, isDragging } = useSortable({
+    id: entry.id,
+    index,
+    type: 'item',
+    accept: 'item',
+    group: entry.status
+  });
 
   return (
-    <div className="group relative flex items-start gap-3 rounded-lg border bg-card p-3 hover:border-primary/50 transition-colors">
-      {/* Status Button */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 mt-0.5">
-            <StatusIcon className={`h-4 w-4 ${statusConfig.color}`} />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
-          {(Object.entries(STATUS_CONFIG) as [WorkLogStatus, typeof statusConfig][]).map(
-            ([status, config]) => (
-              <DropdownMenuItem
-                key={status}
-                onClick={() => onStatusChange(entry.id, status)}
-                className="gap-2"
-              >
-                <config.icon className={`h-4 w-4 ${config.color}`} />
-                {config.label}
-              </DropdownMenuItem>
-            )
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      {/* Content */}
-      <div className="flex-1 min-w-0">
-        <p
-          className={`text-sm ${entry.status === 'done' ? 'line-through text-muted-foreground' : ''}`}
-        >
+    <div
+      ref={ref}
+      onClick={() => onSelect(entry)}
+      className={`
+        p-3 rounded-lg border cursor-pointer transition-all
+        hover:border-primary/50 hover:shadow-sm
+        ${isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'bg-card'}
+        ${isDragging ? 'opacity-50 shadow-lg ring-2 ring-primary scale-105' : ''}
+      `}
+    >
+      {/* Drag Handle + Content */}
+      <div className="flex items-start gap-2">
+        <GripVertical className="h-4 w-4 mt-0.5 text-muted-foreground/50 cursor-grab shrink-0" />
+        <p className={`text-sm flex-1 ${entry.status === 'done' ? 'line-through text-muted-foreground' : ''}`}>
           {entry.content}
         </p>
+      </div>
 
-        {/* Tags & Metadata */}
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          {entry.priority && (
-            <Badge
-              variant="outline"
-              className={`text-xs ${PRIORITY_CONFIG[entry.priority].color} text-white border-0`}
-            >
-              {PRIORITY_CONFIG[entry.priority].label}
-            </Badge>
-          )}
-          {entry.dueDate && (
-            <Badge variant="outline" className="text-xs gap-1">
-              <Calendar className="h-3 w-3" />
-              {entry.dueDate}
-            </Badge>
-          )}
+      {/* Metadata Row */}
+      <div className="mt-2 flex flex-wrap items-center gap-1.5 ml-6">
+        {entry.priority && (
+          <Badge
+            variant="outline"
+            className={`text-xs ${PRIORITY_CONFIG[entry.priority].color} text-white border-0`}
+          >
+            {PRIORITY_CONFIG[entry.priority].label}
+          </Badge>
+        )}
+        {entry.dueDate && (
+          <Badge variant="outline" className="text-xs gap-1">
+            <Calendar className="h-3 w-3" />
+            {formatDateDisplay(entry.dueDate)}
+          </Badge>
+        )}
+        {entry.project && (
+          <Badge variant="secondary" className="text-xs gap-1">
+            <FolderOpen className="h-3 w-3" />
+            {entry.project.title}
+          </Badge>
+        )}
+      </div>
+
+      {/* Tags */}
+      {entry.tags.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1 ml-6">
           {entry.tags.map((tag) => (
             <Badge
               key={tag.id}
@@ -214,19 +225,221 @@ function LogEntryCard({ entry, onStatusChange, onEdit, onDelete }: LogEntryCardP
             </Badge>
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+interface KanbanColumnProps {
+  status: WorkLogStatus;
+  index: number;
+  entries: WorkLogEntry[];
+  selectedEntry?: WorkLogEntry;
+  onSelectEntry: (entry: WorkLogEntry) => void;
+}
+
+function KanbanColumn({ status, index, entries, selectedEntry, onSelectEntry }: KanbanColumnProps) {
+  const config = STATUS_CONFIG[status];
+  const StatusIcon = config.icon;
+  const columnEntries = entries.filter((e) => e.status === status);
+
+  const { ref } = useSortable({
+    id: status,
+    index,
+    type: 'column',
+    accept: ['item', 'column'],
+    collisionPriority: 0 // Low priority so items are matched first
+  });
+
+  return (
+    <div
+      ref={ref}
+      className={`flex flex-col rounded-lg border ${config.bgColor} min-w-[280px] max-w-[320px] flex-1`}
+    >
+      {/* Column Header */}
+      <div className="flex items-center gap-2 p-3 border-b">
+        <StatusIcon className={`h-4 w-4 ${config.color}`} />
+        <span className="font-medium text-sm">{config.label}</span>
+        <Badge variant="secondary" className="ml-auto text-xs">
+          {columnEntries.length}
+        </Badge>
       </div>
 
-      {/* Actions */}
-      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(entry)}>
-          <ChevronDown className="h-4 w-4" />
+      {/* Cards */}
+      <ScrollArea className="flex-1 p-2">
+        <div className="space-y-2 min-h-[100px]">
+          {columnEntries.length === 0 ? (
+            <div className="text-center text-sm text-muted-foreground py-8 border-2 border-dashed border-muted rounded-lg">
+              Drop tasks here
+            </div>
+          ) : (
+            columnEntries.map((entry, idx) => (
+              <KanbanCard
+                key={entry.id}
+                entry={entry}
+                index={idx}
+                isSelected={selectedEntry?.id === entry.id}
+                onSelect={onSelectEntry}
+              />
+            ))
+          )}
+        </div>
+      </ScrollArea>
+    </div>
+  );
+}
+
+interface TaskDetailPanelProps {
+  entry: WorkLogEntry;
+  tags: Tag[];
+  projects: PersonalProject[];
+  onClose: () => void;
+  onEdit: (entry: WorkLogEntry) => void;
+  onDelete: (id: string) => void;
+  onStatusChange: (id: string, status: WorkLogStatus) => void;
+}
+
+function TaskDetailPanel({ 
+  entry, 
+  tags: _tags, 
+  projects: _projects,
+  onClose, 
+  onEdit, 
+  onDelete,
+  onStatusChange 
+}: TaskDetailPanelProps) {
+  // _tags and _projects reserved for future use (e.g., inline tag/project editing)
+  void _tags;
+  void _projects;
+  const statusConfig = STATUS_CONFIG[entry.status];
+  const StatusIcon = statusConfig.icon;
+
+  return (
+    <div className="w-[400px] border-l bg-card flex flex-col h-full">
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b">
+        <h3 className="font-semibold">Task Details</h3>
+        <Button variant="ghost" size="icon" onClick={onClose}>
+          <X className="h-4 w-4" />
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 text-destructive"
-          onClick={() => onDelete(entry.id)}
-        >
+      </div>
+
+      {/* Content */}
+      <ScrollArea className="flex-1 p-4">
+        <div className="space-y-6">
+          {/* Status */}
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground uppercase">Status</Label>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full justify-start gap-2">
+                  <StatusIcon className={`h-4 w-4 ${statusConfig.color}`} />
+                  {statusConfig.label}
+                  <ChevronDown className="h-4 w-4 ml-auto" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48">
+                {(Object.entries(STATUS_CONFIG) as [WorkLogStatus, typeof statusConfig][]).map(
+                  ([s, c]) => (
+                    <DropdownMenuItem
+                      key={s}
+                      onClick={() => onStatusChange(entry.id, s)}
+                      className="gap-2"
+                    >
+                      <c.icon className={`h-4 w-4 ${c.color}`} />
+                      {c.label}
+                    </DropdownMenuItem>
+                  )
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          {/* Content */}
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground uppercase">Description</Label>
+            <p className="text-sm">{entry.content}</p>
+          </div>
+
+          {/* Date */}
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground uppercase">Date</Label>
+            <p className="text-sm">{formatDateDisplay(entry.date)}</p>
+          </div>
+
+          {/* Priority */}
+          {entry.priority && (
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground uppercase">Priority</Label>
+              <Badge
+                className={`${PRIORITY_CONFIG[entry.priority].color} text-white border-0`}
+              >
+                {PRIORITY_CONFIG[entry.priority].label}
+              </Badge>
+            </div>
+          )}
+
+          {/* Due Date */}
+          {entry.dueDate && (
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground uppercase">Due Date</Label>
+              <p className="text-sm flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                {formatDateDisplay(entry.dueDate)}
+              </p>
+            </div>
+          )}
+
+          {/* Project */}
+          {entry.project && (
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground uppercase">Project</Label>
+              <Badge variant="secondary" className="gap-1">
+                <FolderOpen className="h-3 w-3" />
+                {entry.project.title}
+              </Badge>
+            </div>
+          )}
+
+          {/* Tags */}
+          {entry.tags.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground uppercase">Tags</Label>
+              <div className="flex flex-wrap gap-1">
+                {entry.tags.map((tag) => (
+                  <Badge
+                    key={tag.id}
+                    variant="secondary"
+                    style={{ backgroundColor: tag.color ? `${tag.color}20` : undefined }}
+                  >
+                    #{tag.name}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Timestamps */}
+          <div className="space-y-2 pt-4 border-t">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Created</span>
+              <span>{formatTimestampDisplay(entry.createdAt)}</span>
+            </div>
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Updated</span>
+              <span>{formatTimestampDisplay(entry.updatedAt)}</span>
+            </div>
+          </div>
+        </div>
+      </ScrollArea>
+
+      {/* Actions */}
+      <div className="p-4 border-t flex gap-2">
+        <Button variant="outline" className="flex-1 gap-2" onClick={() => onEdit(entry)}>
+          <Pencil className="h-4 w-4" />
+          Edit
+        </Button>
+        <Button variant="destructive" size="icon" onClick={() => onDelete(entry.id)}>
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
@@ -234,91 +447,55 @@ function LogEntryCard({ entry, onStatusChange, onEdit, onDelete }: LogEntryCardP
   );
 }
 
-interface DayColumnProps {
-  date: Date;
-  entries: WorkLogEntry[];
-  isFocusMode: boolean;
-  isExpanded: boolean;
-  onStatusChange: (id: string, status: WorkLogStatus) => void;
-  onEdit: (entry: WorkLogEntry) => void;
-  onDelete: (id: string) => void;
-  onToggleExpand: () => void;
+interface ProjectFilterProps {
+  projects: PersonalProject[];
+  selectedProjectId?: string;
+  onSelectProject: (projectId?: string) => void;
 }
 
-function DayColumn({
-  date,
-  entries,
-  isFocusMode,
-  isExpanded,
-  onStatusChange,
-  onEdit,
-  onDelete,
-  onToggleExpand
-}: DayColumnProps) {
-  const dateStr = formatDate(date);
-  const dayEntries = entries.filter((e) => e.date === dateStr);
-  const filteredEntries = isFocusMode
-    ? dayEntries.filter((e) => e.status === 'todo' || e.status === 'in_progress')
-    : dayEntries;
-
-  const today = isToday(date);
-  const hasEntries = filteredEntries.length > 0;
-
-  // Don't render collapsed empty days (except today)
-  if (!hasEntries && !today && !isExpanded) {
-    return null;
-  }
+function ProjectFilter({ projects, selectedProjectId, onSelectProject }: ProjectFilterProps) {
+  const selectedProject = projects.find(p => p.id === selectedProjectId);
 
   return (
-    <div
-      className={`rounded-lg border ${today ? 'border-primary/50 bg-primary/5' : 'bg-card'}`}
-    >
-      {/* Day Header */}
-      <button
-        onClick={onToggleExpand}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors rounded-t-lg"
-      >
-        <div className="flex items-center gap-3">
-          <div className={`flex flex-col items-start ${today ? 'text-primary' : ''}`}>
-            <span className="text-sm font-medium">
-              {formatDisplayDate(date)}
-            </span>
-            {today && <span className="text-xs text-primary font-medium">Today</span>}
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-2">
+          <Filter className="h-4 w-4" />
+          {selectedProject ? selectedProject.title : 'All Projects'}
+          <ChevronDown className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56">
+        <DropdownMenuItem onClick={() => onSelectProject(undefined)}>
+          All Projects
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        {projects.map((project) => (
+          <DropdownMenuItem
+            key={project.id}
+            onClick={() => onSelectProject(project.id)}
+            className="gap-2"
+          >
+            <FolderOpen className="h-4 w-4" />
+            {project.title}
+            {project.id === selectedProjectId && (
+              <Check className="h-4 w-4 ml-auto" />
+            )}
+          </DropdownMenuItem>
+        ))}
+        {projects.length === 0 && (
+          <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+            No projects yet
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {filteredEntries.length > 0 && (
-            <Badge variant="secondary" className="text-xs">
-              {filteredEntries.length} {filteredEntries.length === 1 ? 'entry' : 'entries'}
-            </Badge>
-          )}
-          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-        </div>
-      </button>
-
-      {/* Entries - Collapsible */}
-      {isExpanded && (
-        <div className="px-4 pb-4 space-y-3">
-          {filteredEntries.length === 0 ? (
-            <div className="text-center text-sm text-muted-foreground py-6 border border-dashed rounded-lg">
-              {isFocusMode ? 'No active tasks' : 'No entries for this day'}
-            </div>
-          ) : (
-            filteredEntries.map((entry) => (
-              <LogEntryCard
-                key={entry.id}
-                entry={entry}
-                onStatusChange={onStatusChange}
-                onEdit={onEdit}
-                onDelete={onDelete}
-              />
-            ))
-          )}
-        </div>
-      )}
-    </div>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
+
+// ============================================================================
+// Entry Form Dialog (Updated with Project)
+// ============================================================================
 
 interface EntryFormDialogProps {
   open: boolean;
@@ -326,6 +503,7 @@ interface EntryFormDialogProps {
   entry?: WorkLogEntry;
   defaultDate?: string;
   tags: Tag[];
+  projects: PersonalProject[];
   onSave: (data: CreateWorkLogRequest | UpdateWorkLogRequest, id?: string) => Promise<void>;
   onCreateTag: (name: string) => Promise<Tag>;
 }
@@ -336,6 +514,7 @@ function EntryFormDialog({
   entry,
   defaultDate,
   tags,
+  projects,
   onSave,
   onCreateTag
 }: EntryFormDialogProps) {
@@ -344,20 +523,23 @@ function EntryFormDialog({
   const [status, setStatus] = useState<WorkLogStatus>('todo');
   const [priority, setPriority] = useState<WorkLogPriority | 'none'>('none');
   const [dueDate, setDueDate] = useState('');
+  const [projectId, setProjectId] = useState<string | 'none'>('none');
   const [isSaving, setIsSaving] = useState(false);
   const [suggestions, setSuggestions] = useState<{
     hashtags: string[];
     date?: string;
     dueDate?: string;
     priority?: 'low' | 'medium' | 'high';
+    project?: string;
   }>({
     hashtags: []
   });
   const [lastAppliedDate, setLastAppliedDate] = useState<string | undefined>(undefined);
   const [lastAppliedDueDate, setLastAppliedDueDate] = useState<string | undefined>(undefined);
   const [lastAppliedPriority, setLastAppliedPriority] = useState<string | undefined>(undefined);
+  const [lastAppliedProject, setLastAppliedProject] = useState<string | undefined>(undefined);
 
-  // Reset form when dialog opens
+  // Reset form when dialog opens/closes or entry changes
   useEffect(() => {
     if (open) {
       if (entry) {
@@ -366,25 +548,28 @@ function EntryFormDialog({
         setStatus(entry.status);
         setPriority(entry.priority ?? 'none');
         setDueDate(entry.dueDate ?? '');
-        setLastAppliedDate(entry.date);
-        setLastAppliedDueDate(entry.dueDate);
-        setLastAppliedPriority(entry.priority);
+        setProjectId(entry.projectId ?? 'none');
+        setLastAppliedDate(undefined);
+        setLastAppliedDueDate(undefined);
+        setLastAppliedPriority(undefined);
+        setLastAppliedProject(undefined);
       } else {
         setContent('');
         setDate(defaultDate ?? getTodayDate());
         setStatus('todo');
         setPriority('none');
         setDueDate('');
+        setProjectId('none');
         setLastAppliedDate(undefined);
         setLastAppliedDueDate(undefined);
         setLastAppliedPriority(undefined);
+        setLastAppliedProject(undefined);
       }
       setSuggestions({ hashtags: [] });
     }
   }, [open, entry, defaultDate]);
 
   // Parse content for suggestions with debouncing
-  // NOTE: Content is NOT modified while typing - only cleaned on save
   useEffect(() => {
     const timer = setTimeout(() => {
       if (content) {
@@ -393,15 +578,16 @@ function EntryFormDialog({
           hashtags: parsed.hashtags,
           date: parsed.suggestedDate,
           dueDate: parsed.suggestedDueDate,
-          priority: parsed.suggestedPriority
+          priority: parsed.suggestedPriority,
+          project: parsed.suggestedProject
         });
-        
+
         // Auto-apply date if detected and changed
         if (parsed.suggestedDate && parsed.suggestedDate !== lastAppliedDate) {
           setDate(parsed.suggestedDate);
           setLastAppliedDate(parsed.suggestedDate);
         }
-        
+
         // Auto-apply due date if detected and changed
         if (parsed.suggestedDueDate && parsed.suggestedDueDate !== lastAppliedDueDate) {
           setDueDate(parsed.suggestedDueDate);
@@ -413,31 +599,41 @@ function EntryFormDialog({
           setPriority(parsed.suggestedPriority);
           setLastAppliedPriority(parsed.suggestedPriority);
         }
+
+        // Auto-apply project if detected and changed
+        if (parsed.suggestedProject && parsed.suggestedProject !== lastAppliedProject) {
+          // Find matching project by title (case-insensitive)
+          const matchingProject = projects.find(
+            (p) => p.title.toLowerCase() === parsed.suggestedProject?.toLowerCase()
+          );
+          if (matchingProject) {
+            setProjectId(matchingProject.id);
+            setLastAppliedProject(parsed.suggestedProject);
+          }
+        }
       } else {
         setSuggestions({ hashtags: [] });
       }
-    }, 500); // Wait 500ms after user stops typing
+    }, 500);
 
     return () => clearTimeout(timer);
-  }, [content, lastAppliedDate, lastAppliedDueDate, lastAppliedPriority]);
+  }, [content, lastAppliedDate, lastAppliedDueDate, lastAppliedPriority, lastAppliedProject, projects]);
 
   const handleSave = async () => {
     if (!content.trim()) return;
 
     setIsSaving(true);
     try {
-      // Parse content to get cleaned version (removes dates, priority, due, prepositions)
+      // Parse content to get cleaned version
       const parsed = parseContentForSuggestions(content);
-      
+
       // Process hashtags: create new tags, reuse existing ones
       const tagIds: string[] = [];
       for (const tagName of parsed.hashtags) {
         const existingTag = tags.find((t) => t.name.toLowerCase() === tagName.toLowerCase());
         if (existingTag) {
-          // Reuse existing tag
           tagIds.push(existingTag.id);
         } else {
-          // Create new tag
           try {
             const newTag = await onCreateTag(tagName);
             tagIds.push(newTag.id);
@@ -447,15 +643,12 @@ function EntryFormDialog({
         }
       }
 
-      // Start with cleaned content (autofill directives removed)
+      // Clean content: remove autofill directives and hashtags
       let finalContent = parsed.cleanedContent;
-      
-      // Remove hashtags from content (tags are tracked separately)
       parsed.hashtags.forEach((tag) => {
         // eslint-disable-next-line security/detect-non-literal-regexp
         finalContent = finalContent.replace(new RegExp(`#${tag}\\b`, 'gi'), '');
       });
-      // Clean up extra whitespace after removing hashtags
       finalContent = finalContent.replace(/\s+/g, ' ').trim();
 
       const data: CreateWorkLogRequest | UpdateWorkLogRequest = {
@@ -464,6 +657,7 @@ function EntryFormDialog({
         status,
         priority: priority !== 'none' ? priority : undefined,
         dueDate: dueDate || undefined,
+        projectId: projectId !== 'none' ? projectId : undefined,
         tagIds: tagIds.length > 0 ? tagIds : undefined
       };
 
@@ -494,13 +688,13 @@ function EntryFormDialog({
             <Label htmlFor="content">What did you work on?</Label>
             <Textarea
               id="content"
-              placeholder="e.g., Fixed bug in login flow #dev by tomorrow"
+              placeholder="e.g., Fixed bug in login #dev by tomorrow priority: high project: Q1 Launch"
               value={content}
               onChange={(e) => setContent(e.target.value)}
               rows={3}
             />
             {/* Auto-detection Feedback */}
-            {(suggestions.date || suggestions.dueDate || suggestions.priority) && (
+            {(suggestions.date || suggestions.dueDate || suggestions.priority || suggestions.project) && (
               <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                 {suggestions.date && (
                   <span className="flex items-center gap-1">
@@ -519,6 +713,12 @@ function EntryFormDialog({
                     Due: {suggestions.dueDate}
                   </span>
                 )}
+                {suggestions.project && (
+                  <span className="flex items-center gap-1">
+                    <FolderOpen className="h-3 w-3" />
+                    Project: {suggestions.project}
+                  </span>
+                )}
               </div>
             )}
           </div>
@@ -526,20 +726,8 @@ function EntryFormDialog({
           {/* Date & Status Row */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="date" className="flex items-center gap-1">
-                Date
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Which day this log entry belongs to (organizes by day)</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </Label>
-              <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <Label htmlFor="date">Date</Label>
+              <DatePicker value={date} onChange={setDate} placeholder="Pick a date" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
@@ -548,16 +736,11 @@ function EntryFormDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(Object.entries(STATUS_CONFIG) as [WorkLogStatus, (typeof STATUS_CONFIG)[WorkLogStatus]][]).map(
-                    ([key, config]) => (
-                      <SelectItem key={key} value={key}>
-                        <div className="flex items-center gap-2">
-                          <config.icon className={`h-4 w-4 ${config.color}`} />
-                          {config.label}
-                        </div>
-                      </SelectItem>
-                    )
-                  )}
+                  {Object.entries(STATUS_CONFIG).map(([s, config]) => (
+                    <SelectItem key={s} value={s}>
+                      {config.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -569,61 +752,63 @@ function EntryFormDialog({
               <Label htmlFor="priority">Priority</Label>
               <Select value={priority} onValueChange={(v) => setPriority(v as WorkLogPriority | 'none')}>
                 <SelectTrigger>
-                  <SelectValue placeholder="None" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None</SelectItem>
-                  {(Object.entries(PRIORITY_CONFIG) as [WorkLogPriority, (typeof PRIORITY_CONFIG)[WorkLogPriority]][]).map(
-                    ([key, config]) => (
-                      <SelectItem key={key} value={key}>
-                        {config.label}
-                      </SelectItem>
-                    )
-                  )}
+                  {Object.entries(PRIORITY_CONFIG).map(([p, config]) => (
+                    <SelectItem key={p} value={p}>
+                      {config.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="dueDate" className="flex items-center gap-1">
-                Due Date
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>When this task should be completed (deadline)</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </Label>
-              <Input
-                id="dueDate"
-                type="date"
+              <Label htmlFor="dueDate">Due Date</Label>
+              <DatePicker
                 value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
+                onChange={setDueDate}
+                placeholder="Pick due date"
               />
             </div>
           </div>
 
-          {/* Tags Preview */}
+          {/* Project */}
+          <div className="space-y-2">
+            <Label htmlFor="project">Project</Label>
+            <Select value={projectId} onValueChange={(v) => setProjectId(v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a project" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No Project</SelectItem>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Detected Tags */}
           {suggestions.hashtags.length > 0 && (
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Tags from content</Label>
-              <div className="flex flex-wrap gap-1.5">
-                {suggestions.hashtags.map((tagName) => {
-                  const status = getTagStatus(tagName);
-                  return (
-                    <Badge
-                      key={tagName}
-                      variant={status === 'existing' ? 'default' : 'secondary'}
-                      className="text-xs"
-                    >
-                      #{tagName}
-                      {status === 'new' && <span className="ml-1 text-[10px] opacity-60">(new)</span>}
-                    </Badge>
-                  );
-                })}
+              <Label className="text-xs text-muted-foreground">Detected tags</Label>
+              <div className="flex flex-wrap gap-1">
+                {suggestions.hashtags.map((tag) => (
+                  <Badge
+                    key={tag}
+                    variant={getTagStatus(tag) === 'existing' ? 'default' : 'secondary'}
+                    className="text-xs"
+                  >
+                    #{tag}
+                    {getTagStatus(tag) === 'new' && (
+                      <span className="ml-1 text-muted-foreground">(new)</span>
+                    )}
+                  </Badge>
+                ))}
               </div>
             </div>
           )}
@@ -633,8 +818,8 @@ function EntryFormDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!content.trim() || isSaving}>
-            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Button onClick={handleSave} disabled={isSaving || !content.trim()}>
+            {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {entry ? 'Update' : 'Create'}
           </Button>
         </DialogFooter>
@@ -642,6 +827,10 @@ function EntryFormDialog({
     </Dialog>
   );
 }
+
+// ============================================================================
+// Rollover Dialog
+// ============================================================================
 
 interface RolloverDialogProps {
   open: boolean;
@@ -686,7 +875,7 @@ function RolloverDialog({ open, onOpenChange, onRollover, unfinishedCount }: Rol
               </CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
-              Move tasks from yesterday to today. Original entries will be updated.
+              Move tasks from yesterday to today.
             </CardContent>
           </Card>
 
@@ -701,7 +890,7 @@ function RolloverDialog({ open, onOpenChange, onRollover, unfinishedCount }: Rol
               </CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
-              Create copies in today. Original entries remain unchanged.
+              Create copies in today.
             </CardContent>
           </Card>
         </div>
@@ -724,27 +913,22 @@ export function JournalPage() {
   // Week navigation state
   const [currentWeekStart, setCurrentWeekStart] = useState(() => getWeekStart(new Date()));
 
+  // Filter state
+  const [projectFilter, setProjectFilter] = useState<string | undefined>(undefined);
+
   // UI state
-  const [focusMode, setFocusMode] = useState(() => {
-    const saved = localStorage.getItem(FOCUS_MODE_KEY);
-    return saved === 'true';
-  });
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<WorkLogEntry | undefined>();
   const [defaultDate, setDefaultDate] = useState<string | undefined>();
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [rolloverDialogOpen, setRolloverDialogOpen] = useState(false);
-  
-  // Track expanded days - today expanded by default
-  const [expandedDays, setExpandedDays] = useState<Set<string>>(() => {
-    return new Set([getTodayDate()]);
-  });
+  const [selectedEntry, setSelectedEntry] = useState<WorkLogEntry | undefined>();
 
   // Data
-  const { entries, tags, isLoading, error, refetch, setTags } = useJournalData(currentWeekStart);
-
-  // Week dates array
-  const weekDates = useMemo(() => getWeekDates(currentWeekStart), [currentWeekStart]);
+  const { entries, tags, projects, isLoading, error, refetch, setEntries, setTags } = useJournalData(
+    currentWeekStart,
+    projectFilter
+  );
 
   // Count unfinished from yesterday
   const yesterdayStr = getYesterdayDate();
@@ -755,11 +939,6 @@ export function JournalPage() {
       ),
     [entries, yesterdayStr]
   );
-
-  // Persist focus mode
-  useEffect(() => {
-    localStorage.setItem(FOCUS_MODE_KEY, focusMode.toString());
-  }, [focusMode]);
 
   // Navigation handlers
   const goToPreviousWeek = () => {
@@ -778,21 +957,62 @@ export function JournalPage() {
     setCurrentWeekStart(getWeekStart(new Date()));
   };
 
-  // Entry handlers
+  // Entry handlers - optimistic updates
   const handleStatusChange = useCallback(
-    async (id: string, status: WorkLogStatus) => {
+    async (id: string, newStatus: WorkLogStatus) => {
+      // Find the entry to get its old status for rollback
+      const entry = entries.find((e) => e.id === id);
+      if (!entry || entry.status === newStatus) return;
+
+      const oldStatus = entry.status;
+
+      // Optimistic update: update local state immediately
+      setEntries((prev) =>
+        prev.map((e) =>
+          e.id === id
+            ? {
+                ...e,
+                status: newStatus,
+                actualEndDate: newStatus === 'done' ? getTodayDate() : e.actualEndDate,
+                updatedAt: new Date().toISOString()
+              }
+            : e
+        )
+      );
+
+      // Update selected entry if it's the one being changed
+      if (selectedEntry?.id === id) {
+        setSelectedEntry((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: newStatus,
+                actualEndDate: newStatus === 'done' ? getTodayDate() : prev.actualEndDate,
+                updatedAt: new Date().toISOString()
+              }
+            : prev
+        );
+      }
+
+      // Persist to API in background
       try {
-        const updateData: UpdateWorkLogRequest = { status };
-        if (status === 'done') {
+        const updateData: UpdateWorkLogRequest = { status: newStatus };
+        if (newStatus === 'done') {
           updateData.actualEndDate = getTodayDate();
         }
         await workLogsApi.update(id, updateData);
-        refetch();
       } catch (err) {
         console.error('Failed to update status:', err);
+        // Rollback on error
+        setEntries((prev) =>
+          prev.map((e) => (e.id === id ? { ...e, status: oldStatus } : e))
+        );
+        if (selectedEntry?.id === id) {
+          setSelectedEntry((prev) => (prev ? { ...prev, status: oldStatus } : prev));
+        }
       }
     },
-    [refetch]
+    [entries, selectedEntry, setEntries]
   );
 
   const handleEdit = useCallback((entry: WorkLogEntry) => {
@@ -807,47 +1027,54 @@ export function JournalPage() {
     setFormDialogOpen(true);
   }, []);
 
-  const handleToggleDay = useCallback((dateStr: string) => {
-    setExpandedDays(prev => {
-      const next = new Set(prev);
-      if (next.has(dateStr)) {
-        next.delete(dateStr);
-      } else {
-        next.add(dateStr);
-      }
-      return next;
-    });
-  }, []);
-
-  const handleExpandAll = useCallback(() => {
-    setExpandedDays(new Set(weekDates.map(d => formatDate(d))));
-  }, [weekDates]);
-
-  const handleCollapseAll = useCallback(() => {
-    setExpandedDays(new Set([getTodayDate()])); // Keep today expanded
-  }, []);
-
   const handleSaveEntry = useCallback(
     async (data: CreateWorkLogRequest | UpdateWorkLogRequest, id?: string) => {
       if (id) {
+        // Optimistic update for edit
+        setEntries((prev) =>
+          prev.map((e) =>
+            e.id === id
+              ? { ...e, ...data, updatedAt: new Date().toISOString() }
+              : e
+          )
+        );
+        if (selectedEntry?.id === id) {
+          setSelectedEntry((prev) =>
+            prev ? { ...prev, ...data, updatedAt: new Date().toISOString() } : prev
+          );
+        }
         await workLogsApi.update(id, data as UpdateWorkLogRequest);
       } else {
-        await workLogsApi.create(data as CreateWorkLogRequest);
+        // For create, we need to refetch to get the new entry with proper ID
+        const result = await workLogsApi.create(data as CreateWorkLogRequest);
+        setEntries((prev) => [result.entry, ...prev]);
       }
-      refetch();
     },
-    [refetch]
+    [selectedEntry, setEntries]
   );
 
   const handleDeleteEntry = useCallback(async () => {
     if (!deleteConfirmId) return;
+    const entryToDelete = entries.find((e) => e.id === deleteConfirmId);
+    
+    // Optimistic delete
+    setEntries((prev) => prev.filter((e) => e.id !== deleteConfirmId));
+    if (selectedEntry?.id === deleteConfirmId) {
+      setSelectedEntry(undefined);
+    }
+    
     try {
       await workLogsApi.delete(deleteConfirmId);
-      refetch();
+    } catch (err) {
+      console.error('Failed to delete entry:', err);
+      // Rollback on error
+      if (entryToDelete) {
+        setEntries((prev) => [...prev, entryToDelete]);
+      }
     } finally {
       setDeleteConfirmId(null);
     }
-  }, [deleteConfirmId, refetch]);
+  }, [deleteConfirmId, entries, selectedEntry, setEntries]);
 
   const handleCreateTag = useCallback(
     async (name: string): Promise<Tag> => {
@@ -905,26 +1132,6 @@ export function JournalPage() {
             </TooltipProvider>
           )}
 
-          {/* Focus Mode Toggle */}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={focusMode ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setFocusMode(!focusMode)}
-                  className="gap-2"
-                >
-                  {focusMode ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                  Focus
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {focusMode ? 'Showing active tasks only' : 'Show all tasks'}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
           {/* Add Entry Button */}
           <Button size="sm" onClick={handleAddEntry} className="gap-2">
             <Plus className="h-4 w-4" />
@@ -933,9 +1140,9 @@ export function JournalPage() {
         </div>
       }
     >
-      <AppPageContent>
-        {/* Week Navigation */}
-        <div className="flex items-center justify-between mb-6">
+      <AppPageContent className="flex flex-col h-full overflow-hidden">
+        {/* Header: Navigation + Filter + Stats */}
+        <div className="flex items-center justify-between mb-4 flex-shrink-0">
           <div className="flex items-center gap-3">
             <Button variant="outline" size="icon" onClick={goToPreviousWeek}>
               <ArrowLeft className="h-4 w-4" />
@@ -949,75 +1156,162 @@ export function JournalPage() {
             <Button variant="ghost" size="sm" onClick={goToCurrentWeek}>
               Today
             </Button>
+            
+            <Separator orientation="vertical" className="h-6" />
+            
+            {/* Project Filter */}
+            <ProjectFilter
+              projects={projects}
+              selectedProjectId={projectFilter}
+              onSelectProject={setProjectFilter}
+            />
           </div>
 
-          {/* Weekly Stats & Actions */}
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <span>
-                <strong className="text-foreground">{weekStats.total}</strong> entries
-              </span>
-              <span className="text-green-500">
-                <strong>{weekStats.done}</strong> done
-              </span>
-              <span className="text-blue-500">
-                <strong>{weekStats.inProgress}</strong> in progress
-              </span>
-              <span>
-                <strong>{weekStats.todo}</strong> to do
-              </span>
-            </div>
-            
-            {/* Expand/Collapse All */}
-            <div className="flex items-center gap-1 border-l pl-4">
-              <Button variant="ghost" size="sm" onClick={handleExpandAll} className="text-xs">
-                Expand All
-              </Button>
-              <span className="text-muted-foreground">/</span>
-              <Button variant="ghost" size="sm" onClick={handleCollapseAll} className="text-xs">
-                Collapse
-              </Button>
-            </div>
+          {/* Weekly Stats */}
+          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            <span>
+              <strong className="text-foreground">{weekStats.total}</strong> entries
+            </span>
+            <span className="text-green-500">
+              <strong>{weekStats.done}</strong> done
+            </span>
+            <span className="text-blue-500">
+              <strong>{weekStats.inProgress}</strong> in progress
+            </span>
+            <span>
+              <strong>{weekStats.todo}</strong> to do
+            </span>
           </div>
         </div>
 
-        {/* Loading / Error States */}
-        {isLoading && (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        )}
+        {/* Main Content: Kanban + Detail Panel */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Loading / Error States */}
+          {isLoading && (
+            <div className="flex-1 flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          )}
 
-        {error && (
-          <div className="text-center py-12 text-destructive">
-            <p>{error}</p>
-            <Button variant="outline" onClick={refetch} className="mt-4">
-              Retry
-            </Button>
-          </div>
-        )}
+          {error && (
+            <div className="flex-1 flex flex-col items-center justify-center text-destructive">
+              <p>{error}</p>
+              <Button variant="outline" onClick={refetch} className="mt-4">
+                Retry
+              </Button>
+            </div>
+          )}
 
-        {/* Week Grid */}
-        {!isLoading && !error && (
-          <div className="space-y-3 max-w-4xl mx-auto">
-            {weekDates.map((date) => {
-              const dateStr = formatDate(date);
-              return (
-                <DayColumn
-                  key={dateStr}
-                  date={date}
-                  entries={entries}
-                  isFocusMode={focusMode}
-                  isExpanded={expandedDays.has(dateStr)}
-                  onStatusChange={handleStatusChange}
-                  onEdit={handleEdit}
-                  onDelete={setDeleteConfirmId}
-                  onToggleExpand={() => handleToggleDay(dateStr)}
-                />
-              );
-            })}
-          </div>
-        )}
+          {/* Kanban Board */}
+          {!isLoading && !error && (
+            <DragDropProvider
+              onDragOver={(event) => {
+                const { source, target } = event.operation;
+                
+                // Only handle item drags (not column drags)
+                if (!source || source.type !== 'item') return;
+                
+                // Get the target column (status)
+                let targetStatus: WorkLogStatus | undefined;
+                
+                if (target?.type === 'column') {
+                  // Hovering over a column
+                  targetStatus = target.id as WorkLogStatus;
+                } else if (target?.type === 'item') {
+                  // Hovering over another item - get that item's column/status
+                  const targetEntry = entries.find((e) => e.id === target.id);
+                  targetStatus = targetEntry?.status;
+                }
+                
+                // If we have a valid target status and it's different, update the entry's group
+                const sourceEntry = entries.find((e) => e.id === source.id);
+                if (sourceEntry && targetStatus && sourceEntry.status !== targetStatus) {
+                  // Update the entry's status locally for visual feedback
+                  setEntries((prev) =>
+                    prev.map((e) =>
+                      e.id === source.id ? { ...e, status: targetStatus } : e
+                    )
+                  );
+                  
+                  // Also update selectedEntry if it's the one being dragged
+                  if (selectedEntry?.id === source.id) {
+                    setSelectedEntry((prev) =>
+                      prev ? { ...prev, status: targetStatus } : prev
+                    );
+                  }
+                }
+              }}
+              onDragEnd={(event) => {
+                const { source, target } = event.operation;
+                
+                // Only handle item drags (not column drags)
+                if (!source || source.type !== 'item') return;
+                
+                // If canceled, don't persist (but state is already updated via onDragOver)
+                if (event.canceled) {
+                  // Refetch to restore original state
+                  refetch();
+                  return;
+                }
+                
+                // Get the target column (status) for persistence
+                let targetStatus: WorkLogStatus | undefined;
+                
+                if (target?.type === 'column') {
+                  targetStatus = target.id as WorkLogStatus;
+                } else if (target?.type === 'item') {
+                  const targetEntry = entries.find((e) => e.id === target.id);
+                  targetStatus = targetEntry?.status;
+                }
+                
+                // Persist the status change to the API
+                if (targetStatus) {
+                  // The UI is already updated via onDragOver, just persist
+                  const entryId = source.id as string;
+                  const entry = entries.find((e) => e.id === entryId);
+                  
+                  // Only call API if status actually changed
+                  if (entry) {
+                    const updateData: UpdateWorkLogRequest = { status: targetStatus };
+                    if (targetStatus === 'done') {
+                      updateData.actualEndDate = getTodayDate();
+                    }
+                    workLogsApi.update(entryId, updateData).catch((err) => {
+                      console.error('Failed to update status:', err);
+                      refetch(); // Rollback on error
+                    });
+                  }
+                }
+              }}
+            >
+              <div className="flex-1 flex gap-4 overflow-x-auto pb-4">
+                {KANBAN_COLUMNS.map((status, index) => (
+                  <KanbanColumn
+                    key={status}
+                    status={status}
+                    index={index}
+                    entries={entries}
+                    selectedEntry={selectedEntry}
+                    onSelectEntry={setSelectedEntry}
+                  />
+                ))}
+              </div>
+            </DragDropProvider>
+          )}
+
+          {/* Task Detail Panel */}
+          {!isLoading && !error && selectedEntry && (
+            <TaskDetailPanel
+              entry={selectedEntry}
+              tags={tags}
+              projects={projects}
+              onClose={() => setSelectedEntry(undefined)}
+              onEdit={handleEdit}
+              onDelete={setDeleteConfirmId}
+              onStatusChange={handleStatusChange}
+            />
+          )}
+        </div>
       </AppPageContent>
 
       {/* Entry Form Dialog */}
@@ -1027,6 +1321,7 @@ export function JournalPage() {
         entry={editingEntry}
         defaultDate={defaultDate}
         tags={tags}
+        projects={projects}
         onSave={handleSaveEntry}
         onCreateTag={handleCreateTag}
       />

@@ -12,7 +12,12 @@ import type {
   CreateWorkLogRequest,
   UpdateWorkLogRequest,
   RolloverWorkLogsRequest,
-  RolloverWorkLogsResponse
+  RolloverWorkLogsResponse,
+  PersonalProject,
+  PersonalProjectListResponse,
+  PersonalProjectResponse,
+  CreatePersonalProjectRequest,
+  UpdatePersonalProjectRequest
 } from '@workspace/shared';
 
 // ============================================================================
@@ -119,5 +124,72 @@ export const workLogsApi = {
     apiClient.post<RolloverWorkLogsResponse>('/api/v1/work-logs/rollover', data)
 };
 
+// ============================================================================
+// Personal Projects API
+// ============================================================================
+
+export interface PersonalProjectsListParams {
+  workspaceId?: string;
+  status?: string[];
+  tagIds?: string[];
+}
+
+export const personalProjectsApi = {
+  /**
+   * List personal projects with optional filters
+   */
+  list: (params?: PersonalProjectsListParams) => {
+    const query: Record<string, string | undefined> = {};
+    if (params?.workspaceId) query.workspaceId = params.workspaceId;
+    if (params?.status?.length) query.status = params.status.join(',');
+    if (params?.tagIds?.length) query.tagIds = params.tagIds.join(',');
+
+    return apiClient.get<PersonalProjectListResponse>('/api/v1/personal-projects', { query });
+  },
+
+  /**
+   * Get a project by ID
+   */
+  getById: (id: string) => apiClient.get<PersonalProjectResponse>(`/api/v1/personal-projects/${id}`),
+
+  /**
+   * Create a new project
+   */
+  create: (data: CreatePersonalProjectRequest) =>
+    apiClient.post<PersonalProjectResponse>('/api/v1/personal-projects', data),
+
+  /**
+   * Update a project
+   */
+  update: (id: string, data: UpdatePersonalProjectRequest) =>
+    apiClient.put<PersonalProjectResponse>(`/api/v1/personal-projects/${id}`, data),
+
+  /**
+   * Delete a project
+   */
+  delete: async (id: string): Promise<void> => {
+    await apiClient.delete(`/api/v1/personal-projects/${id}`);
+  },
+
+  /**
+   * Search projects by title (for autocomplete)
+   */
+  search: (query: string) =>
+    apiClient.get<PersonalProjectListResponse>('/api/v1/personal-projects/search', {
+      query: { q: query }
+    })
+};
+
 // Re-export types for convenience
-export type { Tag, WorkLogEntry, CreateTagRequest, UpdateTagRequest, CreateWorkLogRequest, UpdateWorkLogRequest, RolloverWorkLogsRequest };
+export type { 
+  Tag, 
+  WorkLogEntry, 
+  PersonalProject,
+  CreateTagRequest, 
+  UpdateTagRequest, 
+  CreateWorkLogRequest, 
+  UpdateWorkLogRequest, 
+  RolloverWorkLogsRequest,
+  CreatePersonalProjectRequest,
+  UpdatePersonalProjectRequest
+};

@@ -12,6 +12,8 @@ export interface ParsedContentSuggestions {
   suggestedDueDate?: string; // YYYY-MM-DD format
   /** Parsed priority from "priority: <level>" pattern */
   suggestedPriority?: 'low' | 'medium' | 'high';
+  /** Parsed project name from "project: <name>" pattern */
+  suggestedProject?: string;
   /** Cleaned content with autofill directives removed */
   cleanedContent: string;
 }
@@ -22,7 +24,8 @@ export interface ParsedContentSuggestions {
  * 2. Date for entry (e.g., "tomorrow", "next Monday" - when task happens)
  * 3. Due date from "due: <date>" pattern (deadline)
  * 4. Priority from "priority: <level>" pattern
- * 5. Clean content (removes autofill directives, keeps actual content + hashtags)
+ * 5. Project from "project: <name>" pattern
+ * 6. Clean content (removes autofill directives, keeps actual content + hashtags)
  */
 export function parseContentForSuggestions(
   content: string,
@@ -59,7 +62,16 @@ export function parseContentForSuggestions(
     cleanedContent = cleanedContent.replace(/priority:\s*(low|medium|high)/gi, '');
   }
 
-  // 3. Extract due date from "due: <date>" pattern and remove it
+  // 3. Extract project from "project: <name>" pattern and remove it
+  // Project name can contain letters, numbers, spaces, and hyphens
+  const projectMatch = content.match(/project:\s*([a-zA-Z0-9][a-zA-Z0-9\s\-_]*)/i);
+  if (projectMatch) {
+    result.suggestedProject = projectMatch[1].trim();
+    // Remove the project directive from content
+    cleanedContent = cleanedContent.replace(/project:\s*[a-zA-Z0-9][a-zA-Z0-9\s\-_]*/gi, '');
+  }
+
+  // 4. Extract due date from "due: <date>" pattern and remove it
   const dueMatch = content.match(/due:\s*([^,.\n]+)/i);
   if (dueMatch) {
     const dueText = dueMatch[1].trim();
@@ -71,7 +83,7 @@ export function parseContentForSuggestions(
     }
   }
 
-  // 4. Parse general date for the entry (when task happens)
+  // 5. Parse general date for the entry (when task happens)
   // Use already cleaned content to avoid false matches
   const parsedResults = chrono.parse(cleanedContent, refDate, { forwardDate: true });
   
@@ -238,4 +250,35 @@ export function getWeekRangeLabel(weekStart: Date): string {
     return `${startMonth} ${startDay} - ${endDay}, ${year}`;
   }
   return `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${year}`;
+}
+
+/**
+ * Format a date string or Date object to human-readable format (e.g., "13 Jan 2026")
+ */
+export function formatDateDisplay(date: string | Date): string {
+  const dateObj = typeof date === 'string' ? parseDate(date) : date;
+  
+  const day = dateObj.getDate();
+  const month = dateObj.toLocaleDateString('en-US', { month: 'short' });
+  const year = dateObj.getFullYear();
+  
+  return `${day} ${month} ${year}`;
+}
+
+/**
+ * Format a timestamp to human-readable format with time (e.g., "13 Jan 2026, 14:30")
+ */
+export function formatTimestampDisplay(timestamp: string | Date): string {
+  const dateObj = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
+  
+  const day = dateObj.getDate();
+  const month = dateObj.toLocaleDateString('en-US', { month: 'short' });
+  const year = dateObj.getFullYear();
+  const time = dateObj.toLocaleTimeString('en-US', { 
+    hour: '2-digit', 
+    minute: '2-digit',
+    hour12: false 
+  });
+  
+  return `${day} ${month} ${year}, ${time}`;
 }

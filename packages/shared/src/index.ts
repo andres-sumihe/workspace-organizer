@@ -1217,13 +1217,23 @@ export interface WorkLogEntry {
   actualEndDate?: string; // ISO8601 (Completion Date)
 
   // Relations
-  projectId?: string; // Placeholder for future "Personal Projects" feature
+  projectId?: string;
+  project?: PersonalProjectSummary; // Resolved project info
 
   // Resolved tags via polymorphic taggings
   tags: Tag[];
 
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * Minimal project info for embedding in work log entries.
+ */
+export interface PersonalProjectSummary {
+  id: string;
+  title: string;
+  status: PersonalProjectStatus;
 }
 
 /**
@@ -1322,9 +1332,95 @@ export interface TagResponse {
 export interface Tagging {
   id: string;
   tagId: string;
-  taggableType: string; // e.g., 'work_logs', 'projects'
+  taggableType: string; // e.g., 'work_logs', 'personal_projects'
   taggableId: string;
   createdAt: string;
+}
+
+// ============================================================================
+// Personal Projects Types
+// ============================================================================
+
+/**
+ * Status of a personal project.
+ */
+export type PersonalProjectStatus = 'active' | 'completed' | 'on_hold' | 'archived';
+
+/**
+ * Personal project entity - represents logical undertakings (initiatives, tasks).
+ */
+export interface PersonalProject {
+  id: string;
+  title: string;
+  description?: string;
+
+  status: PersonalProjectStatus;
+
+  // Planning Data
+  startDate?: string;
+  dueDate?: string;
+  actualEndDate?: string;
+
+  // Business Metadata
+  businessProposalId?: string;
+  changeId?: string;
+
+  // Content
+  notes?: string;
+
+  // Relations
+  workspaceId?: string;
+  tags: Tag[];
+
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Request to create a new personal project.
+ */
+export interface CreatePersonalProjectRequest {
+  title: string;
+  description?: string;
+  status?: PersonalProjectStatus;
+  startDate?: string;
+  dueDate?: string;
+  businessProposalId?: string;
+  changeId?: string;
+  notes?: string;
+  workspaceId?: string;
+  tagIds?: string[];
+}
+
+/**
+ * Request to update an existing personal project.
+ */
+export interface UpdatePersonalProjectRequest {
+  title?: string;
+  description?: string;
+  status?: PersonalProjectStatus;
+  startDate?: string;
+  dueDate?: string;
+  actualEndDate?: string;
+  businessProposalId?: string;
+  changeId?: string;
+  notes?: string;
+  workspaceId?: string;
+  tagIds?: string[];
+}
+
+/**
+ * Response containing a list of personal projects.
+ */
+export interface PersonalProjectListResponse {
+  items: PersonalProject[];
+}
+
+/**
+ * Response containing a single personal project.
+ */
+export interface PersonalProjectResponse {
+  project: PersonalProject;
 }
 
 // IPC Types for Electron bridge
