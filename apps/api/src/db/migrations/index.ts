@@ -15,6 +15,7 @@ import * as migration0014 from './0014-create-overtime-entries.js';
 import * as migration0015 from './0015-add-overtime-time-columns.js';
 import * as migration0016 from './0016-create-tags.js';
 import * as migration0017 from './0017-create-work-logs.js';
+import * as migration0018 from './0018-create-personal-projects.js';
 
 import type Database from 'better-sqlite3';
 
@@ -40,7 +41,8 @@ const migrations: Migration[] = [
   { id: migration0014.id, up: migration0014.up },
   { id: migration0015.id, up: migration0015.up },
   { id: migration0016.id, up: migration0016.up },
-  { id: migration0017.id, up: migration0017.up }
+  { id: migration0017.id, up: migration0017.up },
+  { id: migration0018.id, up: migration0018.up }
 ];
 
 export const runMigrations = async (db: Database.Database) => {

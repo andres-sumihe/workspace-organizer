@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { parseContentForSuggestions } from './journal-parser';
 
 describe('parseContentForSuggestions - Smart Content Cleaning', () => {

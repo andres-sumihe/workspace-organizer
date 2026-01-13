@@ -2,7 +2,7 @@ import { taggingsRepository } from './taggings.repository.js';
 import { tagsRepository } from './tags.repository.js';
 import { getDb } from '../db/client.js';
 
-import type { WorkLogEntry, WorkLogStatus, WorkLogPriority, Tag } from '@workspace/shared';
+import type { WorkLogEntry, WorkLogStatus, WorkLogPriority, Tag, PersonalProjectSummary } from '@workspace/shared';
 
 interface WorkLogRow {
   id: string;
@@ -18,6 +18,12 @@ interface WorkLogRow {
   updated_at: string;
 }
 
+interface ProjectRow {
+  id: string;
+  title: string;
+  status: string;
+}
+
 const isWorkLogRow = (value: unknown): value is WorkLogRow => {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Record<string, unknown>;
@@ -31,7 +37,17 @@ const isWorkLogRow = (value: unknown): value is WorkLogRow => {
   );
 };
 
-const mapRowToEntry = (row: WorkLogRow, tags: Tag[]): WorkLogEntry => ({
+const isProjectRow = (value: unknown): value is ProjectRow => {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.title === 'string' &&
+    typeof candidate.status === 'string'
+  );
+};
+
+const mapRowToEntry = (row: WorkLogRow, tags: Tag[], project?: PersonalProjectSummary): WorkLogEntry => ({
   id: row.id,
   date: row.date,
   content: row.content,
@@ -41,6 +57,7 @@ const mapRowToEntry = (row: WorkLogRow, tags: Tag[]): WorkLogEntry => ({
   dueDate: row.due_date ?? undefined,
   actualEndDate: row.actual_end_date ?? undefined,
   projectId: row.project_id ?? undefined,
+  project,
   tags,
   createdAt: row.created_at,
   updatedAt: row.updated_at
@@ -105,7 +122,7 @@ export const workLogsRepository = {
   },
 
   /**
-   * Get work log entry by ID with tags
+   * Get work log entry by ID with tags and project
    */
   async getById(id: string): Promise<WorkLogEntry | null> {
     const db = await getDb();
@@ -114,8 +131,28 @@ export const workLogsRepository = {
 
     const tagIds = await taggingsRepository.getTagIds(TAGGABLE_TYPE, id);
     const tags = await tagsRepository.getByIds(tagIds);
+    
+    // Resolve project if present
+    let project: PersonalProjectSummary | undefined;
+    if (row.project_id) {
+      project = await this.getProjectSummary(row.project_id);
+    }
 
-    return mapRowToEntry(row, tags);
+    return mapRowToEntry(row, tags, project);
+  },
+  
+  /**
+   * Get project summary for embedding in work log
+   */
+  async getProjectSummary(projectId: string): Promise<PersonalProjectSummary | undefined> {
+    const db = await getDb();
+    const row = db.prepare('SELECT id, title, status FROM personal_projects WHERE id = ?').get(projectId);
+    if (!isProjectRow(row)) return undefined;
+    return {
+      id: row.id,
+      title: row.title,
+      status: row.status as PersonalProjectSummary['status']
+    };
   },
 
   /**
@@ -155,7 +192,7 @@ export const workLogsRepository = {
     const rows = db.prepare(query).all(...queryParams) as unknown[];
     const validRows = rows.filter(isWorkLogRow);
 
-    // Resolve tags for each entry
+    // Resolve tags and project for each entry
     const entries: WorkLogEntry[] = [];
     for (const row of validRows) {
       const tagIds = await taggingsRepository.getTagIds(TAGGABLE_TYPE, row.id);
@@ -166,8 +203,14 @@ export const workLogsRepository = {
         const hasMatchingTag = tagIds.some((tid) => params.tagIds!.includes(tid));
         if (!hasMatchingTag) continue;
       }
+      
+      // Resolve project if present
+      let project: PersonalProjectSummary | undefined;
+      if (row.project_id) {
+        project = await this.getProjectSummary(row.project_id);
+      }
 
-      entries.push(mapRowToEntry(row, tags));
+      entries.push(mapRowToEntry(row, tags, project));
     }
 
     return entries;

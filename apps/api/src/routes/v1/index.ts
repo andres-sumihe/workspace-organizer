@@ -4,6 +4,7 @@ import { auditRouter } from './audit.js';
 import { authRouter } from './auth.js';
 import { controlmJobsRouter } from './controlm-jobs.js';
 import { installationRouter } from './installation.js';
+import { personalProjectsRouter } from './personal-projects.js';
 import { schemaValidationRouter } from './schema-validation.js';
 import { scriptsRouter } from './scripts.js';
 import { settingsRouter } from './settings.js';
@@ -45,6 +46,7 @@ v1Router.use('/tools/overtime', toolsOvertimeRouter);
 // Work Journal routes - always available (local data only, works in Solo and Shared modes)
 v1Router.use('/tags', tagsRouter);
 v1Router.use('/work-logs', workLogsRouter);
+v1Router.use('/personal-projects', personalProjectsRouter);
 
 // Middleware to check if shared database is connected for shared features
 const requireSharedDb = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
