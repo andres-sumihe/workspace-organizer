@@ -11,7 +11,6 @@ import {
   Copy,
   Filter,
   FolderOpen,
-  GripVertical,
   Loader2,
   MoveRight,
   Pencil,
@@ -90,11 +89,38 @@ import {
 // Types & Constants
 // ============================================================================
 
-const STATUS_CONFIG: Record<WorkLogStatus, { label: string; icon: typeof Circle; color: string; bgColor: string }> = {
-  todo: { label: 'To Do', icon: Circle, color: 'text-muted-foreground', bgColor: 'bg-muted/50' },
-  in_progress: { label: 'In Progress', icon: Clock, color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
-  done: { label: 'Done', icon: Check, color: 'text-green-500', bgColor: 'bg-green-500/10' },
-  blocked: { label: 'Blocked', icon: X, color: 'text-red-500', bgColor: 'bg-red-500/10' }
+const STATUS_CONFIG: Record<
+  WorkLogStatus,
+  { label: string; icon: typeof Circle; color: string; bgColor: string; accent: string }
+> = {
+  todo: {
+    label: 'To Do',
+    icon: Circle,
+    color: 'text-muted-foreground',
+    bgColor: 'bg-[#F4F5F7] dark:bg-[#1D2125]',
+    accent: 'before:bg-zinc-400 dark:before:bg-zinc-600'
+  },
+  in_progress: {
+    label: 'In Progress',
+    icon: Clock,
+    color: 'text-[#0052CC] dark:text-[#4C9AFF]',
+    bgColor: 'bg-[#F4F5F7] dark:bg-[#1D2125]',
+    accent: 'before:bg-[#0052CC] dark:before:bg-[#4C9AFF]'
+  },
+  done: {
+    label: 'Done',
+    icon: Check,
+    color: 'text-[#36B37E] dark:text-[#E3FCEF]',
+    bgColor: 'bg-[#F4F5F7] dark:bg-[#1D2125]',
+    accent: 'before:bg-[#36B37E]'
+  },
+  blocked: {
+    label: 'Blocked',
+    icon: X,
+    color: 'text-[#FF5630]',
+    bgColor: 'bg-[#F4F5F7] dark:bg-[#1D2125]',
+    accent: 'before:bg-[#FF5630]'
+  }
 };
 
 const PRIORITY_CONFIG: Record<WorkLogPriority, { label: string; color: string }> = {
@@ -173,38 +199,41 @@ function KanbanCard({ entry, index, isSelected, onSelect }: KanbanCardProps) {
       ref={ref}
       onClick={() => onSelect(entry)}
       className={`
-        p-3 rounded-lg border cursor-pointer transition-all
-        hover:border-primary/50 hover:shadow-sm
-        ${isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'bg-card'}
-        ${isDragging ? 'opacity-50 shadow-lg ring-2 ring-primary scale-105' : ''}
+        relative p-3 rounded-[3px] cursor-pointer transition-all duration-100 group
+        shadow-[0_1px_1px_rgba(9,30,66,0.25),0_0_1px_rgba(9,30,66,0.31)]
+        dark:shadow-[0_1px_1px_rgba(0,0,0,0.5),0_0_1px_rgba(0,0,0,0.5)]
+        before:absolute before:left-1 before:top-2 before:bottom-2 before:w-0.75 ${STATUS_CONFIG[entry.status].accent}
+        ${isSelected 
+          ? 'bg-[#E9F2FF] dark:bg-[#1D3A5D] shadow-md z-10 hover:bg-[#D6E4FF] dark:hover:bg-[#0F2847]' 
+          : 'bg-white dark:bg-[#2C333F] hover:bg-[#F4F5F7] dark:hover:bg-[#353D4A]'}
+        ${isDragging ? 'opacity-70 shadow-2xl scale-[1.02] rotate-1 z-50' : ''}
       `}
     >
       {/* Drag Handle + Content */}
-      <div className="flex items-start gap-2">
-        <GripVertical className="h-4 w-4 mt-0.5 text-muted-foreground/50 cursor-grab shrink-0" />
-        <p className={`text-sm flex-1 ${entry.status === 'done' ? 'line-through text-muted-foreground' : ''}`}>
+      <div className="flex items-start gap-2 ml-1">
+        <p className={`text-sm leading-snug flex-1 font-medium ${entry.status === 'done' ? 'line-through text-muted-foreground' : 'text-foreground/90'}`}>
           {entry.content}
         </p>
       </div>
 
       {/* Metadata Row */}
-      <div className="mt-2 flex flex-wrap items-center gap-1.5 ml-6">
+      <div className="mt-2 flex flex-wrap items-center gap-1.5 ml-1">
         {entry.priority && (
           <Badge
             variant="outline"
-            className={`text-xs ${PRIORITY_CONFIG[entry.priority].color} text-white border-0`}
+            className={`text-[10px] h-4 px-1 border-none ${PRIORITY_CONFIG[entry.priority].color} text-white font-bold rounded-[2px] uppercase tracking-tighter`}
           >
             {PRIORITY_CONFIG[entry.priority].label}
           </Badge>
         )}
         {entry.dueDate && (
-          <Badge variant="outline" className="text-xs gap-1">
+          <Badge variant="outline" className={`text-[10px] h-4 px-1 gap-1 border-none bg-zinc-100 dark:bg-white/5 text-muted-foreground rounded-[2px]`}>
             <Calendar className="h-3 w-3" />
             {formatDateDisplay(entry.dueDate)}
           </Badge>
         )}
         {entry.project && (
-          <Badge variant="secondary" className="text-xs gap-1">
+          <Badge variant="secondary" className={`text-[10px] h-4 px-1 gap-1 border-none bg-zinc-100 dark:bg-white/5 text-muted-foreground rounded-[2px]`}>
             <FolderOpen className="h-3 w-3" />
             {entry.project.title}
           </Badge>
@@ -213,13 +242,13 @@ function KanbanCard({ entry, index, isSelected, onSelect }: KanbanCardProps) {
 
       {/* Tags */}
       {entry.tags.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1 ml-6">
+        <div className="mt-1.5 flex flex-wrap gap-1 ml-1 opacity-80 group-hover:opacity-100">
           {entry.tags.map((tag) => (
             <Badge
               key={tag.id}
               variant="secondary"
-              className="text-xs"
-              style={{ backgroundColor: tag.color ? `${tag.color}20` : undefined }}
+              className="text-[10px] h-4 px-1 bg-zinc-100 dark:bg-white/10 border-none text-muted-foreground rounded-[2px]"
+              style={{ backgroundColor: tag.color ? `${tag.color}15` : undefined }}
             >
               #{tag.name}
             </Badge>
@@ -254,25 +283,21 @@ function KanbanColumn({ status, index, entries, selectedEntry, onSelectEntry }: 
   return (
     <div
       ref={ref}
-      className={`flex flex-col rounded-lg border ${config.bgColor} min-w-[280px] max-w-[320px] flex-1`}
+      className={`flex flex-col rounded-[3px] ${config.bgColor} min-w-[280px] max-w-[340px] flex-1 h-full shadow-sm`}
     >
       {/* Column Header */}
-      <div className="flex items-center gap-2 p-3 border-b">
+      <div className="flex items-center gap-2 px-3 py-4 select-none">
         <StatusIcon className={`h-4 w-4 ${config.color}`} />
-        <span className="font-medium text-sm">{config.label}</span>
-        <Badge variant="secondary" className="ml-auto text-xs">
+        <span className="font-bold text-[11px] uppercase tracking-wider text-muted-foreground/80">{config.label}</span>
+        <Badge className="text-[11px] font-bold text-muted-foreground bg-zinc-200/50 dark:bg-white/5 px-2 py-0.5 rounded-[2px] ml-auto">
           {columnEntries.length}
         </Badge>
       </div>
 
       {/* Cards */}
-      <ScrollArea className="flex-1 p-2">
-        <div className="space-y-2 min-h-[100px]">
-          {columnEntries.length === 0 ? (
-            <div className="text-center text-sm text-muted-foreground py-8 border-2 border-dashed border-muted rounded-lg">
-              Drop tasks here
-            </div>
-          ) : (
+      <ScrollArea className="flex-1 px-1.5 py-1">
+        <div className="space-y-2 min-h-[100px] mb-4">
+          {
             columnEntries.map((entry, idx) => (
               <KanbanCard
                 key={entry.id}
@@ -280,9 +305,8 @@ function KanbanColumn({ status, index, entries, selectedEntry, onSelectEntry }: 
                 index={idx}
                 isSelected={selectedEntry?.id === entry.id}
                 onSelect={onSelectEntry}
-              />
-            ))
-          )}
+              />))
+          }
         </div>
       </ScrollArea>
     </div>
@@ -315,7 +339,7 @@ function TaskDetailPanel({
   const StatusIcon = statusConfig.icon;
 
   return (
-    <div className="w-[400px] border-l bg-card flex flex-col h-full">
+    <div className="w-[400px] shadow-[-4px_0_12px_rgba(0,0,0,0.1)] dark:shadow-[-4px_0_12px_rgba(0,0,0,0.5)] bg-card flex flex-col h-full z-20">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b">
         <h3 className="font-semibold">Task Details</h3>
