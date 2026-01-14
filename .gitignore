@@ -36,3 +36,5 @@ out/
 .github/copilot-instructions.md
 docs/
 temp_scripts/
+scripts/context7-wrapper.js
+scripts/sync-versions.js
