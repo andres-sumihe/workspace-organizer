@@ -227,13 +227,13 @@ function KanbanCard({ entry, index, isSelected, onSelect }: KanbanCardProps) {
           </Badge>
         )}
         {entry.dueDate && (
-          <Badge variant="outline" className={`text-[10px] h-4 px-1 gap-1 border-none bg-zinc-100 dark:bg-white/5 text-muted-foreground rounded-[2px]`}>
+          <Badge variant="outline" className={`text-[10px] h-4 px-1 gap-1 border-none bg-zinc-200/80 dark:bg-zinc-800 text-muted-foreground rounded-[2px]`}>
             <Calendar className="h-3 w-3" />
             {formatDateDisplay(entry.dueDate)}
           </Badge>
         )}
         {entry.project && (
-          <Badge variant="secondary" className={`text-[10px] h-4 px-1 gap-1 border-none bg-zinc-100 dark:bg-white/5 text-muted-foreground rounded-[2px]`}>
+          <Badge variant="secondary" className={`text-[10px] h-4 px-1 gap-1 border-none bg-zinc-200/80 dark:bg-zinc-800 text-muted-foreground rounded-[2px]`}>
             <FolderOpen className="h-3 w-3" />
             {entry.project.title}
           </Badge>
@@ -247,8 +247,8 @@ function KanbanCard({ entry, index, isSelected, onSelect }: KanbanCardProps) {
             <Badge
               key={tag.id}
               variant="secondary"
-              className="text-[10px] h-4 px-1 bg-zinc-100 dark:bg-white/10 border-none text-muted-foreground rounded-[2px]"
-              style={{ backgroundColor: tag.color ? `${tag.color}15` : undefined }}
+              className="text-[10px] h-4 px-1 bg-zinc-200/80 dark:bg-zinc-800 border-none text-muted-foreground rounded-[2px]"
+              style={{ backgroundColor: tag.color ? `${tag.color}20` : undefined }}
             >
               #{tag.name}
             </Badge>
