@@ -168,8 +168,21 @@
     @apply border-border outline-ring/50;
   }
 
+  html {
+    /*
+      Fluid type scaling to handle Windows per-monitor DPI/scaling differences.
+      Keeps text slightly smaller on narrow viewports (laptops) and caps at 16px.
+    */
+    font-size: clamp(14px, 0.3vw + 12px, 16px);
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
   body {
     @apply bg-background text-foreground;
+    text-rendering: geometricPrecision;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   button:not(:disabled),
