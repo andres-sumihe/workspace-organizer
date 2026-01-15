@@ -1423,5 +1423,36 @@ export interface PersonalProjectResponse {
   project: PersonalProject;
 }
 
+/**
+ * Extended project detail including linked work logs (tasks).
+ * Used by the Project Detail page to show comprehensive project information.
+ */
+export interface PersonalProjectDetail extends PersonalProject {
+  /** Linked work log entries (tasks) for this project */
+  linkedTasks: WorkLogEntry[];
+  /** Summary statistics for the project */
+  taskStats: PersonalProjectTaskStats;
+  /** Linked workspace information (if any) */
+  linkedWorkspace?: WorkspaceSummary;
+}
+
+/**
+ * Task statistics for a project.
+ */
+export interface PersonalProjectTaskStats {
+  total: number;
+  todo: number;
+  inProgress: number;
+  done: number;
+  blocked: number;
+}
+
+/**
+ * Response containing detailed project information.
+ */
+export interface PersonalProjectDetailResponse {
+  project: PersonalProjectDetail;
+}
+
 // IPC Types for Electron bridge
 export * from './ipc.types.js';

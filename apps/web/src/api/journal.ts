@@ -14,8 +14,10 @@ import type {
   RolloverWorkLogsRequest,
   RolloverWorkLogsResponse,
   PersonalProject,
+  PersonalProjectDetail,
   PersonalProjectListResponse,
   PersonalProjectResponse,
+  PersonalProjectDetailResponse,
   CreatePersonalProjectRequest,
   UpdatePersonalProjectRequest
 } from '@workspace/shared';
@@ -148,9 +150,15 @@ export const personalProjectsApi = {
   },
 
   /**
-   * Get a project by ID
+   * Get a project by ID (basic)
    */
   getById: (id: string) => apiClient.get<PersonalProjectResponse>(`/api/v1/personal-projects/${id}`),
+
+  /**
+   * Get detailed project information with linked tasks and workspace
+   */
+  getDetail: (id: string) =>
+    apiClient.get<PersonalProjectDetailResponse>(`/api/v1/personal-projects/${id}/detail`),
 
   /**
    * Create a new project
@@ -185,6 +193,7 @@ export type {
   Tag, 
   WorkLogEntry, 
   PersonalProject,
+  PersonalProjectDetail,
   CreateTagRequest, 
   UpdateTagRequest, 
   CreateWorkLogRequest, 

@@ -38,13 +38,35 @@ export const listProjects = async (req: Request, res: Response, next: NextFuncti
 };
 
 /**
- * Get a single project by ID
+ * Get a single project by ID (basic)
  * GET /api/v1/personal-projects/:id
  */
 export const getProject = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const project = await personalProjectsService.getById(id);
+
+    if (!project) {
+      return res.status(404).json({
+        code: 'PROJECT_NOT_FOUND',
+        message: 'Personal project not found'
+      });
+    }
+
+    res.json({ project });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get detailed project information (with linked tasks and workspace)
+ * GET /api/v1/personal-projects/:id/detail
+ */
+export const getProjectDetail = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const project = await personalProjectsService.getDetail(id);
 
     if (!project) {
       return res.status(404).json({

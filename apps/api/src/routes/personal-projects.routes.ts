@@ -3,6 +3,7 @@ import { Router } from 'express';
 import {
   listProjects,
   getProject,
+  getProjectDetail,
   createProject,
   updateProject,
   deleteProject,
@@ -16,6 +17,7 @@ router.get('/search', searchProjects);
 
 router.get('/', listProjects);
 router.get('/:id', getProject);
+router.get('/:id/detail', getProjectDetail);
 router.post('/', createProject);
 router.put('/:id', updateProject);
 router.delete('/:id', deleteProject);

@@ -1,12 +1,17 @@
 import { randomUUID } from 'crypto';
 
 import { personalProjectsRepository } from '../repositories/personal-projects.repository.js';
+import { workLogsRepository } from '../repositories/work-logs.repository.js';
+import { getDb } from '../db/client.js';
 
 import type {
   PersonalProject,
+  PersonalProjectDetail,
+  PersonalProjectTaskStats,
   CreatePersonalProjectRequest,
   UpdatePersonalProjectRequest,
-  PersonalProjectStatus
+  PersonalProjectStatus,
+  WorkspaceSummary
 } from '@workspace/shared';
 
 export interface ListProjectsOptions {
@@ -99,5 +104,66 @@ export const personalProjectsService = {
    */
   async search(query: string): Promise<PersonalProject[]> {
     return personalProjectsRepository.search(query);
+  },
+
+  /**
+   * Get detailed project information including linked tasks and workspace
+   */
+  async getDetail(id: string): Promise<PersonalProjectDetail | null> {
+    const project = await personalProjectsRepository.findById(id);
+    if (!project) return null;
+
+    // Get linked work logs (tasks) for this project
+    const linkedTasks = await workLogsRepository.list({ projectId: id });
+
+    // Calculate task statistics
+    const taskStats: PersonalProjectTaskStats = {
+      total: linkedTasks.length,
+      todo: linkedTasks.filter((t) => t.status === 'todo').length,
+      inProgress: linkedTasks.filter((t) => t.status === 'in_progress').length,
+      done: linkedTasks.filter((t) => t.status === 'done').length,
+      blocked: linkedTasks.filter((t) => t.status === 'blocked').length
+    };
+
+    // Get linked workspace info if exists
+    let linkedWorkspace: WorkspaceSummary | undefined;
+    if (project.workspaceId) {
+      const db = await getDb();
+      const workspaceRow = db
+        .prepare(
+          `SELECT 
+            w.id, w.name, w.root_path as rootPath, w.description,
+            (SELECT COUNT(*) FROM projects WHERE workspace_id = w.id) as projectCount,
+            (SELECT COUNT(*) FROM templates WHERE workspace_id = w.id) as templateCount
+          FROM workspaces w WHERE w.id = ?`
+        )
+        .get(project.workspaceId) as {
+          id: string;
+          name: string;
+          rootPath: string;
+          description?: string;
+          projectCount: number;
+          templateCount: number;
+        } | undefined;
+
+      if (workspaceRow) {
+        linkedWorkspace = {
+          id: workspaceRow.id,
+          name: workspaceRow.name,
+          rootPath: workspaceRow.rootPath,
+          status: 'healthy',
+          projectCount: workspaceRow.projectCount ?? 0,
+          templateCount: workspaceRow.templateCount ?? 0,
+          lastIndexedAt: new Date().toISOString()
+        };
+      }
+    }
+
+    return {
+      ...project,
+      linkedTasks,
+      taskStats,
+      linkedWorkspace
+    };
   }
 };
