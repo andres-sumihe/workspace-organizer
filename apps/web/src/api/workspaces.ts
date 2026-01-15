@@ -4,7 +4,8 @@ import type {
   WorkspaceListResponse,
   WorkspaceDetailResponse,
   WorkspaceProjectListResponse,
-  WorkspaceProjectResponse
+  WorkspaceProjectResponse,
+  WorkspaceSummary
 } from '@workspace/shared';
 
 export const fetchWorkspaceList = (page = 1, pageSize = 6, signal?: AbortSignal) => {
@@ -67,4 +68,32 @@ export const deleteWorkspaceProject = (workspaceId: string, projectId: string) =
   return apiRequest<{ success: boolean }>(`/api/v1/workspaces/${workspaceId}/projects/${projectId}`, {
     method: 'DELETE'
   });
+};
+
+// ============================================================================
+// Workspaces API (convenience object)
+// ============================================================================
+
+export interface WorkspacesListParams {
+  page?: number;
+  pageSize?: number;
+}
+
+export const workspacesApi = {
+  /**
+   * List workspaces with pagination
+   */
+  async list(params: WorkspacesListParams = {}): Promise<{ items: WorkspaceSummary[]; total: number }> {
+    const { page = 1, pageSize = 100 } = params;
+    const response = await fetchWorkspaceList(page, pageSize);
+    return {
+      items: response.items,
+      total: response.meta.total
+    };
+  },
+
+  /**
+   * Get workspace detail by ID
+   */
+  getById: (id: string) => fetchWorkspaceDetail(id)
 };
