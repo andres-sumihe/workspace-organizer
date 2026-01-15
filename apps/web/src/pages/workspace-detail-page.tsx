@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Layers, FolderTree, Settings as SettingsIcon, BarChart3, ArrowLeft, FolderOpen, Loader2 } from 'lucide-react';
+import { Layers, Settings as SettingsIcon, BarChart3, ArrowLeft, FolderOpen, Loader2, Briefcase, FileSearch } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -14,11 +14,12 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useWorkspaceContext } from '@/contexts/workspace-context';
+import { WorkspaceLinkedProjectsTab } from '@/features/workspaces/components/workspace-linked-projects-tab';
 import { WorkspaceOverviewTab } from '@/features/workspaces/components/workspace-overview-tab';
 import { WorkspaceFilesTab } from '@/features/workspaces/components/workspace-project-tab';
 import { WorkspaceTemplatesTab } from '@/features/workspaces/components/workspace-templates-tab';
 
-type TabValue = 'overview' | 'projects' | 'templates' | 'settings';
+type TabValue = 'overview' | 'projects' | 'files' | 'templates' | 'settings';
 
 const workspaceSchema = z.object({
   name: z.string().min(1, 'Workspace name is required'),
@@ -58,7 +59,7 @@ export const WorkspaceDetailPage = () => {
   }, []);
 
   useEffect(() => {
-    if (tab && ['overview', 'projects', 'templates', 'settings'].includes(tab)) {
+    if (tab && ['overview', 'projects', 'files', 'templates', 'settings'].includes(tab)) {
       setActiveTab(tab as TabValue);
     }
   }, [tab]);
@@ -158,8 +159,12 @@ export const WorkspaceDetailPage = () => {
                 Overview
               </TabsTrigger>
               <TabsTrigger value="projects" className="gap-2">
-                <FolderTree className="size-4" />
+                <Briefcase className="size-4" />
                 Projects
+              </TabsTrigger>
+              <TabsTrigger value="files" className="gap-2">
+                <FileSearch className="size-4" />
+                File Manager
               </TabsTrigger>
               <TabsTrigger value="templates" className="gap-2">
                 <Layers className="size-4" />
@@ -177,6 +182,10 @@ export const WorkspaceDetailPage = () => {
           </TabsContent>
 
           <TabsContent value="projects" className="flex-1 m-0 overflow-auto p-6">
+            <WorkspaceLinkedProjectsTab workspaceId={workspace.id} />
+          </TabsContent>
+
+          <TabsContent value="files" className="flex-1 m-0 overflow-auto p-6">
             <WorkspaceFilesTab workspaceId={workspace.id} />
           </TabsContent>
 

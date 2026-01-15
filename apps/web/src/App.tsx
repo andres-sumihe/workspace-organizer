@@ -1,4 +1,4 @@
-import { FolderGit2, LayoutDashboard, LineChart, Settings, FileCode, Loader2, Users, Wrench } from 'lucide-react';
+import { Briefcase, FolderGit2, LayoutDashboard, LineChart, Settings, FileCode, Loader2, Users, Wrench } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 
@@ -21,6 +21,7 @@ import { InstallationPage } from '@/pages/installation-page';
 import { JournalPage } from '@/pages/journal-page';
 import { LoginPage } from '@/pages/login-page';
 import { OvertimePage } from '@/pages/overtime-page';
+import { ProjectsPage } from '@/pages/projects-page';
 import { ScriptsPage } from '@/pages/scripts-page';
 import { SettingsPage } from '@/pages/settings-page';
 import { SetupPage } from '@/pages/setup-page';
@@ -188,6 +189,7 @@ function AppContent() {
     () => [
       { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { key: 'workspaces', label: 'Workspaces', icon: FolderGit2 },
+      { key: 'projects', label: 'Projects', icon: Briefcase },
       { 
         key: 'scripts', 
         label: 'Scripts', 
@@ -216,6 +218,7 @@ function AppContent() {
   const getActiveKey = (): string => {
     const path = location.pathname;
     if (path.startsWith('/workspaces')) return 'workspaces';
+    if (path.startsWith('/projects')) return 'projects';
     if (path.startsWith('/scripts')) return 'scripts';
     if (path.startsWith('/teams')) return 'teams';
     if (path.startsWith('/tools')) return 'tools';
@@ -253,6 +256,7 @@ function AppContent() {
         } else {
           const routes: Record<string, string> = {
             dashboard: '/',
+            projects: '/projects',
             scripts: '/scripts',
             teams: '/teams',
             tools: '/tools',
@@ -269,6 +273,7 @@ function AppContent() {
         <Route path="/workspaces" element={<WorkspacesPage />} />
         <Route path="/workspaces/:workspaceId" element={<WorkspaceDetailPage />} />
         <Route path="/workspaces/:workspaceId/:tab" element={<WorkspaceDetailPage />} />
+        <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/scripts" element={<ScriptsPage />} />
         <Route path="/scripts/:scriptId" element={<ScriptsPage />} />
         <Route path="/teams" element={<TeamPage />} />
