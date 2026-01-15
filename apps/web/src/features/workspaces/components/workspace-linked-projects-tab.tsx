@@ -122,7 +122,7 @@ export function WorkspaceLinkedProjectsTab({ workspaceId }: WorkspaceLinkedProje
   };
 
   const handleOpenProject = (projectId: string) => {
-    navigate(`/projects?workspaceId=${workspaceId}&highlight=${projectId}`);
+    navigate(`/projects/${projectId}`);
   };
 
   const handleViewAllProjects = () => {

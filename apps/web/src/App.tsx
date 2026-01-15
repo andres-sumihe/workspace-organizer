@@ -1,4 +1,4 @@
-import { Briefcase, FolderGit2, LayoutDashboard, LineChart, Settings, FileCode, Loader2, Users, Wrench } from 'lucide-react';
+import { Briefcase, FolderGit2, LayoutDashboard, LineChart, Settings, FileCode, Loader2, Users, Wrench, BookOpen } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 
@@ -21,6 +21,7 @@ import { InstallationPage } from '@/pages/installation-page';
 import { JournalPage } from '@/pages/journal-page';
 import { LoginPage } from '@/pages/login-page';
 import { OvertimePage } from '@/pages/overtime-page';
+import { ProjectDetailPage } from '@/pages/project-detail-page';
 import { ProjectsPage } from '@/pages/projects-page';
 import { ScriptsPage } from '@/pages/scripts-page';
 import { SettingsPage } from '@/pages/settings-page';
@@ -199,13 +200,13 @@ function AppContent() {
       },
       // Teams sidebar item only visible in Shared mode
       ...(!isSoloMode ? [{ key: 'teams', label: 'Teams', icon: Users }] : []),
+      { key: 'journal', label: 'Journal', icon: BookOpen },
       { 
         key: 'tools', 
         label: 'Tools', 
         icon: Wrench,
         subItems: [
-          { key: 'overtime', label: 'Overtime' },
-          { key: 'journal', label: 'Journal' }
+          { key: 'overtime', label: 'Overtime' }
         ]
       },
       { key: 'analytics', label: 'Analytics', icon: LineChart },
@@ -221,6 +222,7 @@ function AppContent() {
     if (path.startsWith('/projects')) return 'projects';
     if (path.startsWith('/scripts')) return 'scripts';
     if (path.startsWith('/teams')) return 'teams';
+    if (path.startsWith('/journal')) return 'journal';
     if (path.startsWith('/tools')) return 'tools';
     if (path.startsWith('/analytics')) return 'analytics';
     if (path.startsWith('/settings')) return 'settings';
@@ -230,7 +232,6 @@ function AppContent() {
   const getActiveSubKey = (): string | undefined => {
     const path = location.pathname;
     if (path.startsWith('/tools/overtime')) return 'overtime';
-    if (path.startsWith('/tools/journal')) return 'journal';
     return undefined;
   };
 
@@ -249,8 +250,7 @@ function AppContent() {
         } else if (key === 'tools' && subKey) {
           // Navigate to tools sub-page
           const toolsRoutes: Record<string, string> = {
-            overtime: '/tools/overtime',
-            journal: '/tools/journal'
+            overtime: '/tools/overtime'
           };
           navigate(toolsRoutes[subKey] || '/tools');
         } else {
@@ -259,6 +259,7 @@ function AppContent() {
             projects: '/projects',
             scripts: '/scripts',
             teams: '/teams',
+            journal: '/journal',
             tools: '/tools',
             analytics: '/analytics',
             settings: '/settings'
@@ -274,11 +275,12 @@ function AppContent() {
         <Route path="/workspaces/:workspaceId" element={<WorkspaceDetailPage />} />
         <Route path="/workspaces/:workspaceId/:tab" element={<WorkspaceDetailPage />} />
         <Route path="/projects" element={<ProjectsPage />} />
+        <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
         <Route path="/scripts" element={<ScriptsPage />} />
         <Route path="/scripts/:scriptId" element={<ScriptsPage />} />
         <Route path="/teams" element={<TeamPage />} />
+        <Route path="/journal" element={<JournalPage />} />
         <Route path="/tools/overtime" element={<OvertimePage />} />
-        <Route path="/tools/journal" element={<JournalPage />} />
         <Route path="/analytics" element={renderPlaceholder('analytics')} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
