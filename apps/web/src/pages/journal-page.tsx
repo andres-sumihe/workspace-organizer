@@ -882,7 +882,7 @@ function RolloverDialog({ open, onOpenChange, onRollover, unfinishedCount }: Rol
         <DialogHeader>
           <DialogTitle>Rollover Unfinished Tasks</DialogTitle>
           <DialogDescription>
-            You have {unfinishedCount} unfinished task(s) from yesterday. How would you like to
+            You have {unfinishedCount} unfinished task(s) from past dates. How would you like to
             handle them?
           </DialogDescription>
         </DialogHeader>
@@ -947,6 +947,7 @@ export function JournalPage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [rolloverDialogOpen, setRolloverDialogOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<WorkLogEntry | undefined>();
+  const [unfinishedPastEntries, setUnfinishedPastEntries] = useState<WorkLogEntry[]>([]);
 
   // Data
   const { entries, tags, projects, isLoading, error, refetch, setEntries, setTags } = useJournalData(
@@ -954,14 +955,29 @@ export function JournalPage() {
     projectFilter
   );
 
-  // Count unfinished from yesterday
-  const yesterdayStr = getYesterdayDate();
-  const unfinishedYesterday = useMemo(
-    () =>
-      entries.filter(
-        (e) => e.date === yesterdayStr && e.status !== 'done' && e.status !== 'blocked'
-      ),
-    [entries, yesterdayStr]
+  // Fetch unfinished tasks from all past dates (before today)
+  useEffect(() => {
+    const fetchUnfinishedPast = async () => {
+      try {
+        const yesterday = getYesterdayDate();
+        const result = await workLogsApi.list({ 
+          from: '2000-01-01',
+          to: yesterday,
+          status: ['todo', 'in_progress']
+        });
+        setUnfinishedPastEntries(result.items);
+      } catch (err) {
+        console.error('Failed to fetch past unfinished tasks:', err);
+      }
+    };
+    
+    fetchUnfinishedPast();
+  }, []);
+
+  // Count unfinished from any past date (before today)
+  const unfinishedPast = useMemo(
+    () => unfinishedPastEntries,
+    [unfinishedPastEntries]
   );
 
   // Navigation handlers
@@ -1111,14 +1127,36 @@ export function JournalPage() {
 
   const handleRollover = useCallback(
     async (mode: 'move' | 'copy') => {
-      await workLogsApi.rollover({
-        fromDate: yesterdayStr,
-        toDate: getTodayDate(),
-        mode
-      });
+      // Collect all unique dates from past unfinished tasks
+      const pastDates = [...new Set(unfinishedPast.map(e => e.date))];
+      const todayDate = getTodayDate();
+
+      // Process each past date's unfinished tasks
+      for (const fromDate of pastDates) {
+        await workLogsApi.rollover({
+          fromDate,
+          toDate: todayDate,
+          mode
+        });
+      }
+      
+      // Refetch current week entries
       refetch();
+      
+      // Refetch unfinished past entries
+      try {
+        const yesterday = getYesterdayDate();
+        const result = await workLogsApi.list({ 
+          from: '2000-01-01',
+          to: yesterday,
+          status: ['todo', 'in_progress']
+        });
+        setUnfinishedPastEntries(result.items);
+      } catch (err) {
+        console.error('Failed to refresh past unfinished tasks:', err);
+      }
     },
-    [yesterdayStr, refetch]
+    [unfinishedPast, refetch]
   );
 
   // Summary stats
@@ -1137,7 +1175,7 @@ export function JournalPage() {
       actions={
         <div className="flex items-center gap-2">
           {/* Rollover Button */}
-          {unfinishedYesterday.length > 0 && (
+          {unfinishedPast.length > 0 && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1148,10 +1186,10 @@ export function JournalPage() {
                     className="gap-2"
                   >
                     <RotateCcw className="h-4 w-4" />
-                    Rollover ({unfinishedYesterday.length})
+                    Rollover ({unfinishedPast.length})
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Move unfinished tasks from yesterday to today</TooltipContent>
+                <TooltipContent>Move unfinished tasks from past dates to today</TooltipContent>
               </Tooltip>
             </TooltipProvider>
           )}
@@ -1355,7 +1393,7 @@ export function JournalPage() {
         open={rolloverDialogOpen}
         onOpenChange={setRolloverDialogOpen}
         onRollover={handleRollover}
-        unfinishedCount={unfinishedYesterday.length}
+        unfinishedCount={unfinishedPast.length}
       />
 
       {/* Delete Confirmation */}
