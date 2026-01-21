@@ -294,3 +294,151 @@
     animation: reveal 0.4s ease-in-out forwards;
   }
 }
+
+/* ============================================================================
+   Remark/Rehype Markdown Plugin Styles
+   ============================================================================ */
+
+/* Flexible Markers (==highlighted text==) */
+.flexible-marker,
+mark.flexible-marker {
+  background-color: oklch(0.9 0.15 90); /* Yellow highlight */
+  padding: 0.1em 0.2em;
+  border-radius: 0.2em;
+}
+
+.dark .flexible-marker,
+.dark mark.flexible-marker {
+  background-color: oklch(0.5 0.15 90);
+  color: oklch(0.985 0 0);
+}
+
+/* Color classifications for markers */
+.flexible-marker-red { background-color: oklch(0.85 0.15 20); }
+.flexible-marker-green { background-color: oklch(0.85 0.15 140); }
+.flexible-marker-blue { background-color: oklch(0.85 0.15 250); }
+.flexible-marker-yellow { background-color: oklch(0.9 0.15 90); }
+.flexible-marker-orange { background-color: oklch(0.85 0.15 60); }
+.flexible-marker-purple { background-color: oklch(0.85 0.15 300); }
+.flexible-marker-cyan { background-color: oklch(0.85 0.15 200); }
+.flexible-marker-pink { background-color: oklch(0.85 0.15 350); }
+
+.dark .flexible-marker-red { background-color: oklch(0.45 0.15 20); }
+.dark .flexible-marker-green { background-color: oklch(0.45 0.15 140); }
+.dark .flexible-marker-blue { background-color: oklch(0.45 0.15 250); }
+.dark .flexible-marker-yellow { background-color: oklch(0.5 0.15 90); }
+.dark .flexible-marker-orange { background-color: oklch(0.45 0.15 60); }
+.dark .flexible-marker-purple { background-color: oklch(0.45 0.15 300); }
+.dark .flexible-marker-cyan { background-color: oklch(0.45 0.15 200); }
+.dark .flexible-marker-pink { background-color: oklch(0.45 0.15 350); }
+
+/* Inserted text (++inserted text++) */
+.remark-ins,
+ins.remark-ins {
+  text-decoration: underline;
+  text-decoration-color: oklch(0.627 0.194 149);
+  background-color: oklch(0.95 0.05 149);
+}
+
+.dark .remark-ins,
+.dark ins.remark-ins {
+  background-color: oklch(0.25 0.05 149);
+}
+
+/* Flexible Containers (:::note, :::warning, :::tip, etc.) */
+.remark-container {
+  padding: 1rem;
+  margin: 1rem 0;
+  border-radius: 0.5rem;
+  border-left: 4px solid oklch(0.6 0.15 250);
+  background-color: oklch(0.97 0.02 250);
+}
+
+.dark .remark-container {
+  background-color: oklch(0.2 0.02 250);
+}
+
+.remark-container-title {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: oklch(0.5 0.15 250);
+}
+
+.dark .remark-container-title {
+  color: oklch(0.7 0.15 250);
+}
+
+/* Container types */
+.remark-container.note {
+  border-left-color: oklch(0.6 0.15 250);
+  background-color: oklch(0.97 0.02 250);
+}
+.dark .remark-container.note {
+  background-color: oklch(0.2 0.02 250);
+}
+.remark-container-title.note {
+  color: oklch(0.5 0.15 250);
+}
+.dark .remark-container-title.note {
+  color: oklch(0.7 0.15 250);
+}
+
+.remark-container.warning {
+  border-left-color: oklch(0.75 0.18 60);
+  background-color: oklch(0.97 0.04 60);
+}
+.dark .remark-container.warning {
+  background-color: oklch(0.25 0.04 60);
+}
+.remark-container-title.warning {
+  color: oklch(0.6 0.18 60);
+}
+.dark .remark-container-title.warning {
+  color: oklch(0.8 0.18 60);
+}
+
+.remark-container.tip {
+  border-left-color: oklch(0.65 0.18 140);
+  background-color: oklch(0.97 0.03 140);
+}
+.dark .remark-container.tip {
+  background-color: oklch(0.22 0.03 140);
+}
+.remark-container-title.tip {
+  color: oklch(0.5 0.18 140);
+}
+.dark .remark-container-title.tip {
+  color: oklch(0.7 0.18 140);
+}
+
+.remark-container.danger,
+.remark-container.error {
+  border-left-color: oklch(0.6 0.2 25);
+  background-color: oklch(0.97 0.03 25);
+}
+.dark .remark-container.danger,
+.dark .remark-container.error {
+  background-color: oklch(0.22 0.04 25);
+}
+.remark-container-title.danger,
+.remark-container-title.error {
+  color: oklch(0.55 0.2 25);
+}
+.dark .remark-container-title.danger,
+.dark .remark-container-title.error {
+  color: oklch(0.75 0.2 25);
+}
+
+.remark-container.info {
+  border-left-color: oklch(0.55 0.2 230);
+  background-color: oklch(0.97 0.02 230);
+}
+.dark .remark-container.info {
+  background-color: oklch(0.2 0.03 230);
+}
+.remark-container-title.info {
+  color: oklch(0.5 0.2 230);
+}
+.dark .remark-container-title.info {
+  color: oklch(0.7 0.2 230);
+}

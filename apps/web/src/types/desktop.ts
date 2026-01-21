@@ -178,6 +178,7 @@ export interface DesktopApi {
   onUpdateAvailable: (callback: (info: unknown) => void) => () => void;
   onUpdateDownloaded: (callback: (info: unknown) => void) => () => void;
   restartAndInstall: () => Promise<void>;
+  toggleDevTools: () => Promise<void>;
   onMenuCommand: (cb: (payload: { id: string }) => void) => () => void;
   invokeMainAction: (actionId: string, args?: unknown) => Promise<unknown>;
 }

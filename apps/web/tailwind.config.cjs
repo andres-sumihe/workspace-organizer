@@ -13,5 +13,5 @@ module.exports = {
     // Theme tokens (colors, radius, animations) are defined via @theme inline in globals.css
     // This CSS-first approach is the recommended pattern for Tailwind CSS v4
   },
-  plugins: [require('tailwindcss-animate')]
+  plugins: [require('tailwindcss-animate'), require('@tailwindcss/typography')]
 };

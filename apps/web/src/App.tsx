@@ -1,4 +1,4 @@
-import { Briefcase, FolderGit2, LayoutDashboard, LineChart, Settings, FileCode, Loader2, Users, Wrench, BookOpen } from 'lucide-react';
+import { Briefcase, FolderGit2, LayoutDashboard, LineChart, Settings, FileCode, Loader2, Users, Wrench, BookOpen, StickyNote } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 
@@ -20,6 +20,7 @@ import { DashboardPage } from '@/pages/dashboard-page';
 import { InstallationPage } from '@/pages/installation-page';
 import { JournalPage } from '@/pages/journal-page';
 import { LoginPage } from '@/pages/login-page';
+import { NotesPage } from '@/pages/notes-page';
 import { OvertimePage } from '@/pages/overtime-page';
 import { ProjectDetailPage } from '@/pages/project-detail-page';
 import { ProjectsPage } from '@/pages/projects-page';
@@ -173,7 +174,11 @@ function AppContent() {
       console.log('Toggle sidebar');
     },
     'toggle-devtools': () => {
-      console.log('Toggle DevTools - will open in Electron');
+      if (window.api?.toggleDevTools) {
+        window.api.toggleDevTools();
+      } else {
+        console.log('DevTools toggle not available (running in browser)');
+      }
     },
     'check-updates': () => {
       setUpdateCheckerOpen(true);
@@ -201,6 +206,7 @@ function AppContent() {
       // Teams sidebar item only visible in Shared mode
       ...(!isSoloMode ? [{ key: 'teams', label: 'Teams', icon: Users }] : []),
       { key: 'journal', label: 'Journal', icon: BookOpen },
+      { key: 'notes', label: 'Notes & Vault', icon: StickyNote },
       { 
         key: 'tools', 
         label: 'Tools', 
@@ -223,6 +229,7 @@ function AppContent() {
     if (path.startsWith('/scripts')) return 'scripts';
     if (path.startsWith('/teams')) return 'teams';
     if (path.startsWith('/journal')) return 'journal';
+    if (path.startsWith('/notes')) return 'notes';
     if (path.startsWith('/tools')) return 'tools';
     if (path.startsWith('/analytics')) return 'analytics';
     if (path.startsWith('/settings')) return 'settings';
@@ -260,6 +267,7 @@ function AppContent() {
             scripts: '/scripts',
             teams: '/teams',
             journal: '/journal',
+            notes: '/notes',
             tools: '/tools',
             analytics: '/analytics',
             settings: '/settings'
@@ -280,6 +288,7 @@ function AppContent() {
         <Route path="/scripts/:scriptId" element={<ScriptsPage />} />
         <Route path="/teams" element={<TeamPage />} />
         <Route path="/journal" element={<JournalPage />} />
+        <Route path="/notes" element={<NotesPage />} />
         <Route path="/tools/overtime" element={<OvertimePage />} />
         <Route path="/analytics" element={renderPlaceholder('analytics')} />
         <Route path="/settings" element={<SettingsPage />} />

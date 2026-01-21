@@ -3,7 +3,9 @@ import { Router } from 'express';
 import { auditRouter } from './audit.js';
 import { authRouter } from './auth.js';
 import { controlmJobsRouter } from './controlm-jobs.js';
+import { credentialsRouter, vaultRouter } from './credentials.js';
 import { installationRouter } from './installation.js';
+import { notesRouter } from './notes.js';
 import { personalProjectsRouter } from './personal-projects.js';
 import { schemaValidationRouter } from './schema-validation.js';
 import { scriptsRouter } from './scripts.js';
@@ -47,6 +49,11 @@ v1Router.use('/tools/overtime', toolsOvertimeRouter);
 v1Router.use('/tags', tagsRouter);
 v1Router.use('/work-logs', workLogsRouter);
 v1Router.use('/personal-projects', personalProjectsRouter);
+
+// Notes & Vault routes - always available (local data only)
+v1Router.use('/notes', notesRouter);
+v1Router.use('/credentials', credentialsRouter);
+v1Router.use('/vault', vaultRouter);
 
 // Middleware to check if shared database is connected for shared features
 const requireSharedDb = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
