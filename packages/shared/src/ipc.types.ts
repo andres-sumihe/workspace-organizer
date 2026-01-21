@@ -201,6 +201,9 @@ export interface TypedElectronAPI {
   onUpdateDownloaded: (callback: (info: UpdateInfo) => void) => () => void;
   restartAndInstall: () => Promise<void>;
   
+  // Developer tools
+  toggleDevTools: () => Promise<void>;
+  
   // Menu integration
   onMenuCommand: (cb: (payload: { id: string }) => void) => () => void;
   invokeMainAction: (actionId: string, args?: unknown) => Promise<unknown>;

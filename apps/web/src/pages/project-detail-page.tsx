@@ -941,20 +941,28 @@ export function ProjectDetailPage() {
                 </CardContent>
               </Card>
 
-              {/* Future Notes Feature Placeholder */}
-              <Card className="border-dashed">
+              {/* Enhanced Notes Feature Available */}
+              <Card className="border-primary/50 bg-primary/5">
                 <CardContent className="py-6">
                   <div className="flex items-start gap-4">
                     <div className="p-2 rounded-lg bg-primary/10">
                       <StickyNote className="h-5 w-5 text-primary" />
                     </div>
-                    <div>
-                      <h4 className="font-medium mb-1">Enhanced Notes Coming Soon</h4>
-                      <p className="text-sm text-muted-foreground">
+                    <div className="flex-1">
+                      <h4 className="font-medium mb-1">Enhanced Notes Feature Now Available!</h4>
+                      <p className="text-sm text-muted-foreground mb-3">
                         A dedicated Notes feature with Markdown support, credentials vault, and rich
-                        editing is planned for a future release. These notes will be directly linked
-                        to your projects.
+                        editing is now available. Your project notes have been automatically migrated.
                       </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.location.href = '/notes'}
+                        className="gap-2"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        Open Notes & Vault
+                      </Button>
                     </div>
                   </div>
                 </CardContent>

@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { taggingsRepository } from './taggings.repository.js';
 import { tagsRepository } from './tags.repository.js';
 import { getDb } from '../db/client.js';
@@ -256,10 +258,7 @@ export const personalProjectsRepository = {
    * Set tags for a project
    */
   async setTags(projectId: string, tagIds: string[]): Promise<void> {
-    await taggingsRepository.syncTags(TAGGABLE_TYPE, projectId, tagIds, () => {
-      const { randomUUID } = require('crypto');
-      return randomUUID();
-    });
+    await taggingsRepository.syncTags(TAGGABLE_TYPE, projectId, tagIds, () => randomUUID());
   },
 
   /**

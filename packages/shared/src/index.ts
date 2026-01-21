@@ -1454,5 +1454,176 @@ export interface PersonalProjectDetailResponse {
   project: PersonalProjectDetail;
 }
 
+// ============================================================================
+// Notes & Credentials Vault Types
+// ============================================================================
+
+/**
+ * A note entry for storing markdown/text content.
+ */
+export interface Note {
+  id: string;
+  title: string;
+  content: string;
+  isPinned: boolean;
+  projectId?: string;
+  project?: PersonalProject;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Request to create a new note.
+ */
+export interface CreateNoteRequest {
+  title: string;
+  content?: string;
+  isPinned?: boolean;
+  projectId?: string;
+}
+
+/**
+ * Request to update an existing note.
+ */
+export interface UpdateNoteRequest {
+  title?: string;
+  content?: string;
+  isPinned?: boolean;
+  projectId?: string;
+}
+
+/**
+ * Response containing a single note.
+ */
+export interface NoteResponse {
+  note: Note;
+}
+
+/**
+ * Response containing a list of notes.
+ */
+export interface NoteListResponse {
+  items: Note[];
+}
+
+/**
+ * Credential type for vault entries.
+ */
+export type CredentialType = 'password' | 'api_key' | 'ssh' | 'database' | 'generic';
+
+/**
+ * A credential entry (metadata only, no decrypted data).
+ */
+export interface Credential {
+  id: string;
+  title: string;
+  type: CredentialType;
+  projectId?: string;
+  project?: PersonalProject;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Decrypted credential data structure.
+ */
+export interface CredentialData {
+  username?: string;
+  password?: string;
+  apiKey?: string;
+  host?: string;
+  port?: number;
+  database?: string;
+  privateKey?: string;
+  notes?: string;
+  customFields?: Record<string, string>;
+}
+
+/**
+ * A credential entry with decrypted data.
+ */
+export interface CredentialWithData extends Credential {
+  data: CredentialData;
+}
+
+/**
+ * Request to create a new credential.
+ */
+export interface CreateCredentialRequest {
+  title: string;
+  type?: CredentialType;
+  projectId?: string;
+  data: CredentialData;
+}
+
+/**
+ * Request to update an existing credential.
+ */
+export interface UpdateCredentialRequest {
+  title?: string;
+  type?: CredentialType;
+  projectId?: string;
+  data?: CredentialData;
+}
+
+/**
+ * Response containing a single credential (metadata only).
+ */
+export interface CredentialResponse {
+  credential: Credential;
+}
+
+/**
+ * Response containing a credential with decrypted data.
+ */
+export interface CredentialRevealResponse {
+  credential: CredentialWithData;
+}
+
+/**
+ * Response containing a list of credentials (metadata only).
+ */
+export interface CredentialListResponse {
+  items: Credential[];
+}
+
+/**
+ * Request to unlock the vault with master password.
+ */
+export interface VaultUnlockRequest {
+  masterPassword: string;
+}
+
+/**
+ * Response after vault unlock.
+ */
+export interface VaultUnlockResponse {
+  success: boolean;
+  message?: string;
+}
+
+/**
+ * Request to setup the vault with initial master password.
+ */
+export interface VaultSetupRequest {
+  masterPassword: string;
+}
+
+/**
+ * Response after vault setup.
+ */
+export interface VaultSetupResponse {
+  success: boolean;
+  message?: string;
+}
+
+/**
+ * Vault status information.
+ */
+export interface VaultStatusResponse {
+  isSetup: boolean;
+  isUnlocked: boolean;
+}
+
 // IPC Types for Electron bridge
 export * from './ipc.types.js';

@@ -594,6 +594,18 @@ ipcMain.handle('restart-and-install', () => {
   autoUpdater.quitAndInstall();
 });
 
+// Handle DevTools toggle from renderer
+ipcMain.handle('toggle-devtools', () => {
+  const win = BrowserWindow.getFocusedWindow();
+  if (win && !win.isDestroyed()) {
+    if (win.webContents.isDevToolsOpened()) {
+      win.webContents.closeDevTools();
+    } else {
+      win.webContents.openDevTools();
+    }
+  }
+});
+
 // Forward specific updater events to renderer
 autoUpdater.on('update-available', (info) => {
   if (mainWindow) mainWindow.webContents.send('update-available', info);
