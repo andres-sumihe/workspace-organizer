@@ -36,6 +36,13 @@ type UpdateState =
 
 export function UpdateChecker({ open, onOpenChange, triggerCheck }: UpdateCheckerProps) {
   const [state, setState] = useState<UpdateState>({ status: 'idle' });
+  const [currentVersion, setCurrentVersion] = useState<string>('');
+
+  useEffect(() => {
+    if (window.api?.getAppVersion) {
+      window.api.getAppVersion().then(setCurrentVersion).catch(() => {});
+    }
+  }, []);
 
   const checkForUpdates = async () => {
     setState({ status: 'checking' });
@@ -48,10 +55,16 @@ export function UpdateChecker({ open, onOpenChange, triggerCheck }: UpdateChecke
         return;
       }
 
+      // Check for updates via Electron process
+      if (window.api.checkForUpdates) {
+        await window.api.checkForUpdates();
+      }
+
       // Wait for update events from Electron
       // The actual check is triggered in the Electron main process
+      // If no event is received within timeout, assume up to date
       const timeout = setTimeout(() => {
-        setState({ status: 'up-to-date' });
+        setState(prev => prev.status === 'checking' ? { status: 'up-to-date' } : prev);
       }, 5000);
 
       return () => clearTimeout(timeout);
@@ -113,7 +126,7 @@ export function UpdateChecker({ open, onOpenChange, triggerCheck }: UpdateChecke
             <div className="text-center">
               <p className="font-medium">You're up to date!</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Version 0.1.0 is the latest version
+                {currentVersion ? `Current version: ${currentVersion}` : 'You are on the latest version'}
               </p>
             </div>
           </div>

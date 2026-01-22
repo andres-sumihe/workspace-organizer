@@ -44,6 +44,9 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.removeListener('update-downloaded', listener);
   },
   restartAndInstall: () => ipcRenderer.invoke('restart-and-install'),
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  getProcessVersions: () => Promise.resolve(process.versions),
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   toggleDevTools: () => ipcRenderer.invoke('toggle-devtools'),
   // subscribe to menu events from main
   onMenuCommand: (cb) => {
