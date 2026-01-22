@@ -15,7 +15,9 @@ import {
   Plus,
   Search,
   Trash2,
-  Unlock
+  Unlock,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Markdown from 'react-markdown';
@@ -393,7 +395,7 @@ function NoteEditor({ note, projects, onSave, onClose, onDirtyChange, saveReques
       <div className="flex-1 overflow-hidden">
         {previewMode ? (
           <ScrollArea className="h-full">
-            <div className="p-6 prose prose-slate dark:prose-invert max-w-none">
+            <div className="p-6 prose prose-slate dark:prose-invert max-w-none note-preview">
               <Markdown
                 remarkPlugins={remarkPlugins}
                 rehypePlugins={rehypePlugins}
@@ -417,7 +419,7 @@ function NoteEditor({ note, projects, onSave, onClose, onDirtyChange, saveReques
               foldGutter: false,
               highlightActiveLine: false
             }}
-            className="h-full"
+            className="h-full note-editor"
           />
         )}
       </div>
@@ -912,6 +914,9 @@ export function NotesPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [deleteNoteId, setDeleteNoteId] = useState<string | null>(null);
 
+  // Sidebar collapsed state
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
   // Vault state
   const { credentials, vaultStatus, isLoading: vaultLoading, refetch: refetchVault, refreshStatus, setCredentials } = useVaultData();
   const [setupDialogOpen, setSetupDialogOpen] = useState(false);
@@ -1006,7 +1011,8 @@ export function NotesPage() {
 
     // Safe to switch
     setSelectedNote(note);
-    setIsEditing(false);
+    // If user requested a new note (note === null), open editor; otherwise show note in read-only mode
+    setIsEditing(note === null ? true : false);
     setEditorDirty(false);
   };
 
@@ -1014,7 +1020,8 @@ export function NotesPage() {
     setUnsavedDialogOpen(false);
     setEditorDirty(false);
     setSelectedNote(pendingNoteToSelect ?? null);
-    setIsEditing(false);
+    // If destination is new note (null) we should open editor for creation
+    setIsEditing(pendingNoteToSelect == null ? true : false);
     setPendingNoteToSelect(undefined);
   };
 
@@ -1161,42 +1168,63 @@ export function NotesPage() {
               </div>
             ) : (
               <div className="flex-1 flex gap-4 overflow-hidden">
-                {/* Notes List */}
-                <div className="w-80 border rounded-lg overflow-hidden flex flex-col">
-                  <div className="p-3 border-b bg-muted/30">
-                    <h3 className="text-sm font-medium">All Notes ({filteredNotes.length})</h3>
+                {/* Notes List Sidebar - uses data-state for stable animation */}
+                <div 
+                  data-state={sidebarCollapsed ? 'collapsed' : 'expanded'}
+                  className="group/notes-sidebar flex flex-col border rounded-lg shrink-0 overflow-hidden transition-[width] duration-200 ease-linear data-[state=collapsed]:w-12 data-[state=expanded]:w-80"
+                > 
+                  <div className="h-12 border-b bg-muted/30 flex items-center shrink-0 px-2 overflow-hidden">
+                    <h3 className="flex-1 text-sm font-medium whitespace-nowrap truncate min-w-0 transition-all duration-200 ease-linear group-data-[state=collapsed]/notes-sidebar:w-0 group-data-[state=collapsed]/notes-sidebar:opacity-0">
+                      All Notes ({filteredNotes.length})
+                    </h3>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      onClick={() => setSidebarCollapsed((v) => !v)}
+                      aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                    >
+                      {sidebarCollapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
+                    </Button>
                   </div>
                   <ScrollArea className="flex-1">
-                    <div className="p-2 space-y-1">
+                    <div className="flex flex-col gap-1">
                       {filteredNotes.map((note) => (
-                        <div
+                        <button
                           key={note.id}
-                          className={`p-3 rounded-md cursor-pointer hover:bg-muted/80 transition-colors ${
+                          onClick={() => attemptSelectNote(note)}
+                          className={`flex w-full items-center gap-2 p-2 text-left text-sm transition-all duration-200 ease-linear hover:bg-muted/80 min-h-[2.8125rem] ${
                             selectedNote?.id === note.id ? 'bg-muted' : ''
                           }`}
-                          onClick={() => attemptSelectNote(note)}
+                          title={note.title}
                         >
-                          <div className="flex items-start gap-2">
-                            {note.isPinned && <Pin className="h-3 w-3 text-primary shrink-0 mt-1" />}
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium truncate">{note.title}</p>
-                              <p className="text-xs text-muted-foreground truncate">
-                                {note.content.slice(0, 50) || 'No content'}
-                              </p>
-                              {note.project && (
-                                <Badge variant="secondary" className="text-[10px] mt-1 gap-1">
-                                  <FolderOpen className="h-2 w-2" />
-                                  {note.project.title}
-                                </Badge>
-                              )}
-                            </div>
+                          <div className="shrink-0 flex items-center ml-2">
+                            {note.isPinned ? (
+                              <Pin className="h-4 w-4 text-primary" />
+                            ) : (
+                              <FileText className="h-4 w-4 text-muted-foreground" />
+                            )}
                           </div>
-                        </div>
+                          <div className="flex-1 min-w-0 overflow-hidden transition-all duration-200 ease-linear opacity-100 max-h-20 group-data-[state=collapsed]/notes-sidebar:w-0 group-data-[state=collapsed]/notes-sidebar:opacity-0 group-data-[state=collapsed]/notes-sidebar:max-h-0">
+                            <p className="font-medium truncate">{note.title}</p>
+                            <p className="text-xs text-muted-foreground truncate opacity-80">
+                              {note.content?.slice(0, 50) || 'No content'}
+                            </p>
+                            {note.project && (
+                              <Badge variant="secondary" className="text-[10px] gap-1 w-fit mt-1">
+                                <FolderOpen className="h-2.5 w-2.5" />
+                                {note.project.title}
+                              </Badge>
+                            )}
+                          </div>
+                        </button>
                       ))}
                       {filteredNotes.length === 0 && (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                          <p className="text-sm">No notes yet</p>
+                        <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                          <FileText className="h-8 w-8 opacity-50 icon-scale-transition" />
+                          <p className="mt-2 text-xs overflow-hidden transition-all duration-200 ease-linear group-data-[state=collapsed]/notes-sidebar:w-0 group-data-[state=collapsed]/notes-sidebar:opacity-0 group-data-[state=collapsed]/notes-sidebar:h-0">
+                            No notes yet
+                          </p>
                         </div>
                       )}
                     </div>
@@ -1218,7 +1246,8 @@ export function NotesPage() {
                         setSaveRequestId(0);
                         if (navigateAfterSave) {
                           setSelectedNote(pendingNoteToSelect ?? null);
-                          setIsEditing(false);
+                          // If destination is new note (null) open editor, else show note read-only
+                          setIsEditing(pendingNoteToSelect == null ? true : false);
                           setNavigateAfterSave(false);
                           setPendingNoteToSelect(undefined);
                           setEditorDirty(false);
