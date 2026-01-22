@@ -200,6 +200,9 @@ export interface TypedElectronAPI {
   onUpdateAvailable: (callback: (info: UpdateInfo) => void) => () => void;
   onUpdateDownloaded: (callback: (info: UpdateInfo) => void) => () => void;
   restartAndInstall: () => Promise<void>;
+  getAppVersion: () => Promise<string>;
+  getProcessVersions: () => Promise<NodeJS.ProcessVersions>;
+  checkForUpdates: () => Promise<void>;
   
   // Developer tools
   toggleDevTools: () => Promise<void>;

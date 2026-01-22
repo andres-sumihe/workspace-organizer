@@ -594,6 +594,22 @@ ipcMain.handle('restart-and-install', () => {
   autoUpdater.quitAndInstall();
 });
 
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion();
+});
+
+ipcMain.handle('check-for-updates', async () => {
+  console.log('[Updater] Checking for updates via API...');
+  try {
+    // In dev, autoUpdater might not be fully configured, but we try anyway
+    const result = await autoUpdater.checkForUpdates();
+    return { ok: true, result };
+  } catch (err) {
+    console.error('[Updater] Failed to check for updates:', err);
+    return { ok: false, error: err.message };
+  }
+});
+
 // Handle DevTools toggle from renderer
 ipcMain.handle('toggle-devtools', () => {
   const win = BrowserWindow.getFocusedWindow();

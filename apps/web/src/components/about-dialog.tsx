@@ -1,4 +1,5 @@
 import { Info, Github, Mail } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -16,14 +17,29 @@ interface AboutDialogProps {
 }
 
 export function AboutDialog({ open, onOpenChange }: AboutDialogProps) {
-  const version = '0.1.0';
-  const electronVersion = 'Electron 33.2.0';
-  const nodeVersion = (window.navigator as any).userAgentData?.brands?.find((b: any) => b.brand === 'Node.js')?.version || 'Unknown';
-  const chromeVersion = (window.navigator as any).userAgentData?.brands?.find((b: any) => b.brand === 'Chromium')?.version || 'Unknown';
+  const [version, setVersion] = useState<string>('0.1.0');
+  const [versions, setVersions] = useState<{ node: string; electron: string; chrome: string }>({
+    node: 'Unknown',
+    electron: 'Unknown',
+    chrome: 'Unknown'
+  });
+
+  useEffect(() => {
+    if (window.api) {
+      window.api.getAppVersion().then(setVersion).catch(() => {});
+      window.api.getProcessVersions().then((v) => {
+        setVersions({
+          node: v.node || 'Unknown',
+          electron: v.electron || 'Unknown',
+          chrome: v.chrome || 'Unknown'
+        });
+      }).catch(() => {});
+    }
+  }, []);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-125">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Info className="h-5 w-5" />
@@ -42,11 +58,11 @@ export function AboutDialog({ open, onOpenChange }: AboutDialogProps) {
               <div className="text-muted-foreground">Application:</div>
               <div className="font-mono">{version}</div>
               <div className="text-muted-foreground">Electron:</div>
-              <div className="font-mono">{electronVersion}</div>
+              <div className="font-mono">v{versions.electron}</div>
               <div className="text-muted-foreground">Node.js:</div>
-              <div className="font-mono">v{nodeVersion}</div>
+              <div className="font-mono">v{versions.node}</div>
               <div className="text-muted-foreground">Chromium:</div>
-              <div className="font-mono">{chromeVersion}</div>
+              <div className="font-mono">v{versions.chrome}</div>
             </div>
           </div>
 
