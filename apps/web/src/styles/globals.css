@@ -383,6 +383,60 @@ ins.remark-ins {
   color: oklch(0.7 0.15 250);
 }
 
+/* ============================================================================
+   JetBrains Mono - self-hosted font setup
+   - Run `npm run fetch:fonts` from the repo root to download and extract
+     WOFF2 files into `apps/web/public/fonts/jetbrains-mono/` on Windows (PowerShell).
+   - The app will then use 'JetBrains Mono' as the preferred monospace font.
+   ============================================================================ */
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/jetbrains-mono/JetBrainsMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/jetbrains-mono/JetBrainsMono-Medium.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/jetbrains-mono/JetBrainsMono-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Prefer JetBrains Mono for editor and monospace areas */
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+}
+
+/* Ensure CodeMirror uses the preferred mono font and adjust editor size */
+.cm-scroller { font-family: var(--font-mono) !important; }
+
+/* Make editor font a bit smaller for better density */
+.note-editor .cm-scroller { font-size: 13px !important; }
+
+/* Make preview (prose) slightly smaller to match editor */
+.note-preview.prose { font-size: 0.95rem; line-height: 1.5; }
+.note-preview pre, .note-preview code, .note-preview .font-mono { font-size: 0.85rem; }
+
+/* Sidebar collapsed state tweaks */
+.w-20 { min-width: 5rem; max-width: 5rem; }
+.w-80 { min-width: 20rem; }
+
+/* Improve hover target when collapsed */
+.sidebar-collapsed .p-3 { padding-left: 0.5rem; padding-right: 0.5rem; }
+
+
+
+
 .remark-container.warning {
   border-left-color: oklch(0.75 0.18 60);
   background-color: oklch(0.97 0.04 60);
