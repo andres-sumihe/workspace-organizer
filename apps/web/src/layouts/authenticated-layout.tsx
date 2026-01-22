@@ -20,7 +20,6 @@ export const AuthenticatedLayout = ({
   activeSidebarKey,
   activeSidebarSubKey,
   onNavigate,
-  connectionLabel,
 }: AuthenticatedLayoutProps) => {
   return (
     <SidebarProvider className="bg-background">
@@ -29,7 +28,6 @@ export const AuthenticatedLayout = ({
         activeKey={activeSidebarKey}
         activeSubKey={activeSidebarSubKey}
         onNavigate={onNavigate}
-        connectionLabel={connectionLabel}
       />
       <SidebarInset
         className={cn(
