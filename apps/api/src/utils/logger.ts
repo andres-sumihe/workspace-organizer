@@ -6,22 +6,20 @@ import pinoHttp from 'pino-http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 const isProduction = process.env.NODE_ENV === 'production';
-const isElectron = !!process.env.ELECTRON_USER_DATA_PATH;
 
 // Main Logger Instance
 export const logger = pino({
   level: process.env.LOG_LEVEL ?? (isProduction ? 'info' : 'debug'),
-  transport:
-    isProduction && !isElectron
-      ? undefined
-      : {
-          target: 'pino-pretty',
-          options: {
-            colorize: true,
-            translateTime: 'SYS:standard',
-            ignore: 'pid,hostname',
-          },
+  transport: isProduction
+    ? undefined
+    : {
+        target: 'pino-pretty',
+        options: {
+          colorize: true,
+          translateTime: 'SYS:standard',
+          ignore: 'pid,hostname',
         },
+      },
   serializers: {
     err: pino.stdSerializers.err,
     req: pino.stdSerializers.req,
