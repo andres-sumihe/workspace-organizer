@@ -21,6 +21,12 @@ jobs:
         with:
           node-version: 22
 
+      - name: Clean npm cache
+        run: npm cache clean --force
+        
+      - name: Upgrade npm
+        run: npm install -g npm@latest
+
       - name: Install Dependencies
         run: npm install
 

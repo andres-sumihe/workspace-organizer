@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-01-26
+
+### Added
+- **Notes**: Create, edit, delete and search personal notes inside a workspace. Notes sync with the local API and support title/content search.
+- **Work Journal (Work Logs)**: New work journal—create daily/weekly work log entries, copy entries between dates, tag entries, and view weekly ranges.
+- **Session & Lock Screen Improvements**: Idle timeout handling and a lock screen flow that allows re-authentication without losing state.
+- **User-facing UI Improvements**: Added `About` dialog, update checker/notifications, and improved native menu integrations for common workflows.
+
+### Changed
+- Improvements to templates and scripts UX (clearer import messages, better error feedback).
+- Search experience improved for notes and scripts.
+
+### Fixed
+- Fixed authentication header mutation that caused intermittent auth failures.
+- Resolved multiple UI and TypeScript issues that could cause crashes during template application and script import.
+- Various smaller bug fixes and stability improvements across work journal, notes, and team features.
+
+
 ## [0.1.1] - 2026-01-09
 
 ### Added
