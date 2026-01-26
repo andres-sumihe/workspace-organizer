@@ -1,8 +1,8 @@
 import { randomUUID } from 'crypto';
 
+import { getDb } from '../db/client.js';
 import { personalProjectsRepository } from '../repositories/personal-projects.repository.js';
 import { workLogsRepository } from '../repositories/work-logs.repository.js';
-import { getDb } from '../db/client.js';
 
 import type {
   PersonalProject,
