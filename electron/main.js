@@ -598,6 +598,14 @@ ipcMain.handle('get-app-version', () => {
   return app.getVersion();
 });
 
+ipcMain.handle('get-process-versions', () => {
+  return {
+    node: process.versions.node,
+    electron: process.versions.electron,
+    chrome: process.versions.chrome,
+  };
+});
+
 ipcMain.handle('check-for-updates', async () => {
   console.log('[Updater] Checking for updates via API...');
   try {

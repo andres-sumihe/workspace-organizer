@@ -45,7 +45,7 @@ contextBridge.exposeInMainWorld('api', {
   },
   restartAndInstall: () => ipcRenderer.invoke('restart-and-install'),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
-  getProcessVersions: () => Promise.resolve(process.versions),
+  getProcessVersions: () => ipcRenderer.invoke('get-process-versions'),
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   toggleDevTools: () => ipcRenderer.invoke('toggle-devtools'),
   // subscribe to menu events from main
