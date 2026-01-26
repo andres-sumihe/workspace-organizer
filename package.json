@@ -1,6 +1,6 @@
 {
   "name": "workspace-organizer",
-  "version": "0.2.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Workspace for a file and folder organization dashboard.",
   "workspaces": [
@@ -12,6 +12,7 @@
     "node-gyp": "12.1.0"
   },
   "scripts": {
+    "setup-node": "node scripts/setup-local-node.js",
     "dev": "concurrently \"npm run dev --workspace @workspace/api\" \"npm run dev --workspace @workspace/web\"",
     "dev:api": "npm run dev --workspace @workspace/api",
     "dev:web": "npm run dev --workspace @workspace/web",
@@ -50,6 +51,9 @@
   ],
   "author": "Andres Sumihe",
   "license": "MIT",
+  "engines": {
+    "node": ">=20.18.0 <21"
+  },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.18.13",

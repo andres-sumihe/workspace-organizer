@@ -38,3 +38,6 @@ docs/
 temp_scripts/
 scripts/context7-wrapper.js
 scripts/sync-versions.js
+scripts/Activate-LocalNode.ps1
+scripts/setup-local-node.js
+.node-local
