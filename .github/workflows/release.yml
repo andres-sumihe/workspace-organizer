@@ -21,38 +21,8 @@ jobs:
         with:
           node-version: 22
 
-      - name: Configure npm for Windows
-        shell: pwsh
-        run: |
-          npm config set fetch-retries 5
-          npm config set fetch-retry-mintimeout 20000
-          npm config set fetch-retry-maxtimeout 120000
-          # Disable progress bar and reduce output to prevent exit handler issues
-          npm config set progress false
-          npm config set loglevel warn
-
-      - name: Clean npm cache
-        run: npm cache clean --force
-
       - name: Install Dependencies
-        shell: pwsh
-        run: |
-          $maxRetries = 3
-          for ($i = 1; $i -le $maxRetries; $i++) {
-            Write-Host "Attempt $i of $maxRetries..."
-            # Use npm install with --no-audit --no-fund to reduce network calls
-            npm install --no-audit --no-fund --prefer-offline 2>&1 | Out-Host
-            if ($LASTEXITCODE -eq 0) { 
-              Write-Host "npm install succeeded"
-              exit 0 
-            }
-            Write-Host "npm install failed with code $LASTEXITCODE, retrying in 15s..."
-            Start-Sleep -Seconds 15
-            npm cache clean --force
-            Remove-Item -Recurse -Force node_modules -ErrorAction SilentlyContinue
-          }
-          Write-Host "All retries failed"
-          exit 1
+        run: npm install
 
       - name: Build shared package
         run: npm run build --workspace @workspace/shared
