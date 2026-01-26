@@ -8,7 +8,6 @@ coverage/
 .vscode/
 pnpm-lock.yaml
 yarn.lock
-package-lock.json
 .npmrc
 /apps/api/data/*.sqlite
 /apps/data/*.sqlite
