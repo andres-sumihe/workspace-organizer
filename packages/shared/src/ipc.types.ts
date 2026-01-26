@@ -1,3 +1,4 @@
+/// <reference types="node" />
 // ============================================
 // Electron IPC Bridge Type Definitions
 // Matches the actual Electron preload.js interface
@@ -201,6 +202,7 @@ export interface TypedElectronAPI {
   onUpdateDownloaded: (callback: (info: UpdateInfo) => void) => () => void;
   restartAndInstall: () => Promise<void>;
   getAppVersion: () => Promise<string>;
+  // eslint-disable-next-line no-undef
   getProcessVersions: () => Promise<NodeJS.ProcessVersions>;
   checkForUpdates: () => Promise<void>;
   
