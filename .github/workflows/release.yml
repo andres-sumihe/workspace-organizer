@@ -21,14 +21,29 @@ jobs:
         with:
           node-version: 22
 
-      - name: Clean npm cache
-        run: npm cache clean --force
-        
+      - name: Configure npm for Windows
+        shell: pwsh
+        run: |
+          npm config set fetch-retries 5
+          npm config set fetch-retry-mintimeout 20000
+          npm config set fetch-retry-maxtimeout 120000
+
       - name: Upgrade npm
         run: npm install -g npm@latest
 
       - name: Install Dependencies
-        run: npm install
+        shell: pwsh
+        run: |
+          $maxRetries = 3
+          for ($i = 1; $i -le $maxRetries; $i++) {
+            Write-Host "Attempt $i of $maxRetries..."
+            npm ci --prefer-offline
+            if ($LASTEXITCODE -eq 0) { exit 0 }
+            Write-Host "npm ci failed, retrying in 10s..."
+            Start-Sleep -Seconds 10
+            npm cache clean --force
+          }
+          exit 1
 
       - name: Build shared package
         run: npm run build --workspace @workspace/shared
