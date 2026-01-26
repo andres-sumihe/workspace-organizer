@@ -27,9 +27,12 @@ jobs:
           npm config set fetch-retries 5
           npm config set fetch-retry-mintimeout 20000
           npm config set fetch-retry-maxtimeout 120000
+          # Disable progress bar and reduce output to prevent exit handler issues
+          npm config set progress false
+          npm config set loglevel warn
 
-      - name: Upgrade npm
-        run: npm install -g npm@latest
+      - name: Clean npm cache
+        run: npm cache clean --force
 
       - name: Install Dependencies
         shell: pwsh
@@ -37,12 +40,18 @@ jobs:
           $maxRetries = 3
           for ($i = 1; $i -le $maxRetries; $i++) {
             Write-Host "Attempt $i of $maxRetries..."
-            npm ci --prefer-offline
-            if ($LASTEXITCODE -eq 0) { exit 0 }
-            Write-Host "npm ci failed, retrying in 10s..."
-            Start-Sleep -Seconds 10
+            # Use npm install with --no-audit --no-fund to reduce network calls
+            npm install --no-audit --no-fund --prefer-offline 2>&1 | Out-Host
+            if ($LASTEXITCODE -eq 0) { 
+              Write-Host "npm install succeeded"
+              exit 0 
+            }
+            Write-Host "npm install failed with code $LASTEXITCODE, retrying in 15s..."
+            Start-Sleep -Seconds 15
             npm cache clean --force
+            Remove-Item -Recurse -Force node_modules -ErrorAction SilentlyContinue
           }
+          Write-Host "All retries failed"
           exit 1
 
       - name: Build shared package
