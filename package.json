@@ -52,7 +52,7 @@
   "author": "Andres Sumihe",
   "license": "MIT",
   "engines": {
-    "node": ">=20.18.0 <21"
+    "node": ">=22.12.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
