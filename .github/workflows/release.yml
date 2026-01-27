@@ -42,7 +42,7 @@ jobs:
       - name: Build and Publish Windows
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: pnpm run electron-builder --win --publish always
+        run: pnpm exec electron-builder --win --publish always
 
       - name: Extract Release Notes
         id: extract_notes
