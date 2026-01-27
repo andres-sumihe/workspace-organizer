@@ -6,7 +6,6 @@ coverage/
 .DS_Store
 *.log
 .vscode/
-pnpm-lock.yaml
 yarn.lock
 .npmrc
 /apps/api/data/*.sqlite
