@@ -59,7 +59,7 @@ export const createWorkspaceHandler: RequestHandler = async (req, res) => {
 };
 
 export const getWorkspaceDetailHandler: RequestHandler = async (req, res) => {
-  const workspaceId = req.params.workspaceId;
+  const workspaceId = req.params.workspaceId as string;
   if (!workspaceId) {
     return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'workspaceId is required' } });
   }
@@ -69,7 +69,7 @@ export const getWorkspaceDetailHandler: RequestHandler = async (req, res) => {
 };
 
 export const updateWorkspaceHandler: RequestHandler = async (req, res) => {
-  const workspaceId = req.params.workspaceId;
+  const workspaceId = req.params.workspaceId as string;
   if (!workspaceId) {
     return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'workspaceId is required' } });
   }

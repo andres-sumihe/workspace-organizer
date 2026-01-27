@@ -14,7 +14,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@workspace/shared": "*",
+    "@workspace/shared": "workspace:*",
     "bcryptjs": "^3.0.3",
     "chokidar": "^4.0.3",
     "cors": "^2.8.5",

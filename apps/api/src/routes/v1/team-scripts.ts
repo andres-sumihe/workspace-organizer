@@ -307,7 +307,7 @@ teamScriptsRouter.delete(
   requireResourceOwnership('scripts', 'delete', getScriptOwner),
   asyncHandler(async (req: TeamAuthenticatedRequest, res: Response) => {
     const { teamId, memberEmail } = req;
-    const { scriptId } = req.params;
+    const scriptId = req.params.scriptId as string;
 
     // Check script exists and get details for audit
     const existing = await queryOne<ScriptRow>(
