@@ -1,7 +1,7 @@
-import { Database, Loader2, Save, Settings as SettingsIcon, Server, Link2, Unlink, AlertTriangle, RefreshCw, Play, CheckCircle2, XCircle, AlertCircle, Wrench } from 'lucide-react';
+import { Database, Loader2, Save, Settings as SettingsIcon, Server, Link2, Unlink, RefreshCw, CheckCircle2, XCircle, AlertCircle, AlertTriangle, Wrench, Copy, ChevronDown, ChevronRight } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
-import { schemaValidationApi, type ValidationResponse } from '@/api/schema-validation';
+import { schemaValidationApi, type ValidationResponse, type ExportScriptsResponse } from '@/api/schema-validation';
 import { settingsApi } from '@/api/settings';
 import { toolsApi } from '@/api/tools';
 import { AppPage, AppPageContent, AppPageTabs } from '@/components/layout/app-page';
@@ -97,14 +97,16 @@ export const SettingsPage = () => {
   const [isConfiguringTeam, setIsConfiguringTeam] = useState(false);
   const [isDisablingTeam, setIsDisablingTeam] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
-  const [isRunningMigrations, setIsRunningMigrations] = useState(false);
   const [teamActionMessage, setTeamActionMessage] = useState<{ success: boolean; message: string } | null>(null);
 
   // Schema validation state
   const [validationResult, setValidationResult] = useState<ValidationResponse | null>(null);
   const [isValidating, setIsValidating] = useState(false);
-  const [isResettingDb, setIsResettingDb] = useState(false);
   const [showValidationDetails, setShowValidationDetails] = useState(false);
+  const [showMigrationInfo, setShowMigrationInfo] = useState(false);
+  const [migrationData, setMigrationData] = useState<ExportScriptsResponse | null>(null);
+  const [isLoadingMigrationInfo, setIsLoadingMigrationInfo] = useState(false);
+  const [expandedMigration, setExpandedMigration] = useState<string | null>(null);
 
   // Tools settings state
   const [baseSalary, setBaseSalary] = useState<string>('');
@@ -370,30 +372,32 @@ export const SettingsPage = () => {
     }
   };
 
-  const handleRunMigrations = async () => {
-    setIsRunningMigrations(true);
+  const handleViewMigrationInfo = async () => {
+    setIsLoadingMigrationInfo(true);
+    setShowMigrationInfo(true);
     setTeamActionMessage(null);
 
     try {
-      const response = await fetch(`${API_URL}/api/v1/team-config/run-migrations`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      const data = await response.json();
-      if (response.ok && data.success) {
-        setTeamActionMessage({ success: true, message: data.message || 'Migrations completed' });
-        await Promise.all([refreshStatus(), refreshAuth(), checkStatus()]);
-        setTimeout(() => setTeamActionMessage(null), 5000);
-      } else {
-        setTeamActionMessage({ success: false, message: data.message || 'Failed to run migrations' });
-        setTimeout(() => setTeamActionMessage(null), 5000);
+      const data = await schemaValidationApi.exportScripts();
+      if (data.success) {
+        setMigrationData(data);
       }
     } catch (err) {
-      setTeamActionMessage({ success: false, message: err instanceof Error ? err.message : 'Failed to run migrations' });
+      setTeamActionMessage({ success: false, message: err instanceof Error ? err.message : 'Failed to load migration info' });
       setTimeout(() => setTeamActionMessage(null), 5000);
     } finally {
-      setIsRunningMigrations(false);
+      setIsLoadingMigrationInfo(false);
+    }
+  };
+
+  const handleCopySQL = async (sql: string, migrationId?: string) => {
+    try {
+      await navigator.clipboard.writeText(sql);
+      setTeamActionMessage({ success: true, message: migrationId ? `Copied ${migrationId} SQL to clipboard` : 'Copied SQL to clipboard' });
+      setTimeout(() => setTeamActionMessage(null), 3000);
+    } catch {
+      setTeamActionMessage({ success: false, message: 'Failed to copy to clipboard' });
+      setTimeout(() => setTeamActionMessage(null), 3000);
     }
   };
 
@@ -423,40 +427,7 @@ export const SettingsPage = () => {
     }
   };
 
-  const handleResetAndMigrate = async () => {
-    const confirmed = window.confirm(
-      '⚠️ WARNING: This will DELETE ALL team data (scripts, jobs, audit logs) and re-create tables from scratch.\n\n' +
-      'This operation is IRREVERSIBLE.\n\n' +
-      'Are you absolutely sure you want to continue?'
-    );
 
-    if (!confirmed) return;
-
-    setIsResettingDb(true);
-    setTeamActionMessage(null);
-
-    try {
-      const result = await schemaValidationApi.resetAndMigrate();
-      
-      if (result.success) {
-        setValidationResult(result.validation);
-        setTeamActionMessage({ 
-          success: true, 
-          message: `✓ Reset complete: Dropped ${result.reset.tablesDropped.length} tables, ran ${result.migrations.count} migrations` 
-        });
-        await Promise.all([refreshStatus(), refreshAuth(), checkStatus()]);
-      } else {
-        setTeamActionMessage({ success: false, message: result.message || 'Reset and migrate failed' });
-      }
-      
-      setTimeout(() => setTeamActionMessage(null), 8000);
-    } catch (err) {
-      setTeamActionMessage({ success: false, message: err instanceof Error ? err.message : 'Reset and migrate failed' });
-      setTimeout(() => setTeamActionMessage(null), 5000);
-    } finally {
-      setIsResettingDb(false);
-    }
-  };
 
   if (contextLoading) {
     return (
@@ -1051,22 +1022,6 @@ export const SettingsPage = () => {
                             </Button>
                           )}
                           
-                          {installationStatus?.sharedDbConnected && (!installationStatus?.migrationsRun || installationStatus?.pendingMigrations?.length > 0) && (
-                            <Button 
-                              variant="outline"
-                              onClick={handleRunMigrations}
-                              disabled={isRunningMigrations}
-                              className="flex items-center gap-2"
-                            >
-                              {isRunningMigrations ? (
-                                <Loader2 className="size-4 animate-spin" />
-                              ) : (
-                                <Play className="size-4" />
-                              )}
-                              Run Migrations
-                            </Button>
-                          )}
-
                           {installationStatus?.sharedDbConnected && (
                             <>
                               <Button 
@@ -1084,17 +1039,17 @@ export const SettingsPage = () => {
                               </Button>
 
                               <Button 
-                                variant="destructive"
-                                onClick={handleResetAndMigrate}
-                                disabled={isResettingDb}
+                                variant="outline"
+                                onClick={handleViewMigrationInfo}
+                                disabled={isLoadingMigrationInfo}
                                 className="flex items-center gap-2"
                               >
-                                {isResettingDb ? (
+                                {isLoadingMigrationInfo ? (
                                   <Loader2 className="size-4 animate-spin" />
                                 ) : (
-                                  <AlertTriangle className="size-4" />
+                                  <Database className="size-4" />
                                 )}
-                                Reset & Re-migrate
+                                Migration Status
                               </Button>
                             </>
                           )}
@@ -1196,6 +1151,123 @@ export const SettingsPage = () => {
                                 ))}
                               </div>
                             )}
+                          </div>
+                        )}
+
+                        {showMigrationInfo && (
+                          <div className="space-y-3 pt-4 border-t">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-sm font-medium">Database Migration Scripts</h4>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setShowMigrationInfo(false)}
+                              >
+                                Hide
+                              </Button>
+                            </div>
+
+                            <Alert variant="info" className="text-sm">
+                              <AlertCircle className="size-4" />
+                              <AlertDescription>
+                                <strong>DBA Required:</strong> Copy the SQL scripts below and execute them on your PostgreSQL database.
+                                Each script must be run in order. Click on a migration to expand and copy its SQL.
+                              </AlertDescription>
+                            </Alert>
+
+                            {isLoadingMigrationInfo ? (
+                              <div className="flex items-center gap-2 py-4">
+                                <Loader2 className="size-4 animate-spin" />
+                                <span className="text-sm text-muted-foreground">Loading migration scripts...</span>
+                              </div>
+                            ) : migrationData ? (
+                              <div className="space-y-3">
+                                {/* Schema Setup */}
+                                <div className="border rounded-md">
+                                  <button
+                                    type="button"
+                                    className="w-full p-3 flex items-center justify-between hover:bg-muted/50"
+                                    onClick={() => setExpandedMigration(expandedMigration === 'setup' ? null : 'setup')}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      {expandedMigration === 'setup' ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+                                      <Database className="size-4 text-primary" />
+                                      <span className="font-mono text-sm font-medium">Schema Setup</span>
+                                    </div>
+                                    <Badge variant="secondary">Run First</Badge>
+                                  </button>
+                                  {expandedMigration === 'setup' && (
+                                    <div className="border-t p-3 space-y-2">
+                                      <div className="flex justify-end">
+                                        <Button size="sm" variant="outline" onClick={() => handleCopySQL(migrationData.schemaSetup, 'Schema Setup')}>
+                                          <Copy className="size-3 mr-1" /> Copy SQL
+                                        </Button>
+                                      </div>
+                                      <pre className="text-xs bg-muted p-3 rounded-md whitespace-pre-wrap break-words max-h-48 overflow-y-auto w-full">
+                                        {migrationData.schemaSetup}
+                                      </pre>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Migration Scripts */}
+                                <div className="space-y-2 max-h-96 overflow-y-auto">
+                                  {migrationData.migrations.map((migration) => (
+                                    <div
+                                      key={migration.id}
+                                      className={`border rounded-md ${
+                                        migration.status === 'pending'
+                                          ? 'border-warning/50'
+                                          : 'border-success/50'
+                                      }`}
+                                    >
+                                      <button
+                                        type="button"
+                                        className={`w-full p-3 flex items-center justify-between hover:bg-muted/50 ${
+                                          migration.status === 'pending' ? 'bg-warning-muted/50' : 'bg-success-muted/50'
+                                        }`}
+                                        onClick={() => setExpandedMigration(expandedMigration === migration.id ? null : migration.id)}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          {expandedMigration === migration.id ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+                                          {migration.status === 'pending' ? (
+                                            <AlertCircle className="size-4 text-warning" />
+                                          ) : (
+                                            <CheckCircle2 className="size-4 text-success" />
+                                          )}
+                                          <span className="font-mono text-sm">{migration.id}</span>
+                                          <span className="text-xs text-muted-foreground hidden sm:inline">- {migration.description}</span>
+                                        </div>
+                                        <Badge variant={migration.status === 'pending' ? 'warning' : 'success'}>
+                                          {migration.status === 'pending' ? 'Pending' : 'Executed'}
+                                        </Badge>
+                                      </button>
+                                      {expandedMigration === migration.id && (
+                                        <div className="border-t p-3 space-y-2">
+                                          <div className="flex justify-between items-center">
+                                            <span className="text-xs text-muted-foreground">{migration.description}</span>
+                                            <Button size="sm" variant="outline" onClick={() => handleCopySQL(migration.sql, migration.id)}>
+                                              <Copy className="size-3 mr-1" /> Copy SQL
+                                            </Button>
+                                          </div>
+                                          <pre className="text-xs bg-muted p-3 rounded-md whitespace-pre-wrap break-words max-h-64 overflow-y-auto w-full">
+                                            {migration.sql}
+                                          </pre>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+
+                                {/* Summary */}
+                                <div className="flex items-center justify-between text-sm text-muted-foreground pt-2 border-t">
+                                  <span>{migrationData.pendingCount} pending of {migrationData.totalCount} total migrations</span>
+                                  {!migrationData.dbConnected && (
+                                    <Badge variant="warning">Database not connected</Badge>
+                                  )}
+                                </div>
+                              </div>
+                            ) : null}
                           </div>
                         )}
                       </div>

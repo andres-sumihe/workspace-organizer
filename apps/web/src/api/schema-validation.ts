@@ -29,24 +29,35 @@ export interface ValidationResponse {
   };
 }
 
-export interface ResetAndMigrateResponse {
+export interface MigrationHistoryEntry {
+  id: string;
+  executed_at: string;
+  executed_by: string | null;
+  hostname: string | null;
+}
+
+export interface MigrationScript {
+  id: string;
+  description: string;
+  status: 'pending' | 'executed';
+  sql: string;
+}
+
+export interface ExportScriptsResponse {
   success: boolean;
-  reset: {
-    success: boolean;
-    message: string;
-    tablesDropped: string[];
-  };
-  migrations: {
-    count: number;
-    executed: string[];
-  };
-  validation: ValidationResponse;
-  message?: string;
+  format: 'individual' | 'combined';
+  dbConnected: boolean;
+  pendingCount: number;
+  totalCount: number;
+  schemaSetup: string;
+  migrations: MigrationScript[];
+  instructions: string[];
 }
 
 export const schemaValidationApi = {
   /**
-   * Validate all shared database tables
+   * Validate all shared database tables.
+   * No authentication required.
    */
   async validate(): Promise<ValidationResponse> {
     const response = await fetch(`${API_BASE}/api/v1/schema-validation/validate`, {
@@ -63,18 +74,60 @@ export const schemaValidationApi = {
   },
 
   /**
-   * Reset database and re-run all migrations
-   * WARNING: This is destructive and will delete all team data!
+   * Get pending migrations that haven't been executed yet.
+   * No authentication required.
    */
-  async resetAndMigrate(): Promise<ResetAndMigrateResponse> {
-    const response = await fetch(`${API_BASE}/api/v1/schema-validation/reset-and-migrate`, {
-      method: 'POST',
+  async getPendingMigrations(): Promise<{ success: boolean; pendingMigrations: string[]; count: number; dbConnected: boolean }> {
+    const response = await fetch(`${API_BASE}/api/v1/schema-validation/pending`, {
+      method: 'GET',
       headers: { 'Content-Type': 'application/json' }
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to reset and migrate database');
+      throw new Error(errorData.message || 'Failed to get pending migrations');
+    }
+
+    return response.json();
+  },
+
+  /**
+   * Get migration execution history.
+   * No authentication required.
+   */
+  async getMigrationHistory(): Promise<{ success: boolean; history: MigrationHistoryEntry[]; dbConnected: boolean }> {
+    const response = await fetch(`${API_BASE}/api/v1/schema-validation/history`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to get migration history');
+    }
+
+    return response.json();
+  },
+
+  /**
+   * Export migration SQL scripts for DBA execution.
+   * Returns actual SQL content that can be copied and executed.
+   * No authentication required.
+   * 
+   * @param pendingOnly - If true, only return pending migrations
+   */
+  async exportScripts(pendingOnly = false): Promise<ExportScriptsResponse> {
+    const params = new URLSearchParams();
+    if (pendingOnly) params.set('pending', 'true');
+
+    const response = await fetch(`${API_BASE}/api/v1/schema-validation/export-scripts?${params}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to export scripts');
     }
 
     return response.json();
