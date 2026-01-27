@@ -101,7 +101,8 @@ auditRouter.get(
   requirePermission('audit', 'read'),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { resourceType, resourceId } = req.params;
+      const resourceType = req.params.resourceType as string;
+      const resourceId = req.params.resourceId as string;
       const page = parseInt(req.query.page as string, 10) || 1;
       const pageSize = Math.min(parseInt(req.query.pageSize as string, 10) || 50, 100);
 
@@ -129,7 +130,7 @@ auditRouter.get(
   requirePermission('audit', 'read'),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { userId } = req.params;
+      const userId = req.params.userId as string;
       const page = parseInt(req.query.page as string, 10) || 1;
       const pageSize = Math.min(parseInt(req.query.pageSize as string, 10) || 50, 100);
 

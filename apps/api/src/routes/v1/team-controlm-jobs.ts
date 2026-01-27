@@ -257,7 +257,7 @@ teamControlmJobsRouter.get('/:jobId', requireTeamRole('member'), asyncHandler(as
  */
 teamControlmJobsRouter.post('/:jobId/link-script', requireTeamRole('admin'), asyncHandler(async (req: TeamAuthenticatedRequest, res: Response) => {
   const { teamId, memberEmail } = req;
-  const { jobId } = req.params;
+  const jobId = req.params.jobId as string;
   const { scriptId } = req.body ?? {};
 
   if (typeof scriptId !== 'string') {
@@ -306,7 +306,7 @@ teamControlmJobsRouter.post('/:jobId/link-script', requireTeamRole('admin'), asy
  */
 teamControlmJobsRouter.delete('/:jobId/link-script', requireTeamRole('admin'), asyncHandler(async (req: TeamAuthenticatedRequest, res: Response) => {
   const { teamId, memberEmail } = req;
-  const { jobId } = req.params;
+  const jobId = req.params.jobId as string;
 
   // Verify job exists and get linked script info
   const job = await queryOne<JobRow>('SELECT * FROM controlm_jobs WHERE id = $1', [jobId]);
@@ -344,7 +344,7 @@ teamControlmJobsRouter.delete('/:jobId/link-script', requireTeamRole('admin'), a
  */
 teamControlmJobsRouter.delete('/:jobId', requireTeamRole('admin'), asyncHandler(async (req: TeamAuthenticatedRequest, res: Response) => {
   const { teamId, memberEmail } = req;
-  const { jobId } = req.params;
+  const jobId = req.params.jobId as string;
 
   const job = await queryOne<JobRow>('SELECT * FROM controlm_jobs WHERE id = $1', [jobId]);
   if (!job) {

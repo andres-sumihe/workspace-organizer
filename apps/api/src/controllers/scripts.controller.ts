@@ -49,7 +49,7 @@ export const listScriptsHandler: RequestHandler = async (req, res) => {
 };
 
 export const getScriptDetailHandler: RequestHandler = async (req, res) => {
-  const scriptId = req.params.scriptId;
+  const scriptId = req.params.scriptId as string;
   if (!scriptId) {
     return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'scriptId is required' } });
   }
@@ -88,7 +88,7 @@ export const createScriptHandler: RequestHandler = async (req, res) => {
 };
 
 export const updateScriptHandler: RequestHandler = async (req, res) => {
-  const scriptId = req.params.scriptId;
+  const scriptId = req.params.scriptId as string;
   if (!scriptId) {
     return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'scriptId is required' } });
   }
@@ -116,7 +116,7 @@ export const updateScriptHandler: RequestHandler = async (req, res) => {
 };
 
 export const deleteScriptHandler: RequestHandler = async (req, res) => {
-  const scriptId = req.params.scriptId;
+  const scriptId = req.params.scriptId as string;
   if (!scriptId) {
     return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'scriptId is required' } });
   }
@@ -164,7 +164,7 @@ export const listTagsHandler: RequestHandler = async (_req, res) => {
 };
 
 export const getScriptActivityHandler: RequestHandler = async (req, res) => {
-  const scriptId = req.params.scriptId;
+  const scriptId = req.params.scriptId as string;
   if (!scriptId) {
     return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'scriptId is required' } });
   }

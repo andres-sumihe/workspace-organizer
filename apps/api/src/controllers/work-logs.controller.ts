@@ -80,7 +80,7 @@ export const workLogsController = {
    */
   async getById(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
 
       const entry = await workLogsService.getById(id);
 
@@ -152,7 +152,7 @@ export const workLogsController = {
    */
   async update(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const body = req.body as UpdateWorkLogRequest;
 
       // Validate date format if provided
@@ -192,7 +192,7 @@ export const workLogsController = {
    */
   async delete(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
 
       const deleted = await workLogsService.delete(id);
 

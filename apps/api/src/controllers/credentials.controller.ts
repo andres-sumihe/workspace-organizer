@@ -135,7 +135,7 @@ export const credentialsController = {
    */
   async getById(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
 
       const credential = await credentialsService.getById(id);
 
@@ -159,7 +159,7 @@ export const credentialsController = {
    */
   async reveal(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
 
       const credential = await credentialsService.reveal(id);
       res.json({ credential });
@@ -229,7 +229,7 @@ export const credentialsController = {
    */
   async update(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const body = req.body as UpdateCredentialRequest;
 
       const credential = await credentialsService.update(id, body);
@@ -261,7 +261,7 @@ export const credentialsController = {
    */
   async delete(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
 
       const deleted = await credentialsService.delete(id);
 

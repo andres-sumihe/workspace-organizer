@@ -16,28 +16,33 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22.16.0
+          cache: 'pnpm'
 
       - name: Install Dependencies
-        shell: cmd
-        run: npm install
+        run: pnpm install
 
       - name: Build shared package
-        run: npm run build --workspace @workspace/shared
+        run: pnpm --filter @workspace/shared build
 
       - name: Build application
-        run: npm run build
+        run: pnpm run build
 
       - name: Rebuild native modules for Electron
-        run: npm run rebuild:electron
+        run: pnpm run rebuild:electron
 
       - name: Build and Publish Windows
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx electron-builder --win --publish always
+        run: pnpm run electron-builder --win --publish always
 
       - name: Extract Release Notes
         id: extract_notes

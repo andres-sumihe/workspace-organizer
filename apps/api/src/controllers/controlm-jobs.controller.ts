@@ -41,7 +41,7 @@ export const listJobsHandler: RequestHandler = async (req, res) => {
 };
 
 export const getJobHandler: RequestHandler = async (req, res) => {
-  const jobId = req.params.jobId;
+  const jobId = req.params.jobId as string;
   if (!jobId) {
     return res.status(400).json({ code: 'INVALID_REQUEST', message: 'Job ID is required' });
   }
@@ -88,7 +88,7 @@ export const getDependencyGraphHandler: RequestHandler = async (req, res) => {
 };
 
 export const deleteJobHandler: RequestHandler = async (req, res) => {
-  const jobId = req.params.jobId;
+  const jobId = req.params.jobId as string;
   if (!jobId) {
     return res.status(400).json({ code: 'INVALID_REQUEST', message: 'Job ID is required' });
   }
@@ -107,7 +107,7 @@ export const clearAllJobsHandler: RequestHandler = async (_req, res) => {
 };
 
 export const linkToScriptHandler: RequestHandler = async (req, res) => {
-  const jobId = req.params.jobId;
+  const jobId = req.params.jobId as string;
   const body = req.body as Record<string, unknown>;
   const scriptId = typeof body.scriptId === 'string' ? body.scriptId : undefined;
 
@@ -131,7 +131,7 @@ export const linkToScriptHandler: RequestHandler = async (req, res) => {
 };
 
 export const unlinkFromScriptHandler: RequestHandler = async (req, res) => {
-  const jobId = req.params.jobId;
+  const jobId = req.params.jobId as string;
 
   if (!jobId) {
     return res.status(400).json({ code: 'INVALID_REQUEST', message: 'Job ID is required' });
@@ -151,7 +151,7 @@ export const autoLinkHandler: RequestHandler = async (_req, res) => {
 };
 
 export const getScriptSuggestionsHandler: RequestHandler = async (req, res) => {
-  const jobId = req.params.jobId;
+  const jobId = req.params.jobId as string;
 
   if (!jobId) {
     return res.status(400).json({ code: 'INVALID_REQUEST', message: 'Job ID is required' });

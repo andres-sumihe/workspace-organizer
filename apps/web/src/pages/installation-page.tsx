@@ -1,6 +1,6 @@
 import { AlertCircle, CheckCircle, Database, Loader2, Server, Shield } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate } from 'react-router-dom';
 
 import type { InstallationStatus } from '@workspace/shared';
 

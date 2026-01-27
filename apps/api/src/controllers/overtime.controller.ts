@@ -107,7 +107,7 @@ export const overtimeController = {
    */
   async deleteEntry(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
 
       if (!id) {
         res.status(400).json({

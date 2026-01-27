@@ -23,7 +23,7 @@ export const tagsController = {
    */
   async getById(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
 
       const tag = await tagsService.getById(id);
 
@@ -78,7 +78,7 @@ export const tagsController = {
    */
   async update(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const body = req.body as UpdateTagRequest;
 
       const tag = await tagsService.update(id, body);
@@ -110,7 +110,7 @@ export const tagsController = {
    */
   async delete(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
 
       const deleted = await tagsService.delete(id);
 
