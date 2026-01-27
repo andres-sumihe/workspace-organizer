@@ -18,6 +18,19 @@ export interface SharedMigration {
   up: (client: PoolClient) => Promise<void>;
 }
 
+export interface MigrationRunResult {
+  success: boolean;
+  executed: string[];
+  skipped: string[];
+  errors: string[];
+  lockAcquired: boolean;
+  executedBy?: string;
+}
+
+// Migration lock ID - unique identifier for advisory lock
+// Using a hash of 'workspace_organizer_migrations' as the lock key
+const MIGRATION_LOCK_ID = 7890123456;
+
 const migrations: SharedMigration[] = [
   { id: migration0001.id, up: migration0001.up },
   { id: migration0002.id, up: migration0002.up },
@@ -67,58 +80,139 @@ export const schemaExists = async (pool: Pool): Promise<boolean> => {
 };
 
 /**
- * Run all pending migrations on the shared PostgreSQL database.
- * Creates the schema if it doesn't exist, then runs migrations within that schema.
+ * Try to acquire an advisory lock for migrations.
+ * Returns true if lock was acquired, false if another process holds it.
  */
-export const runSharedMigrations = async (pool: Pool): Promise<string[]> => {
+const tryAcquireMigrationLock = async (client: PoolClient): Promise<boolean> => {
+  const result = await client.query<{ pg_try_advisory_lock: boolean }>(
+    'SELECT pg_try_advisory_lock($1)',
+    [MIGRATION_LOCK_ID]
+  );
+  return result.rows[0]?.pg_try_advisory_lock ?? false;
+};
+
+/**
+ * Release the advisory lock for migrations.
+ */
+const releaseMigrationLock = async (client: PoolClient): Promise<void> => {
+  await client.query('SELECT pg_advisory_unlock($1)', [MIGRATION_LOCK_ID]);
+};
+
+/**
+ * Run all pending migrations on the shared PostgreSQL database.
+ * Uses advisory locking to prevent concurrent migration runs.
+ * Creates the schema if it doesn't exist, then runs migrations within that schema.
+ * 
+ * @param pool - PostgreSQL connection pool
+ * @param executedBy - Email/identifier of who triggered the migration (for audit)
+ */
+export const runSharedMigrations = async (
+  pool: Pool, 
+  executedBy?: string
+): Promise<string[]> => {
+  const result = await runSharedMigrationsWithDetails(pool, executedBy);
+  if (!result.success && result.errors.length > 0) {
+    throw new Error(result.errors.join('; '));
+  }
+  return result.executed;
+};
+
+/**
+ * Run all pending migrations with detailed result information.
+ * This is the preferred method for UI-triggered migrations.
+ */
+export const runSharedMigrationsWithDetails = async (
+  pool: Pool,
+  executedBy?: string
+): Promise<MigrationRunResult> => {
   const client = await pool.connect();
-  const executedMigrations: string[] = [];
+  const result: MigrationRunResult = {
+    success: true,
+    executed: [],
+    skipped: [],
+    errors: [],
+    lockAcquired: false,
+    executedBy
+  };
   const migrationsTable = qualifyTable('migrations');
   const searchPath = getSearchPath();
 
   try {
+    // Try to acquire migration lock (non-blocking)
+    const lockAcquired = await tryAcquireMigrationLock(client);
+    result.lockAcquired = lockAcquired;
+
+    if (!lockAcquired) {
+      result.success = false;
+      result.errors.push('Another migration is currently in progress. Please wait and try again.');
+      return result;
+    }
+
     // Ensure schema exists
     await client.query(`CREATE SCHEMA IF NOT EXISTS ${SHARED_SCHEMA}`);
 
     // Set search_path so all unqualified table names resolve to our schema
     await client.query(`SET LOCAL search_path TO ${searchPath}`);
 
-    // Create migrations table if it doesn't exist (schema-qualified)
+    // Create migrations table with extended tracking if it doesn't exist
     await client.query(`
       CREATE TABLE IF NOT EXISTS ${migrationsTable} (
         id VARCHAR(255) PRIMARY KEY,
-        executed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+        executed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        executed_by VARCHAR(255),
+        hostname VARCHAR(255)
       )
     `);
 
+    // Add new columns if they don't exist (for existing installations)
+    await client.query(`
+      ALTER TABLE ${migrationsTable}
+      ADD COLUMN IF NOT EXISTS executed_by VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS hostname VARCHAR(255)
+    `);
+
     // Get already executed migrations
-    const result = await client.query<{ id: string }>(`SELECT id FROM ${migrationsTable}`);
-    const executedIds = new Set(result.rows.map((row) => row.id));
+    const existingResult = await client.query<{ id: string }>(`SELECT id FROM ${migrationsTable}`);
+    const executedIds = new Set(existingResult.rows.map((row) => row.id));
+
+    // Get hostname for audit trail
+    const hostnameResult = await client.query<{ hostname: string }>('SELECT current_setting(\'application_name\') as hostname');
+    const hostname = hostnameResult.rows[0]?.hostname || 'unknown';
 
     // Run pending migrations in order
     for (const migration of migrations) {
       if (executedIds.has(migration.id)) {
+        result.skipped.push(migration.id);
         continue;
       }
 
       await client.query('BEGIN');
       try {
-        // Ensure search_path is set for migration (in case of nested transactions)
+        // Ensure search_path is set for migration
         await client.query(`SET LOCAL search_path TO ${searchPath}`);
         await migration.up(client);
-        await client.query(`INSERT INTO ${migrationsTable} (id) VALUES ($1)`, [migration.id]);
+        await client.query(
+          `INSERT INTO ${migrationsTable} (id, executed_by, hostname) VALUES ($1, $2, $3)`,
+          [migration.id, executedBy || 'system', hostname]
+        );
         await client.query('COMMIT');
-        executedMigrations.push(migration.id);
+        result.executed.push(migration.id);
       } catch (error) {
         await client.query('ROLLBACK');
-        throw new Error(
-          `Migration ${migration.id} failed: ${error instanceof Error ? error.message : String(error)}`
-        );
+        const errorMessage = `Migration ${migration.id} failed: ${error instanceof Error ? error.message : String(error)}`;
+        result.errors.push(errorMessage);
+        result.success = false;
+        // Stop on first error - don't run subsequent migrations
+        break;
       }
     }
 
-    return executedMigrations;
+    return result;
   } finally {
+    // Always release the lock
+    if (result.lockAcquired) {
+      await releaseMigrationLock(client);
+    }
     client.release();
   }
 };
@@ -128,6 +222,15 @@ export const runSharedMigrations = async (pool: Pool): Promise<string[]> => {
  */
 export const getAllMigrationIds = (): string[] => {
   return migrations.map((m) => m.id);
+};
+
+/**
+ * Get pending migrations that haven't been executed yet.
+ */
+export const getPendingMigrations = async (pool: Pool): Promise<string[]> => {
+  const executed = await getExecutedMigrations(pool);
+  const executedSet = new Set(executed);
+  return migrations.filter((m) => !executedSet.has(m.id)).map((m) => m.id);
 };
 
 /**
@@ -170,6 +273,49 @@ export const getExecutedMigrations = async (pool: Pool): Promise<string[]> => {
     return result.rows.map((row) => row.id);
   } catch {
     // Table might not exist yet
+    return [];
+  } finally {
+    client.release();
+  }
+};
+
+/**
+ * Get detailed migration history including who ran each migration.
+ */
+export const getMigrationHistory = async (pool: Pool): Promise<Array<{
+  id: string;
+  executed_at: Date;
+  executed_by: string | null;
+  hostname: string | null;
+}>> => {
+  const client = await pool.connect();
+  const migrationsTable = qualifyTable('migrations');
+  
+  try {
+    const schemaCheck = await client.query<{ exists: boolean }>(
+      `SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = $1 AND table_name = 'migrations'
+      ) as exists`,
+      [SHARED_SCHEMA]
+    );
+    
+    if (!schemaCheck.rows[0]?.exists) {
+      return [];
+    }
+
+    const result = await client.query<{
+      id: string;
+      executed_at: Date;
+      executed_by: string | null;
+      hostname: string | null;
+    }>(
+      `SELECT id, executed_at, executed_by, hostname 
+       FROM ${migrationsTable} 
+       ORDER BY executed_at ASC`
+    );
+    return result.rows;
+  } catch {
     return [];
   } finally {
     client.release();
