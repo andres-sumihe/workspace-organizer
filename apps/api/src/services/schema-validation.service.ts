@@ -283,54 +283,5 @@ export const schemaValidationService = {
       tables: results,
       summary
     };
-  },
-
-  /**
-   * Reset entire shared database (DROP all tables and migrations table)
-   * WARNING: This is destructive and will delete all data!
-   */
-  async resetDatabase(): Promise<{ success: boolean; message: string; tablesDropped: string[] }> {
-    if (!isSharedDbConnected()) {
-      throw new Error('Shared database is not connected');
-    }
-
-    const pool = getSharedPool();
-    const client = await pool.connect();
-    const droppedTables: string[] = [];
-
-    try {
-      await client.query('BEGIN');
-
-      // Get all tables in the schema
-      const result = await client.query<{ tablename: string }>(
-        `
-        SELECT tablename 
-        FROM pg_tables 
-        WHERE schemaname = $1
-        ORDER BY tablename
-        `,
-        [SHARED_SCHEMA]
-      );
-
-      // Drop all tables in cascade mode (handles foreign keys)
-      for (const row of result.rows) {
-        const qualifiedTable = `${SHARED_SCHEMA}.${row.tablename}`;
-        await client.query(`DROP TABLE IF EXISTS ${qualifiedTable} CASCADE`);
-        droppedTables.push(row.tablename);
-      }
-
-      await client.query('COMMIT');
-
-      return {
-        success: true,
-        message: `Successfully dropped ${droppedTables.length} tables from schema '${SHARED_SCHEMA}'`,
-        tablesDropped: droppedTables
-      };
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
   }
 };
