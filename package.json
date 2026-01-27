@@ -19,7 +19,7 @@
     "dev:desktop": "concurrently \"pnpm --filter @workspace/api dev\" \"pnpm --filter @workspace/web dev\" \"node ./scripts/wait-for-http.js http://127.0.0.1:5173 && electron .\"",
     "build": "pnpm --filter @workspace/api build:bundle && pnpm --filter @workspace/web build",
     "prebuild:desktop": "node scripts/validate-desktop-build.js",
-    "rebuild:electron": "pnpm dlx @electron/rebuild",
+    "rebuild:electron": "pnpm dlx @electron/rebuild --force",
     "rebuild:node": "npm rebuild better-sqlite3",
     "postbuild:desktop": "pnpm run rebuild:node",
     "postbuild:desktop:win": "pnpm run rebuild:node",
@@ -129,7 +129,7 @@
         ]
       }
     ],
-    "npmRebuild": true,
+    "npmRebuild": false,
     "buildDependenciesFromSource": true,
     "nodeGypRebuild": false,
     "afterPack": "./scripts/afterPack.js",
