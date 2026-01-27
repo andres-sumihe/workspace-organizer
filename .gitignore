@@ -40,3 +40,5 @@ scripts/sync-versions.js
 scripts/Activate-LocalNode.ps1
 scripts/setup-local-node.js
 .node-local
+.yarnrc.yml
+%LOCALAPPDATA%/Volta/

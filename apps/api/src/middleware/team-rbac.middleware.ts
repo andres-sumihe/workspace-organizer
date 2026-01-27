@@ -37,7 +37,7 @@ export const requireTeamRole = (minRole: TeamRole) => {
     next: NextFunction
   ): Promise<void> => {
     try {
-      const teamId = req.params.teamId;
+      const teamId = req.params.teamId as string;
       const userEmail = req.user?.email;
 
       if (!teamId) {
@@ -114,7 +114,7 @@ export const requireTeamPermission = (resource: TeamResource, action: TeamAction
     next: NextFunction
   ): Promise<void> => {
     try {
-      const teamId = req.params.teamId;
+      const teamId = req.params.teamId as string;
       const userEmail = req.user?.email;
 
       if (!teamId) {

@@ -17,7 +17,7 @@ export const listTemplates = asyncHandler(async (_req: Request, res: Response) =
 });
 
 export const getTemplate = asyncHandler(async (req: Request, res: Response) => {
-  const { templateId } = req.params;
+  const templateId = req.params.templateId as string;
   const db = await getDb();
   const service = new TemplatesService(db);
 
@@ -37,7 +37,7 @@ export const createTemplate = asyncHandler(async (req: Request, res: Response) =
 });
 
 export const updateTemplate = asyncHandler(async (req: Request, res: Response) => {
-  const { templateId } = req.params;
+  const templateId = req.params.templateId as string;
   const input = req.body as UpdateTemplateInput;
   const db = await getDb();
   const service = new TemplatesService(db);
@@ -48,7 +48,7 @@ export const updateTemplate = asyncHandler(async (req: Request, res: Response) =
 });
 
 export const deleteTemplate = asyncHandler(async (req: Request, res: Response) => {
-  const { templateId } = req.params;
+  const templateId = req.params.templateId as string;
   const db = await getDb();
   const service = new TemplatesService(db);
 
@@ -58,7 +58,7 @@ export const deleteTemplate = asyncHandler(async (req: Request, res: Response) =
 });
 
 export const listWorkspaceTemplates = asyncHandler(async (req: Request, res: Response) => {
-  const { workspaceId } = req.params;
+  const workspaceId = req.params.workspaceId as string;
   const db = await getDb();
   const service = new TemplatesService(db);
 
@@ -68,7 +68,8 @@ export const listWorkspaceTemplates = asyncHandler(async (req: Request, res: Res
 });
 
 export const assignTemplateToWorkspace = asyncHandler(async (req: Request, res: Response) => {
-  const { workspaceId, templateId } = req.params;
+  const workspaceId = req.params.workspaceId as string;
+  const templateId = req.params.templateId as string;
   const db = await getDb();
   const service = new TemplatesService(db);
 
@@ -78,7 +79,8 @@ export const assignTemplateToWorkspace = asyncHandler(async (req: Request, res: 
 });
 
 export const unassignTemplateFromWorkspace = asyncHandler(async (req: Request, res: Response) => {
-  const { workspaceId, templateId } = req.params;
+  const workspaceId = req.params.workspaceId as string;
+  const templateId = req.params.templateId as string;
   const db = await getDb();
   const service = new TemplatesService(db);
 

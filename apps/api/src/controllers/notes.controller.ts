@@ -29,7 +29,7 @@ export const notesController = {
    */
   async getById(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
 
       const note = await notesService.getById(id);
 
@@ -77,7 +77,7 @@ export const notesController = {
    */
   async update(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const body = req.body as UpdateNoteRequest;
 
       const note = await notesService.update(id, body);
@@ -100,7 +100,7 @@ export const notesController = {
    */
   async delete(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
 
       const deleted = await notesService.delete(id);
 

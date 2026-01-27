@@ -43,7 +43,7 @@ export const listProjects = async (req: Request, res: Response, next: NextFuncti
  */
 export const getProject = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const project = await personalProjectsService.getById(id);
 
     if (!project) {
@@ -65,7 +65,7 @@ export const getProject = async (req: Request, res: Response, next: NextFunction
  */
 export const getProjectDetail = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const project = await personalProjectsService.getDetail(id);
 
     if (!project) {
@@ -110,7 +110,7 @@ export const createProject = async (req: Request, res: Response, next: NextFunct
  */
 export const updateProject = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const data = req.body as UpdatePersonalProjectRequest;
 
     const project = await personalProjectsService.update(id, data);
@@ -134,7 +134,7 @@ export const updateProject = async (req: Request, res: Response, next: NextFunct
  */
 export const deleteProject = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const deleted = await personalProjectsService.delete(id);
 
     if (!deleted) {
