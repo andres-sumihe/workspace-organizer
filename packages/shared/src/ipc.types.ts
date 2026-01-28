@@ -199,6 +199,8 @@ export interface TypedElectronAPI {
   // Progress and updates
   onProgress: (cb: (data: ProgressData) => void) => () => void;
   onUpdateAvailable: (callback: (info: UpdateInfo) => void) => () => void;
+  onUpdateNotAvailable: (callback: () => void) => () => void;
+  onUpdateError: (callback: (err: string) => void) => () => void;
   onUpdateDownloaded: (callback: (info: UpdateInfo) => void) => () => void;
   restartAndInstall: () => Promise<void>;
   getAppVersion: () => Promise<string>;

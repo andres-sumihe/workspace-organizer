@@ -46,3 +46,6 @@ apps/web/%LOCALAPPDATA%/Volta/volta.lock
 .gitignore
 apps/api/%LOCALAPPDATA%/Volta/layout.v4
 apps/api/%LOCALAPPDATA%/Volta/volta.lock
+packages/shared/%LOCALAPPDATA%/Volta/layout.v4
+packages/shared/%LOCALAPPDATA%/Volta/volta.lock
+packages/shared/%LOCALAPPDATA%/Volta/tools/user/platform.json

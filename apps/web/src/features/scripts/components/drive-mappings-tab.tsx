@@ -8,6 +8,7 @@ import type { DriveMapping } from '@workspace/shared';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageLoader } from '@/components/ui/page-loader';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -22,6 +23,7 @@ export const DriveMappingsTab = () => {
   const queryClient = useQueryClient();
   const { data: analysisResponse, isLoading, error, refetch } = useDriveAnalysis();
   const [selectedDrives, setSelectedDrives] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
 
   const analysis = analysisResponse?.analysis ?? null;
 
@@ -78,11 +80,27 @@ export const DriveMappingsTab = () => {
     return analysis?.conflicts.length ?? 0;
   }, [analysis]);
 
-  // Filter mappings based on selected drives
+  // Filter mappings based on selected drives and search query
   const filteredMappings = useMemo(() => {
-    if (selectedDrives.size === 0) return allMappings;
-    return allMappings.filter((m) => selectedDrives.has(m.driveLetter));
-  }, [allMappings, selectedDrives]);
+    let result = allMappings;
+
+    // Filter by drive selection
+    if (selectedDrives.size > 0) {
+      result = result.filter((m) => selectedDrives.has(m.driveLetter));
+    }
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const lowerQuery = searchQuery.toLowerCase();
+      result = result.filter(
+        (m) =>
+          m.scriptName.toLowerCase().includes(lowerQuery) ||
+          m.networkPath.toLowerCase().includes(lowerQuery)
+      );
+    }
+
+    return result;
+  }, [allMappings, selectedDrives, searchQuery]);
 
   const handleRefresh = () => {
     // Invalidate and refetch
@@ -202,19 +220,30 @@ export const DriveMappingsTab = () => {
       {allMappings.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>
-              Drive Usage Details
-              {selectedDrives.size > 0 && (
-                <span className="ml-2 text-sm font-normal text-muted-foreground">
-                  (filtered by: {Array.from(selectedDrives).sort().join(', ')})
-                </span>
-              )}
-            </CardTitle>
-            <CardDescription>
-              {selectedDrives.size > 0
-                ? `Showing ${filteredMappings.length} mapping${filteredMappings.length !== 1 ? 's' : ''} for selected drive${selectedDrives.size > 1 ? 's' : ''}`
-                : 'All drive letter mappings with their network paths. Click on drive letters above to filter.'}
-            </CardDescription>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <CardTitle>
+                  Drive Usage Details
+                  {selectedDrives.size > 0 && (
+                    <span className="ml-2 text-sm font-normal text-muted-foreground">
+                      (filtered by: {Array.from(selectedDrives).sort().join(', ')})
+                    </span>
+                  )}
+                </CardTitle>
+                <CardDescription className="mt-1.5">
+                  {selectedDrives.size > 0
+                    ? `Showing ${filteredMappings.length} mapping${filteredMappings.length !== 1 ? 's' : ''} for selected drive${selectedDrives.size > 1 ? 's' : ''}`
+                    : 'All drive letter mappings with their network paths. Click on drive letters above to filter.'}
+                </CardDescription>
+              </div>
+              <div className="w-full sm:w-64">
+                <Input
+                  placeholder="Search script or path..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {filteredMappings.length > 0 ? (

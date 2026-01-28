@@ -1395,6 +1395,9 @@ export interface PersonalProject {
   // Content
   notes?: string;
 
+  // File System Integration
+  folderPath?: string;
+
   // Relations
   workspaceId?: string;
   tags: Tag[];
@@ -1415,6 +1418,7 @@ export interface CreatePersonalProjectRequest {
   businessProposalId?: string;
   changeId?: string;
   notes?: string;
+  folderPath?: string;
   workspaceId?: string;
   tagIds?: string[];
 }
@@ -1432,6 +1436,7 @@ export interface UpdatePersonalProjectRequest {
   businessProposalId?: string;
   changeId?: string;
   notes?: string;
+  folderPath?: string;
   workspaceId?: string;
   tagIds?: string[];
 }
