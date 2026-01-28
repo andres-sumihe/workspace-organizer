@@ -990,6 +990,14 @@ export interface ResetPasswordWithKeyRequest {
   newPassword: string;
 }
 
+export interface GenerateRecoveryKeyResponse {
+  recoveryKey: string;
+}
+
+export interface DeleteAccountRequest {
+  password: string;
+}
+
 
 // Migration Types
 export interface MigrationMapping {
@@ -1030,6 +1038,7 @@ export interface SessionConfig {
   inactivityTimeoutMinutes: number;
   maxConcurrentSessions: number;
   heartbeatIntervalSeconds: number;
+  enableSessionLock?: boolean;
 }
 
 export interface SessionInfo {
