@@ -11,6 +11,7 @@ const electronLog = require('electron-log');
 // Configure auto-updater logging
 autoUpdater.logger = electronLog;
 autoUpdater.logger.transports.file.level = 'info';
+autoUpdater.autoDownload = true; // Ensure background downloading is enabled
 
 let expressApp = null;
 let mainWindow = null;
@@ -633,6 +634,14 @@ ipcMain.handle('toggle-devtools', () => {
 // Forward specific updater events to renderer
 autoUpdater.on('update-available', (info) => {
   if (mainWindow) mainWindow.webContents.send('update-available', info);
+});
+
+autoUpdater.on('update-not-available', (info) => {
+  if (mainWindow) mainWindow.webContents.send('update-not-available', info);
+});
+
+autoUpdater.on('error', (err) => {
+  if (mainWindow) mainWindow.webContents.send('update-error', err.message);
 });
 
 autoUpdater.on('update-downloaded', (info) => {
