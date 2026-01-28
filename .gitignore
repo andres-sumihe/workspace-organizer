@@ -41,3 +41,8 @@ scripts/setup-local-node.js
 .node-local
 .yarnrc.yml
 %LOCALAPPDATA%/Volta/
+apps/web/%LOCALAPPDATA%/Volta/layout.v4
+apps/web/%LOCALAPPDATA%/Volta/volta.lock
+.gitignore
+apps/api/%LOCALAPPDATA%/Volta/layout.v4
+apps/api/%LOCALAPPDATA%/Volta/volta.lock
