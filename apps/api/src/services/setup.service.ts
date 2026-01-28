@@ -2,7 +2,7 @@ import { modeService } from './mode.service.js';
 import { localAuthProvider } from '../auth/local-auth.provider.js';
 import { isSharedDbConnected } from '../db/shared-client.js';
 
-import type { SetupStatus, CreateAccountRequest, LocalUser } from '@workspace/shared';
+import type { SetupStatus, CreateAccountRequest, CreateAccountResponse } from '@workspace/shared';
 
 /**
  * Setup Service
@@ -32,8 +32,9 @@ export const setupService = {
   /**
    * Create the first local user account
    * This is called during first-time setup
+   * Returns user AND one-time recovery key
    */
-  async createAccount(request: CreateAccountRequest): Promise<LocalUser> {
+  async createAccount(request: CreateAccountRequest): Promise<CreateAccountResponse> {
     // Check if setup is still needed
     const hasLocalUser = await modeService.hasLocalUser();
     if (hasLocalUser) {
@@ -53,10 +54,8 @@ export const setupService = {
       throw new Error('WEAK_PASSWORD');
     }
 
-    // Create the first local user
-    const user = await localAuthProvider.createUser(request);
-
-    return user;
+    // Create the first local user (returns user + recovery key)
+    return await localAuthProvider.createUser(request);
   },
 
   /**
