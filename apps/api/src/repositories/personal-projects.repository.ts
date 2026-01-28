@@ -17,6 +17,7 @@ interface ProjectRow {
   business_proposal_id: string | null;
   change_id: string | null;
   notes: string | null;
+  folder_path: string | null;
   workspace_id: string | null;
   created_at: string;
   updated_at: string;
@@ -45,6 +46,7 @@ const mapRowToProject = (row: ProjectRow, tags: Tag[]): PersonalProject => ({
   businessProposalId: row.business_proposal_id ?? undefined,
   changeId: row.change_id ?? undefined,
   notes: row.notes ?? undefined,
+  folderPath: row.folder_path ?? undefined,
   workspaceId: row.workspace_id ?? undefined,
   tags,
   createdAt: row.created_at,
@@ -61,6 +63,7 @@ export interface CreateProjectData {
   businessProposalId?: string;
   changeId?: string;
   notes?: string;
+  folderPath?: string;
   workspaceId?: string;
 }
 
@@ -74,6 +77,7 @@ export interface UpdateProjectData {
   businessProposalId?: string;
   changeId?: string;
   notes?: string;
+  folderPath?: string;
   workspaceId?: string;
 }
 
@@ -95,8 +99,8 @@ export const personalProjectsRepository = {
     db.prepare(
       `INSERT INTO personal_projects (
         id, title, description, status, start_date, due_date, 
-        business_proposal_id, change_id, notes, workspace_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        business_proposal_id, change_id, notes, folder_path, workspace_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       data.id,
       data.title,
@@ -107,6 +111,7 @@ export const personalProjectsRepository = {
       data.businessProposalId ?? null,
       data.changeId ?? null,
       data.notes ?? null,
+      data.folderPath ?? null,
       data.workspaceId ?? null
     );
 
@@ -215,6 +220,10 @@ export const personalProjectsRepository = {
     if (data.notes !== undefined) {
       updates.push('notes = ?');
       bindings.push(data.notes || null);
+    }
+    if (data.folderPath !== undefined) {
+      updates.push('folder_path = ?');
+      bindings.push(data.folderPath || null);
     }
     if (data.workspaceId !== undefined) {
       updates.push('workspace_id = ?');

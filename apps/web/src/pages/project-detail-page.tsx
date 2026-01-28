@@ -20,14 +20,13 @@ import {
   Trash2
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import type {
   PersonalProjectDetail,
   PersonalProjectStatus,
   WorkLogEntry,
-  WorkLogStatus,
-  UpdatePersonalProjectRequest
+  WorkLogStatus
 } from '@workspace/shared';
 
 import {
@@ -35,6 +34,8 @@ import {
   workLogsApi,
   type CreateWorkLogRequest
 } from '@/api/journal';
+import { ProjectNotesPanel } from '@/components/notes/project-notes-panel';
+import { WorkspaceFilesTab } from '@/features/workspaces/components/workspace-project-tab';
 import { AppPage, AppPageContent, AppPageTabs } from '@/components/layout/app-page';
 import {
   AlertDialog,
@@ -89,7 +90,7 @@ import { Textarea } from '@/components/ui/textarea';
 // Types & Constants
 // ============================================================================
 
-type TabValue = 'overview' | 'tasks' | 'notes';
+type TabValue = 'overview' | 'tasks' | 'notes' | 'files';
 
 const PROJECT_STATUS_CONFIG: Record<
   PersonalProjectStatus,
@@ -416,16 +417,14 @@ function QuickTaskDialog({ open, onOpenChange, projectId, onCreated }: QuickTask
 export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [project, setProject] = useState<PersonalProjectDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<TabValue>('overview');
-
-  // Edit states
-  const [isEditingNotes, setIsEditingNotes] = useState(false);
-  const [notesContent, setNotesContent] = useState('');
-  const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabValue>(
+    (searchParams.get('tab') as TabValue) || 'overview'
+  );
 
   // Dialog states
   const [quickTaskOpen, setQuickTaskOpen] = useState(false);
@@ -440,7 +439,6 @@ export function ProjectDetailPage() {
     try {
       const response = await personalProjectsApi.getDetail(projectId);
       setProject(response.project);
-      setNotesContent(response.project.notes ?? '');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load project');
     } finally {
@@ -462,20 +460,6 @@ export function ProjectDetailPage() {
   }, [project]);
 
   // Handlers
-  const handleSaveNotes = async () => {
-    if (!project) return;
-
-    setIsSavingNotes(true);
-    try {
-      const data: UpdatePersonalProjectRequest = { notes: notesContent };
-      await personalProjectsApi.update(project.id, data);
-      setProject((prev) => (prev ? { ...prev, notes: notesContent } : null));
-      setIsEditingNotes(false);
-    } finally {
-      setIsSavingNotes(false);
-    }
-  };
-
   const handleTaskStatusChange = async (taskId: string, newStatus: WorkLogStatus) => {
     try {
       await workLogsApi.update(taskId, { status: newStatus });
@@ -574,6 +558,10 @@ export function ProjectDetailPage() {
                     {project.taskStats.total}
                   </Badge>
                 )}
+              </TabsTrigger>
+              <TabsTrigger value="files" className="gap-2">
+                <FolderOpen className="h-4 w-4" />
+                Files
               </TabsTrigger>
               <TabsTrigger value="notes" className="gap-2">
                 <StickyNote className="h-4 w-4" />
@@ -879,95 +867,33 @@ export function ProjectDetailPage() {
             </div>
           </TabsContent>
 
+          {/* Files Tab */}
+          <TabsContent value="files" className="flex-1 m-0 overflow-auto p-6">
+            {(project.linkedWorkspace || project.folderPath) ? (
+              <WorkspaceFilesTab 
+                workspaceId={project.linkedWorkspace?.id ?? 'standalone'} 
+                customRootPath={project.folderPath}
+              />
+            ) : (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <FolderOpen className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No Files Linked</h3>
+                  <p className="text-muted-foreground text-center mb-4">
+                    Link this project to a workspace OR a local folder to manage files.
+                  </p>
+                  <Button variant="outline" onClick={() => navigate(`/projects?edit=${project.id}`)}>
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit Project Configuration
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
           {/* Notes Tab */}
           <TabsContent value="notes" className="flex-1 m-0 overflow-auto p-6">
-            <div className="space-y-4 max-w-4xl">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold">Project Notes</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Meeting minutes, ideas, reminders, and project-related notes
-                  </p>
-                </div>
-                {!isEditingNotes && (
-                  <Button variant="outline" size="sm" onClick={() => setIsEditingNotes(true)}>
-                    <Pencil className="h-4 w-4 mr-2" />
-                    Edit Notes
-                  </Button>
-                )}
-              </div>
-
-              <Card>
-                <CardContent className="pt-6">
-                  {isEditingNotes ? (
-                    <div className="space-y-4">
-                      <Textarea
-                        value={notesContent}
-                        onChange={(e) => setNotesContent(e.target.value)}
-                        placeholder="Add your notes here... Supports plain text."
-                        rows={16}
-                        className="font-mono text-sm resize-none"
-                      />
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            setNotesContent(project.notes ?? '');
-                            setIsEditingNotes(false);
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                        <Button onClick={handleSaveNotes} disabled={isSavingNotes}>
-                          {isSavingNotes && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                          Save Notes
-                        </Button>
-                      </div>
-                    </div>
-                  ) : project.notes ? (
-                    <div className="prose prose-sm dark:prose-invert max-w-none">
-                      <pre className="whitespace-pre-wrap font-sans text-sm">{project.notes}</pre>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <StickyNote className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-muted-foreground mb-4">No notes yet</p>
-                      <Button variant="outline" onClick={() => setIsEditingNotes(true)}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Notes
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Enhanced Notes Feature Available */}
-              <Card className="border-primary/50 bg-primary/5">
-                <CardContent className="py-6">
-                  <div className="flex items-start gap-4">
-                    <div className="p-2 rounded-lg bg-primary/10">
-                      <StickyNote className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-medium mb-1">Enhanced Notes Feature Now Available!</h4>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        A dedicated Notes feature with Markdown support, credentials vault, and rich
-                        editing is now available. Your project notes have been automatically migrated.
-                      </p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => window.location.href = '/notes'}
-                        className="gap-2"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                        Open Notes & Vault
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            <ProjectNotesPanel projectId={project.id} />
           </TabsContent>
         </AppPageTabs>
       </Tabs>

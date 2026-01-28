@@ -146,7 +146,7 @@ export const scriptsRepository = {
     }
 
     if (searchQuery !== undefined && searchQuery.trim() !== '') {
-      conditions.push(`(s.name ILIKE $${paramIndex} OR s.file_path ILIKE $${paramIndex} OR s.description ILIKE $${paramIndex})`);
+      conditions.push(`(s.name ILIKE $${paramIndex} OR s.file_path ILIKE $${paramIndex} OR s.description ILIKE $${paramIndex} OR s.content ILIKE $${paramIndex})`);
       values.push(`%${searchQuery}%`);
       paramIndex++;
     }
@@ -194,7 +194,7 @@ export const scriptsRepository = {
     }
 
     if (searchQuery !== undefined && searchQuery.trim() !== '') {
-      conditions.push(`(s.name ILIKE $${paramIndex} OR s.file_path ILIKE $${paramIndex} OR s.description ILIKE $${paramIndex})`);
+      conditions.push(`(s.name ILIKE $${paramIndex} OR s.file_path ILIKE $${paramIndex} OR s.description ILIKE $${paramIndex} OR s.content ILIKE $${paramIndex})`);
       values.push(`%${searchQuery}%`);
       paramIndex++;
     }
