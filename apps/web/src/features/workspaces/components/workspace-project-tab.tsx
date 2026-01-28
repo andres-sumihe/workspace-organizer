@@ -45,6 +45,7 @@ const DesktopOnlyBanner = () => (
 
 interface WorkspaceFilesTabProps {
   workspaceId: string;
+  customRootPath?: string;
 }
 
 interface ProjectFormData {
@@ -57,7 +58,7 @@ interface ProjectFormData {
 // Main Component
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
+export const WorkspaceFilesTab = ({ workspaceId, customRootPath }: WorkspaceFilesTabProps) => {
   const { workspaces } = useWorkspaceContext();
   const { getState, updateState } = useFileManagerState();
   
@@ -113,6 +114,9 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
   // ─────────────────────────────────────────────────────────────────────────
   
   const getEffectiveRootPath = useCallback(() => {
+    // If custom root path is provided (e.g. from Personal Project), use it directly
+    if (customRootPath) return customRootPath;
+
     const project = projectsRef.current.find(p => p.id === selectedProjectId);
     if (!project) return activeWorkspace?.rootPath || '';
     
@@ -120,9 +124,14 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
     const isAbsolutePath = /^[a-zA-Z]:[\\/]/.test(projectBasePath) || projectBasePath.startsWith('/');
     
     return isAbsolutePath ? projectBasePath : activeWorkspace?.rootPath || '';
-  }, [selectedProjectId, activeWorkspace?.rootPath, projectsRef]);
+  }, [selectedProjectId, activeWorkspace?.rootPath, projectsRef, customRootPath]);
 
   const getRelativePath = useCallback((targetPath: string) => {
+    // If custom root path is provided, treat it as the root
+    if (customRootPath) {
+       return { rootPath: customRootPath, relativePath: targetPath || '.' };
+    }
+
     const project = projectsRef.current.find(p => p.id === selectedProjectId);
     if (!project) return { rootPath: '', relativePath: targetPath };
     
@@ -136,7 +145,7 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
       rootPath: activeWorkspace?.rootPath || '',
       relativePath: targetPath ? `${projectBasePath}/${targetPath}` : projectBasePath
     };
-  }, [selectedProjectId, activeWorkspace?.rootPath, projectsRef]);
+  }, [selectedProjectId, activeWorkspace?.rootPath, projectsRef, customRootPath]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Directory Navigation
@@ -271,8 +280,11 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
   // ─────────────────────────────────────────────────────────────────────────
   
   useEffect(() => {
-    void loadProjects();
-  }, [loadProjects]);
+    // Only load workspace projects if we aren't using a custom root path
+    if (!customRootPath) {
+      void loadProjects();
+    }
+  }, [loadProjects, customRootPath]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Clear selections when workspace changes
@@ -291,10 +303,13 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
   
   useEffect(() => {
     if (!hasInitialized.current) return;
-    if (activeWorkspace && desktopAvailable && workspaceId && entries.length === 0 && selectedProjectId) {
+    const shouldLoad = (activeWorkspace || customRootPath) && desktopAvailable && workspaceId && entries.length === 0;
+    
+    // If using custom root, just load. If using workspace projects, need selectedProjectId
+    if (shouldLoad && (customRootPath || selectedProjectId)) {
       void loadDirectory('');
     }
-  }, [activeWorkspace, desktopAvailable, workspaceId, selectedProjectId, entries.length, loadDirectory]);
+  }, [activeWorkspace, customRootPath, desktopAvailable, workspaceId, selectedProjectId, entries.length, loadDirectory]);
 
   const prevSelectedProjectId = useRef<string | null>(selectedProjectId);
   
@@ -559,10 +574,10 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
     return <DesktopOnlyBanner />;
   }
 
-  if (!activeWorkspace) {
+  if (!activeWorkspace && !customRootPath) {
     return (
       <div className="rounded-md border border-dashed p-8 text-center text-muted-foreground">
-        <p>Workspace not found</p>
+        <p>Workspace not found, and no custom path provided.</p>
       </div>
     );
   }
@@ -580,18 +595,25 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
 
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-3">
-        <ProjectSelector
-          projects={projects}
-          selectedProjectId={selectedProjectId}
-          onSelectProject={setSelectedProjectId}
-          onCreateProject={openCreateProjectDialog}
-          onEditProject={openEditProjectDialog}
-          onRefresh={() => {
-            setSelectedFiles(new Set());
-            void loadDirectory(currentPath);
-          }}
-          refreshDisabled={refreshDisabled}
-        />
+        {customRootPath ? (
+           <div className="text-sm font-medium text-muted-foreground flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-md border">
+              <FolderOpen className="h-4 w-4" />
+              <span className="font-mono">{customRootPath}</span>
+           </div>
+        ) : (
+          <ProjectSelector
+            projects={projects}
+            selectedProjectId={selectedProjectId}
+            onSelectProject={setSelectedProjectId}
+            onCreateProject={openCreateProjectDialog}
+            onEditProject={openEditProjectDialog}
+            onRefresh={() => {
+              setSelectedFiles(new Set());
+              void loadDirectory(currentPath);
+            }}
+            refreshDisabled={refreshDisabled}
+          />
+        )}
 
         <FileOperationsToolbar
           selectedCount={selectedFiles.size}
@@ -603,7 +625,7 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
       </div>
 
       {/* Content */}
-      {showNoProjectsState ? (
+      {(showNoProjectsState && !customRootPath) ? (
         <div className="rounded-md border border-dashed p-12 text-center">
           <p className="text-muted-foreground">No projects in this workspace. Create one to start browsing files.</p>
           <Button onClick={openCreateProjectDialog} variant="outline" className="mt-4">
@@ -611,7 +633,7 @@ export const WorkspaceFilesTab = ({ workspaceId }: WorkspaceFilesTabProps) => {
             Create Project
           </Button>
         </div>
-      ) : showEmptyProjectState ? (
+      ) : (showEmptyProjectState && !customRootPath) ? (
         <div className="rounded-md border border-dashed p-12 text-center text-muted-foreground">
           <p>Select a project from the dropdown to browse its files.</p>
         </div>

@@ -287,10 +287,12 @@ export const workLogsRepository = {
    */
   async getUnfinishedByDate(date: string): Promise<WorkLogEntry[]> {
     const db = await getDb();
+    // Filter out finished tasks including variations
     const rows = db
       .prepare(
         `SELECT * FROM work_logs 
-         WHERE date = ? AND status NOT IN ('done', 'blocked')
+         WHERE date = ? 
+         AND status NOT IN ('done', 'blocked', 'completed', 'Completed', 'Done')
          ORDER BY created_at ASC`
       )
       .all(date) as unknown[];

@@ -192,10 +192,10 @@ interface ProjectRowProps {
   workspaces: WorkspaceSummary[];
   onEdit: (project: PersonalProject) => void;
   onDelete: (id: string) => void;
-  onViewWorkspace: (workspaceId: string) => void;
+  onViewFiles: (projectId: string) => void;
 }
 
-function ProjectRow({ project, workspaces, onEdit, onDelete, onViewWorkspace }: ProjectRowProps) {
+function ProjectRow({ project, workspaces, onEdit, onDelete, onViewFiles }: ProjectRowProps) {
   const statusConfig = STATUS_CONFIG[project.status];
   const StatusIcon = statusConfig.icon;
   const workspace = project.workspaceId ? workspaces.find((w) => w.id === project.workspaceId) : null;
@@ -226,10 +226,11 @@ function ProjectRow({ project, workspaces, onEdit, onDelete, onViewWorkspace }: 
             variant="ghost"
             size="sm"
             className="h-auto py-1 px-2 gap-1 text-xs"
-            onClick={() => onViewWorkspace(workspace.id)}
+            onClick={() => onViewFiles(project.id)}
+            title={`Workspace: ${workspace.name}`}
           >
             <FolderOpen className="h-3 w-3" />
-            {workspace.name}
+            Files
             <ExternalLink className="h-3 w-3 opacity-50" />
           </Button>
         ) : (
@@ -309,9 +310,9 @@ function ProjectRow({ project, workspaces, onEdit, onDelete, onViewWorkspace }: 
               Edit
             </DropdownMenuItem>
             {workspace && (
-              <DropdownMenuItem onClick={() => onViewWorkspace(workspace.id)}>
+              <DropdownMenuItem onClick={() => onViewFiles(project.id)}>
                 <FolderOpen className="h-4 w-4 mr-2" />
-                Go to Workspace
+                Open Files
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />
@@ -359,6 +360,7 @@ function ProjectFormDialog({
   const [businessProposalId, setBusinessProposalId] = useState('');
   const [changeId, setChangeId] = useState('');
   const [notes, setNotes] = useState('');
+  const [folderPath, setFolderPath] = useState('');
   const [workspaceId, setWorkspaceId] = useState<string | 'none'>('none');
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [newTagName, setNewTagName] = useState('');
@@ -381,6 +383,7 @@ function ProjectFormDialog({
         setBusinessProposalId(project.businessProposalId ?? '');
         setChangeId(project.changeId ?? '');
         setNotes(project.notes ?? '');
+        setFolderPath(project.folderPath ?? '');
         setWorkspaceId(project.workspaceId ?? 'none');
         setSelectedTagIds(project.tags.map((t) => t.id));
       } else {
@@ -393,6 +396,7 @@ function ProjectFormDialog({
         setBusinessProposalId('');
         setChangeId('');
         setNotes('');
+        setFolderPath('');
         setWorkspaceId(defaultWorkspaceId ?? 'none');
         setSelectedTagIds([]);
       }
@@ -420,6 +424,22 @@ function ProjectFormDialog({
 
   const sanitizedNewTag = sanitizeTagName(newTagName);
 
+  const handleBrowsePath = async () => {
+    if (!window.api?.selectDirectory) {
+      console.error('Desktop bridge unavailable');
+      return;
+    }
+    
+    try {
+      const result = await window.api.selectDirectory();
+      if (!result.canceled && result.path) {
+        setFolderPath(result.path);
+      }
+    } catch (err) {
+      console.error('Failed to select directory:', err);
+    }
+  };
+
   const filteredTagResults = sanitizedNewTag
     ? tags
         .filter((tag) => tag.name.toLowerCase().includes(sanitizedNewTag) && !selectedTagIds.includes(tag.id))
@@ -445,6 +465,7 @@ function ProjectFormDialog({
         businessProposalId: businessProposalId.trim() || undefined,
         changeId: changeId.trim() || undefined,
         notes: notes.trim() || undefined,
+        folderPath: folderPath.trim() || undefined,
         workspaceId: workspaceId !== 'none' ? workspaceId : undefined,
         tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined
       };
@@ -561,6 +582,33 @@ function ProjectFormDialog({
                   onChange={(e) => setDescription(e.target.value)}
                   rows={2}
                 />
+              </div>
+
+              {/* Folder Path */}
+              <div className="space-y-2">
+                <Label htmlFor="folderPath">Project Folder</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="folderPath"
+                    placeholder="Local directory path (e.g., C:/Projects/MyProject)"
+                    value={folderPath}
+                    onChange={(e) => setFolderPath(e.target.value)}
+                    className="flex-1 font-mono text-sm"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={handleBrowsePath}
+                    title="Browse for folder"
+                    disabled={typeof window === 'undefined' || !window.api?.selectDirectory}
+                  >
+                    <FolderOpen className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Optional: Link a specific local folder to this project.
+                </p>
               </div>
 
               {/* Status & Workspace */}
@@ -963,9 +1011,9 @@ export function ProjectsPage() {
     setFormDialogOpen(true);
   }, []);
 
-  const handleViewWorkspace = useCallback(
-    (workspaceId: string) => {
-      navigate(`/workspaces/${workspaceId}`);
+  const handleViewFiles = useCallback(
+    (projectId: string) => {
+      navigate(`/projects/${projectId}?tab=files`);
     },
     [navigate]
   );
@@ -1139,7 +1187,7 @@ export function ProjectsPage() {
                 <TableRow>
                   <TableHead className="w-[250px]">Project</TableHead>
                   <TableHead className="w-[120px]">Status</TableHead>
-                  <TableHead className="w-[150px]">Workspace</TableHead>
+                  <TableHead className="w-[150px]">Files</TableHead>
                   <TableHead className="w-[130px]">Business IDs</TableHead>
                   <TableHead className="w-[180px]">Dates</TableHead>
                   <TableHead>Tags</TableHead>
@@ -1154,7 +1202,7 @@ export function ProjectsPage() {
                     workspaces={workspaces}
                     onEdit={handleEditProject}
                     onDelete={setDeleteConfirmId}
-                    onViewWorkspace={handleViewWorkspace}
+                    onViewFiles={handleViewFiles}
                   />
                 ))}
               </TableBody>
