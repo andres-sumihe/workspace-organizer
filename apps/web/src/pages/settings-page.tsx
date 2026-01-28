@@ -119,7 +119,6 @@ export const SettingsPage = () => {
     isMTEnabled,
     setIsMTEnabled,
     isLoading: contextLoading,
-    error: contextError,
     refresh
   } = useValidationSettings();
 
@@ -171,7 +170,6 @@ export const SettingsPage = () => {
 
   const lastSaveMessage = useLastDefined(saveMessage);
   const lastErrorMessage = useLastDefined(errorMessage);
-  const lastContextError = useLastDefined(contextError);
   const lastConnectionResult = useLastDefined(connectionTestResult);
   const lastTeamMessage = useLastDefined(teamActionMessage);
 
@@ -1665,7 +1663,7 @@ export const SettingsPage = () => {
                                               <Copy className="size-3 mr-1" /> Copy SQL
                                             </Button>
                                           </div>
-                                          <pre className="text-xs bg-muted p-3 rounded-md whitespace-pre-wrap break-words max-h-64 overflow-y-auto w-full">
+                                          <pre className="text-xs bg-muted p-3 rounded-md whitespace-pre-wrap wrap-break-words max-h-64 overflow-y-auto w-full">
                                             {migration.sql}
                                           </pre>
                                         </div>

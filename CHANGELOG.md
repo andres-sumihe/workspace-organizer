@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-01-28
+
+### Fixed
+- **Auth Context Crash**: Resolved a critical "useAuth must be used within an AuthProvider" error by moving configuration providers to the application root.
+- **Settings Animation Jitter**: Fixed a UI flickering issue on the Settings page by optimizing tab transition logic and removing layout-conflicting CSS transforms.
+- **Recovery Key persistence**: Fixed a regression in the authentication provider that could cause recovery keys to be invalidated after a single use.
+
+### Changed
+- **Provider Architecture**: Refactored `main.tsx` and `App.tsx` to host fundamental context providers at the root level, improving boot stability.
+- **UI Transitions**: Replaced aggressive slide animations with smoother opacity-based fade-ins throughout the Settings page for a cleaner desktop feel.
+
 ## [0.2.0] - 2026-01-26
 
 ### Added
