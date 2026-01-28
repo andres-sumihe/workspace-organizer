@@ -55,32 +55,37 @@ export function parseContentForSuggestions(
   let cleanedContent = content;
 
   // 2. Extract priority from "priority: <level>" pattern and remove it
-  const priorityMatch = content.match(/priority:\s*(low|medium|high)/i);
+  const priorityRegex = /priority:\s*(low|medium|high)/i;
+  const priorityMatch = cleanedContent.match(priorityRegex);
   if (priorityMatch) {
     result.suggestedPriority = priorityMatch[1].toLowerCase() as 'low' | 'medium' | 'high';
-    // Remove the priority directive from content
-    cleanedContent = cleanedContent.replace(/priority:\s*(low|medium|high)/gi, '');
+    // Remove the priority directive from content (only the first match)
+    cleanedContent = cleanedContent.replace(priorityRegex, '');
   }
 
-  // 3. Extract project from "project: <name>" pattern and remove it
-  // Project name can contain letters, numbers, spaces, and hyphens
-  const projectMatch = content.match(/project:\s*([a-zA-Z0-9][a-zA-Z0-9\s\-_]*)/i);
-  if (projectMatch) {
-    result.suggestedProject = projectMatch[1].trim();
-    // Remove the project directive from content
-    cleanedContent = cleanedContent.replace(/project:\s*[a-zA-Z0-9][a-zA-Z0-9\s\-_]*/gi, '');
-  }
-
-  // 4. Extract due date from "due: <date>" pattern and remove it
-  const dueMatch = content.match(/due:\s*([^,.\n]+)/i);
+  // 3. Extract due date from "due: <date>" pattern and remove it
+  // Process BEFORE project to avoid project name consuming "due: ..."
+  const dueRegex = /due:\s*([^,.\n]+)/i;
+  const dueMatch = cleanedContent.match(dueRegex);
   if (dueMatch) {
     const dueText = dueMatch[1].trim();
     const dueParsed = chrono.parse(dueText, refDate, { forwardDate: true });
     if (dueParsed.length > 0) {
       result.suggestedDueDate = formatDate(dueParsed[0].start.date());
-      // Remove the due date directive from content
-      cleanedContent = cleanedContent.replace(/due:\s*[^,.\n]+/gi, '');
+      // Remove the due date directive from content (only the first match)
+      // Using dueMatch[0] ensures we remove exactly what we matched
+      cleanedContent = cleanedContent.replace(dueMatch[0], '');
     }
+  }
+
+  // 4. Extract project from "project: <name>" pattern and remove it
+  // Project name can contain letters, numbers, spaces, and hyphens
+  const projectRegex = /project:\s*([a-zA-Z0-9][a-zA-Z0-9\s\-_]*)/i;
+  const projectMatch = cleanedContent.match(projectRegex);
+  if (projectMatch) {
+    result.suggestedProject = projectMatch[1].trim();
+    // Remove the project directive from content (only the first match)
+    cleanedContent = cleanedContent.replace(projectRegex, '');
   }
 
   // 5. Parse general date for the entry (when task happens)
