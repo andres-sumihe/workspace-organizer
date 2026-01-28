@@ -134,7 +134,7 @@ export const personalProjectsService = {
           `SELECT 
             w.id, w.name, w.root_path as rootPath, w.description,
             (SELECT COUNT(*) FROM projects WHERE workspace_id = w.id) as projectCount,
-            (SELECT COUNT(*) FROM templates WHERE workspace_id = w.id) as templateCount
+            (SELECT COUNT(*) FROM workspace_templates WHERE workspace_id = w.id) as templateCount
           FROM workspaces w WHERE w.id = ?`
         )
         .get(project.workspaceId) as {
