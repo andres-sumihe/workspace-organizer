@@ -59,15 +59,8 @@ export function UpdateChecker({ open, onOpenChange, triggerCheck }: UpdateChecke
       if (window.api.checkForUpdates) {
         await window.api.checkForUpdates();
       }
-
-      // Wait for update events from Electron
-      // The actual check is triggered in the Electron main process
-      // If no event is received within timeout, assume up to date
-      const timeout = setTimeout(() => {
-        setState(prev => prev.status === 'checking' ? { status: 'up-to-date' } : prev);
-      }, 5000);
-
-      return () => clearTimeout(timeout);
+      
+      // We explicitly rely on 'update-not-available' or 'update-available' events now
     } catch (error) {
       setState({ 
         status: 'error', 
@@ -90,12 +83,22 @@ export function UpdateChecker({ open, onOpenChange, triggerCheck }: UpdateChecke
       setState({ status: 'available', info: info as UpdateInfo });
     });
 
+    const unsubNotAvailable = window.api.onUpdateNotAvailable?.(() => {
+      setState({ status: 'up-to-date' });
+    });
+
+    const unsubError = window.api.onUpdateError?.((err: string) => {
+       setState({ status: 'error', message: err });
+    });
+
     const unsubDownloaded = window.api.onUpdateDownloaded?.((info: unknown) => {
       setState({ status: 'ready', info: info as UpdateInfo });
     });
 
     return () => {
       unsubAvailable?.();
+      unsubNotAvailable?.();
+      unsubError?.();
       unsubDownloaded?.();
     };
   }, []);
@@ -215,6 +218,16 @@ export function UpdateChecker({ open, onOpenChange, triggerCheck }: UpdateChecke
           </Button>
         </DialogFooter>
       );
+    }
+    
+    if (state.status === 'checking' || state.status === 'available' || state.status === 'downloading') {
+       return (
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Hide (Run in Background)
+          </Button>
+        </DialogFooter>
+       );
     }
 
     if (state.status === 'up-to-date' || state.status === 'error') {
