@@ -47,7 +47,7 @@ setupRouter.post('/create-account', async (req, res) => {
       return;
     }
 
-    const user = await setupService.createAccount({
+    const { user, recoveryKey } = await setupService.createAccount({
       username,
       email,
       password,
@@ -59,7 +59,8 @@ setupRouter.post('/create-account', async (req, res) => {
 
     res.status(201).json({
       user,
-      auth: loginResponse
+      auth: loginResponse,
+      recoveryKey
     });
   } catch (error) {
     authLogger.error({ err: error }, 'Create account error');

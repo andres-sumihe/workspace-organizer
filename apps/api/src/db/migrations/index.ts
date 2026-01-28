@@ -17,6 +17,7 @@ import * as migration0016 from './0016-create-tags.js';
 import * as migration0017 from './0017-create-work-logs.js';
 import * as migration0018 from './0018-create-personal-projects.js';
 import * as migration0019 from './0019-create-notes-credentials.js';
+import * as migration0020 from './0020-add-recovery-key-hash.js';
 
 import type Database from 'better-sqlite3';
 
@@ -44,7 +45,8 @@ const migrations: Migration[] = [
   { id: migration0016.id, up: migration0016.up },
   { id: migration0017.id, up: migration0017.up },
   { id: migration0018.id, up: migration0018.up },
-  { id: migration0019.id, up: migration0019.up }
+  { id: migration0019.id, up: migration0019.up },
+  { id: migration0020.id, up: migration0020.up }
 ];
 
 export const runMigrations = async (db: Database.Database) => {
