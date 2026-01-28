@@ -341,6 +341,52 @@ export const localAuthProvider = {
     db.prepare('DELETE FROM local_sessions WHERE user_id = ?').run(row.id);
   },
 
+  /**
+   * Generate a new recovery key for an authenticated user.
+   * Invalidates any old key.
+   */
+  async generateNewRecoveryKey(userId: string): Promise<string> {
+    const db = await getDb();
+    const row = db.prepare('SELECT * FROM local_users WHERE id = ?').get(userId);
+
+    if (!isLocalUserRow(row)) {
+      throw new Error('USER_NOT_FOUND');
+    }
+
+    const recoveryKey = this.generateRecoveryKey();
+    const recoveryKeyHash = await bcrypt.hash(recoveryKey, BCRYPT_ROUNDS);
+
+    db.prepare(
+      'UPDATE local_users SET recovery_key_hash = ?, updated_at = ? WHERE id = ?'
+    ).run(recoveryKeyHash, new Date().toISOString(), userId);
+
+    return recoveryKey;
+  },
+
+  /**
+   * Delete user account permanently.
+   * Requires password confirmation.
+   */
+  async deleteUser(userId: string, password: string): Promise<void> {
+    const db = await getDb();
+    const row = db.prepare('SELECT * FROM local_users WHERE id = ?').get(userId);
+
+    if (!isLocalUserRow(row)) {
+      throw new Error('USER_NOT_FOUND');
+    }
+
+    const passwordMatch = await bcrypt.compare(password, row.password_hash);
+    if (!passwordMatch) {
+      throw new Error('INVALID_PASSWORD');
+    }
+
+    // Delete all sessions
+    db.prepare('DELETE FROM local_sessions WHERE user_id = ?').run(userId);
+    
+    // Delete the user
+    db.prepare('DELETE FROM local_users WHERE id = ?').run(userId);
+  },
+
 
   /**
    * Check if any local user exists

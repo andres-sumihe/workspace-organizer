@@ -4,13 +4,13 @@ import { localAuthProvider } from '../../auth/local-auth.provider.js';
 import { modeAwareAuthProvider } from '../../auth/mode-aware-auth.provider.js';
 import { authMiddleware } from '../../middleware/auth.middleware.js';
 import { validate } from '../../middleware/validate.middleware.js';
-import { loginSchema, refreshTokenSchema, changePasswordSchema, resetPasswordWithKeySchema } from '../../schemas/auth.schema.js';
+import { loginSchema, refreshTokenSchema, changePasswordSchema, resetPasswordWithKeySchema, deleteAccountSchema } from '../../schemas/auth.schema.js';
 import { attestationService } from '../../services/attestation.service.js';
 import { modeService } from '../../services/mode.service.js';
 import { sessionService } from '../../services/session.service.js';
 
 import type { AuthenticatedRequest } from '../../middleware/auth.middleware.js';
-import type { LoginRequest, RefreshTokenRequest, ChangePasswordRequest, LocalUserResetRequest, ResetPasswordWithKeyRequest } from '@workspace/shared';
+import type { LoginRequest, RefreshTokenRequest, ChangePasswordRequest, LocalUserResetRequest, ResetPasswordWithKeyRequest, DeleteAccountRequest } from '@workspace/shared';
 import type { Request, Response } from 'express';
 
 export const authRouter = Router();
@@ -156,6 +156,76 @@ authRouter.post('/reset-password', validate(resetPasswordWithKeySchema), async (
 });
 
 /**
+ * POST /auth/generate-recovery-key
+ * Generate a new recovery key for the authenticated user
+ */
+authRouter.post('/generate-recovery-key', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (!req.userId) {
+      res.status(401).json({
+        code: 'UNAUTHORIZED',
+        message: 'Not authenticated'
+      });
+      return;
+    }
+
+    const recoveryKey = await localAuthProvider.generateNewRecoveryKey(req.userId);
+
+    res.json({
+      success: true,
+      recoveryKey,
+      message: 'New recovery key generated successfully. The old key is now invalid.'
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to generate recovery key';
+    res.status(500).json({
+      code: 'INTERNAL_ERROR',
+      message
+    });
+  }
+});
+
+/**
+ * POST /auth/delete-account
+ * Delete user account permanently (Danger Zone)
+ */
+authRouter.post('/delete-account', authMiddleware, validate(deleteAccountSchema), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (!req.userId) {
+      res.status(401).json({
+        code: 'UNAUTHORIZED',
+        message: 'Not authenticated'
+      });
+      return;
+    }
+
+    const body = req.body as DeleteAccountRequest;
+
+    await localAuthProvider.deleteUser(req.userId, body.password);
+
+    res.json({
+      success: true,
+      message: 'Account deleted successfully'
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to delete account';
+    
+    if (message === 'INVALID_PASSWORD') {
+      res.status(401).json({
+        code: 'INVALID_PASSWORD',
+        message: 'Use your current password to confirm deletion'
+      });
+      return;
+    }
+
+    res.status(500).json({
+      code: 'INTERNAL_ERROR',
+      message
+    });
+  }
+});
+
+/**
  * POST /auth/change-password
  * Change current user's password
  */
@@ -199,6 +269,32 @@ authRouter.get('/session-config', async (_req: Request, res: Response) => {
     res.json(config);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to get session config';
+    res.status(500).json({
+      code: 'INTERNAL_ERROR',
+      message
+    });
+  }
+});
+
+/**
+ * POST /auth/session-config
+ * Update session configuration
+ */
+authRouter.post('/session-config', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (!req.userId) {
+      res.status(401).json({
+        code: 'UNAUTHORIZED',
+        message: 'Not authenticated'
+      });
+      return;
+    }
+
+    const body = req.body;
+    const config = await sessionService.updateConfig(body);
+    res.json({ success: true, config });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to update session config';
     res.status(500).json({
       code: 'INTERNAL_ERROR',
       message

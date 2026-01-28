@@ -24,6 +24,7 @@ interface AuthContextValue extends AuthState {
   login: (credentials: LoginRequest) => Promise<void>;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
+  refreshSessionConfig: () => Promise<void>;
   /** Unlock the session (re-authenticate after timeout) */
   unlock: (password: string) => Promise<void>;
   isSoloMode: boolean;
@@ -43,6 +44,7 @@ const DEFAULT_SESSION_CONFIG: SessionConfig = {
   inactivityTimeoutMinutes: 30,
   maxConcurrentSessions: 1,
   heartbeatIntervalSeconds: 60,
+  enableSessionLock: true,
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -124,6 +126,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Check for inactivity timeout on client side
   const checkInactivity = useCallback(() => {
     const config = state.sessionConfig || DEFAULT_SESSION_CONFIG;
+    
+    // Skip if lock is disabled
+    if (config.enableSessionLock === false) return;
+
     const timeoutMs = config.inactivityTimeoutMinutes * 60 * 1000;
     const timeSinceActivity = Date.now() - lastActivityRef.current;
 
@@ -329,6 +335,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Refresh session config
+  const refreshSessionConfig = async (): Promise<void> => {
+    const config = await fetchSessionConfig();
+    if (config) {
+      setState((prev) => ({ ...prev, sessionConfig: config }));
+    }
+  };
+
   // Initialize auth state on mount
   useEffect(() => {
     const initAuth = async () => {
@@ -447,6 +461,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         refreshAuth,
+        refreshSessionConfig,
         unlock,
         isSoloMode,
         isSharedMode,

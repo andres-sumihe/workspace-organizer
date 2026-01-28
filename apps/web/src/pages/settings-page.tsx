@@ -1,5 +1,7 @@
-import { Database, Loader2, Save, Settings as SettingsIcon, Server, Link2, Unlink, RefreshCw, CheckCircle2, XCircle, AlertCircle, AlertTriangle, Wrench, Copy, ChevronDown, ChevronRight } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { Database, Loader2, Save, Settings as SettingsIcon, Server, Link2, Unlink, RefreshCw, CheckCircle2, XCircle, AlertCircle, AlertTriangle, Wrench, Copy, ChevronDown, ChevronRight, Shield, FileKey, Trash2, KeyRound, Lock } from 'lucide-react';
+import { useEffect, useMemo, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Collapsible, CollapsibleContent } from '@radix-ui/react-collapsible';
 
 import { schemaValidationApi, type ValidationResponse, type ExportScriptsResponse } from '@/api/schema-validation';
 import { settingsApi } from '@/api/settings';
@@ -66,9 +68,46 @@ const hasConnectionRequiredFields = (form: ConnectionFormState): boolean => {
   );
 };
 
+// Helper to keep previous value during exit animations
+function useLastDefined<T>(value: T | null | undefined): T | null | undefined {
+  const ref = useRef(value);
+  useEffect(() => {
+    if (value !== null && value !== undefined) {
+      ref.current = value;
+    }
+  }, [value]);
+  // Return current value if defined, otherwise last known defined value
+  return (value !== null && value !== undefined) ? value : ref.current;
+}
+
+// Wrapper for smooth alert animations
+const SmoothAlert = ({ 
+  open, 
+  variant = 'default', 
+  children,
+  className = '' 
+}: { 
+  open: boolean; 
+  variant?: 'default' | 'destructive' | 'success' | 'warning' | 'info'; 
+  children: React.ReactNode; 
+  className?: string;
+}) => {
+  return (
+    <Collapsible open={open}>
+      <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+        <div className={`py-1 ${className}`}>
+          <Alert variant={variant}>
+            {children}
+          </Alert>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+};
+
 export const SettingsPage = () => {
   const { status: installationStatus, isLoading: installLoading, checkStatus } = useInstallation();
-  const { isSoloMode, isSharedMode, refreshAuth } = useAuth();
+  const { isSoloMode, isSharedMode, refreshAuth, sessionConfig, refreshSessionConfig } = useAuth();
   const { refreshStatus } = useMode();
   const {
     criteria,
@@ -113,6 +152,28 @@ export const SettingsPage = () => {
   const [baseSalaryFormatted, setBaseSalaryFormatted] = useState<string>('');
   const [isLoadingToolsSettings, setIsLoadingToolsSettings] = useState(true);
   const [isSavingToolsSettings, setIsSavingToolsSettings] = useState(false);
+
+  // Security settings state
+  const [recoveryKey, setRecoveryKey] = useState<string | null>(null);
+  const [isGeneratingKey, setIsGeneratingKey] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [copiedKey, setCopiedKey] = useState(false);
+  const [isUpdatingSession, setIsUpdatingSession] = useState(false);
+
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  const navigate = useNavigate();
+
+  const lastSaveMessage = useLastDefined(saveMessage);
+  const lastErrorMessage = useLastDefined(errorMessage);
+  const lastContextError = useLastDefined(contextError);
+  const lastConnectionResult = useLastDefined(connectionTestResult);
+  const lastTeamMessage = useLastDefined(teamActionMessage);
 
   const connectionString = useMemo(() => buildConnectionStringFromForm(connectionForm), [connectionForm]);
   const isConnectionFormValid = useMemo(() => hasConnectionRequiredFields(connectionForm), [connectionForm]);
@@ -245,6 +306,157 @@ export const SettingsPage = () => {
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Failed to update setting');
       setTimeout(() => setErrorMessage(null), 5000);
+    }
+  };
+
+  const handleGenerateRecoveryKey = async () => {
+    setIsGeneratingKey(true);
+    setErrorMessage(null);
+    setRecoveryKey(null);
+    
+    try {
+      // In a real app we might ask for password confirmation here too
+      const response = await fetch(`${API_URL}/api/v1/auth/generate-recovery-key`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_access_token')}`
+        },
+      });
+
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setRecoveryKey(data.recoveryKey);
+        setSaveMessage('New recovery key generated successfully!');
+      } else {
+        setErrorMessage(data.message || 'Failed to generate key');
+      }
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to generate key');
+    } finally {
+      setIsGeneratingKey(false);
+    }
+  };
+
+  const handleCopyKey = async () => {
+    if (recoveryKey) {
+      await navigator.clipboard.writeText(recoveryKey);
+      setCopiedKey(true);
+      setTimeout(() => setCopiedKey(false), 2000);
+    }
+  };
+
+  const handleToggleSessionLock = async (checked: boolean) => {
+    setIsUpdatingSession(true);
+    setErrorMessage(null);
+    try {
+      const response = await fetch(`${API_URL}/api/v1/auth/session-config`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_access_token')}`
+        },
+        body: JSON.stringify({ enableSessionLock: checked })
+      });
+      
+      const data = await response.json();
+      if (response.ok && data.success) {
+        await refreshSessionConfig();
+        setSaveMessage('Session settings updated successfully');
+        setTimeout(() => setSaveMessage(null), 3000);
+      } else {
+        setErrorMessage(data.message || 'Failed to update session settings');
+      }
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to update session settings');
+    } finally {
+      setIsUpdatingSession(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      setErrorMessage('All password fields are required');
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setErrorMessage('New passwords do not match');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setErrorMessage('New password must be at least 8 characters long');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    setErrorMessage(null);
+
+    try {
+      const response = await fetch(`${API_URL}/api/v1/auth/change-password`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_access_token')}`
+        },
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setSaveMessage('Password changed successfully!');
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmNewPassword('');
+        setTimeout(() => setSaveMessage(null), 3000);
+      } else {
+        setErrorMessage(data.message || 'Failed to change password');
+      }
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to change password');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!deletePassword) {
+      setErrorMessage('Please enter your password to confirm deletion');
+      return;
+    }
+
+    if (!confirm('Are you absolutely sure? This will permanently delete your account and all local data. This action cannot be undone.')) {
+      return;
+    }
+
+    setIsDeletingAccount(true);
+    setErrorMessage(null);
+
+    try {
+      const response = await fetch(`${API_URL}/api/v1/auth/delete-account`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_access_token')}`
+        },
+        body: JSON.stringify({ password: deletePassword })
+      });
+
+      if (response.ok) {
+        // Clear local tokens
+        localStorage.removeItem('auth_access_token');
+        localStorage.removeItem('auth_refresh_token');
+        // Redirect to setup
+        navigate('/setup');
+      } else {
+        const data = await response.json();
+        setErrorMessage(data.message || 'Failed to delete account');
+      }
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to delete account');
+    } finally {
+      setIsDeletingAccount(false);
     }
   };
 
@@ -462,6 +674,7 @@ export const SettingsPage = () => {
           tabs={
             <TabsList className="h-12 bg-transparent">
               <TabsTrigger value="general">General</TabsTrigger>
+              <TabsTrigger value="security">Security</TabsTrigger>
               <TabsTrigger value="tools">Tools</TabsTrigger>
               <TabsTrigger value="validation">Validation</TabsTrigger>
               <TabsTrigger value="team">Team Features</TabsTrigger>
@@ -469,19 +682,8 @@ export const SettingsPage = () => {
           }
         >
           {/* General Settings Tab */}
-          <TabsContent value="general" className="flex-1 m-0 overflow-auto p-6">
-            <div className="max-w-3xl space-y-6">
-              {saveMessage && (
-                <Alert variant="success">
-                  <AlertDescription>{saveMessage}</AlertDescription>
-                </Alert>
-              )}
-
-              {(errorMessage || contextError) && (
-                <Alert variant="destructive">
-                  <AlertDescription>{errorMessage || contextError}</AlertDescription>
-                </Alert>
-              )}
+          <TabsContent value="general" className="outline-none p-6">
+            <div className="max-w-3xl space-y-6 animate-in fade-in-0 duration-300">
 
               {/* Shared Database Status */}
               <Card className="p-6">
@@ -543,20 +745,237 @@ export const SettingsPage = () => {
             </div>
           </TabsContent>
 
-          {/* Tools Settings Tab */}
-          <TabsContent value="tools" className="flex-1 m-0 overflow-auto p-6">
-            <div className="max-w-3xl space-y-6">
-              {saveMessage && (
-                <Alert variant="success">
-                  <AlertDescription>{saveMessage}</AlertDescription>
-                </Alert>
-              )}
+          {/* Security Settings Tab */}
+          <TabsContent value="security" className="outline-none p-6">
+            <div className="max-w-3xl space-y-6 animate-in fade-in-0 duration-300">
+              
+              <SmoothAlert open={!!saveMessage} variant="success">
+                <AlertDescription>{lastSaveMessage}</AlertDescription>
+              </SmoothAlert>
 
-              {errorMessage && (
-                <Alert variant="destructive">
-                  <AlertDescription>{errorMessage}</AlertDescription>
-                </Alert>
-              )}
+              <SmoothAlert open={!!errorMessage} variant="destructive">
+                <AlertDescription>{lastErrorMessage}</AlertDescription>
+              </SmoothAlert>
+
+              {/* Session Security Section */}
+              <Card className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="rounded-lg bg-primary/10 p-3">
+                    <Lock className="size-6 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-lg font-semibold mb-1">Session Security</h2>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Configure how the application handles your session inactivity.
+                    </p>
+
+                    <div className="flex items-center gap-3">
+                      <Switch
+                        id="session-lock"
+                        checked={sessionConfig?.enableSessionLock ?? true}
+                        onCheckedChange={handleToggleSessionLock}
+                        disabled={isUpdatingSession}
+                      />
+                      <div className="space-y-1">
+                        <Label htmlFor="session-lock" className="font-medium cursor-pointer">
+                          Enable Auto-Lock
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          When enabled, the application will lock automatically after 30 minutes of inactivity.
+                          You will need to enter your password to resume. Disabling this keeps your session active 
+                          as long as the browser window is open.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Recovery Key Section */}
+              <Card className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="rounded-lg bg-primary/10 p-3">
+                    <KeyRound className="size-6 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-lg font-semibold mb-1">Recovery Key</h2>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Your recovery key allows you to reset your password if you forget it.
+                      Generating a new key will invalidate any previous keys.
+                    </p>
+
+                    {!recoveryKey ? (
+                      <Button
+                        onClick={handleGenerateRecoveryKey}
+                        disabled={isGeneratingKey}
+                        variant="outline"
+                        className="flex items-center gap-2 transition-all duration-300"
+                      >
+                        {isGeneratingKey ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <FileKey className="size-4" />
+                        )}
+                        Generate New Recovery Key
+                      </Button>
+                    ) : (
+                      <div className="space-y-4 animate-in fade-in-0 duration-300">
+                        <Alert variant="warning">
+                          <AlertTriangle className="size-4" />
+                          <AlertDescription>
+                            <strong>Save this key immediately!</strong> It will not be shown again.
+                            Store it in a safe place like a password manager.
+                          </AlertDescription>
+                        </Alert>
+                        
+                        <div className="flex items-center gap-2">
+                          <code className="flex-1 p-3 bg-muted rounded-md font-mono text-sm break-all">
+                            {recoveryKey}
+                          </code>
+                          <Button 
+                            size="icon" 
+                            variant="ghost" 
+                            onClick={handleCopyKey}
+                            title="Copy to clipboard"
+                          >
+                            {copiedKey ? <CheckCircle2 className="size-4 text-success" /> : <Copy className="size-4" />}
+                          </Button>
+                        </div>
+
+                        <Button
+                          variant="ghost"
+                          onClick={() => setRecoveryKey(null)}
+                          className="text-sm text-muted-foreground"
+                        >
+                          Close (I have saved my key)
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Card>
+
+              {/* Change Password Section */}
+              <Card className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="rounded-lg bg-primary/10 p-3">
+                    <Lock className="size-6 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-lg font-semibold mb-1">Change Password</h2>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Update your account password.
+                    </p>
+
+                    <div className="space-y-4 max-w-md">
+                      <div className="space-y-2">
+                        <Label htmlFor="current-password">Current Password</Label>
+                        <Input
+                          id="current-password"
+                          type="password"
+                          value={currentPassword}
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="new-password">New Password</Label>
+                        <Input
+                          id="new-password"
+                          type="password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="confirm-new-password">Confirm New Password</Label>
+                        <Input
+                          id="confirm-new-password"
+                          type="password"
+                          value={confirmNewPassword}
+                          onChange={(e) => setConfirmNewPassword(e.target.value)}
+                        />
+                      </div>
+
+                      <Button
+                        onClick={handleChangePassword}
+                        disabled={isChangingPassword}
+                        className="flex items-center gap-2"
+                      >
+                        {isChangingPassword ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <Save className="size-4" />
+                        )}
+                        Update Password
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Account Deletion Section */}
+              <Card className="p-6 border-destructive/20">
+                <div className="flex items-start gap-4">
+                  <div className="rounded-lg bg-destructive/10 p-3">
+                    <Shield className="size-6 text-destructive" />
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-lg font-semibold mb-1 text-destructive">Danger Zone</h2>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Permanently delete your account and all local data. This action is irreversible.
+                    </p>
+
+                    <div className="space-y-4 p-4 border border-destructive/20 rounded-lg bg-destructive/5">
+                      <div className="space-y-2">
+                        <Label htmlFor="delete-password">Confirm Password</Label>
+                        <Input
+                          id="delete-password"
+                          type="password"
+                          value={deletePassword}
+                          onChange={(e) => setDeletePassword(e.target.value)}
+                          placeholder="Enter your password to confirm"
+                          className="max-w-md bg-background"
+                        />
+                      </div>
+
+                      <Button
+                        variant="destructive"
+                        onClick={handleDeleteAccount}
+                        disabled={isDeletingAccount || !deletePassword}
+                        className="flex items-center gap-2"
+                      >
+                        {isDeletingAccount ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="size-4" />
+                        )}
+                        Delete Account Permanently
+                      </Button>
+                      
+                      <p className="text-xs text-muted-foreground">
+                        Note: This will delete your local user record, personal settings, and clear your session.
+                        It will not affect shared database records if you are in team mode.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Tools Settings Tab */}
+          <TabsContent value="tools" className="outline-none p-6">
+            <div className="max-w-3xl space-y-6 animate-in fade-in-0 duration-300">
+              
+              <SmoothAlert open={!!saveMessage} variant="success">
+                <AlertDescription>{lastSaveMessage}</AlertDescription>
+              </SmoothAlert>
+
+              <SmoothAlert open={!!errorMessage} variant="destructive">
+                <AlertDescription>{lastErrorMessage}</AlertDescription>
+              </SmoothAlert>
 
               <Card className="p-6">
                 <div className="flex items-start gap-4">
@@ -631,8 +1050,8 @@ export const SettingsPage = () => {
           </TabsContent>
 
           {/* Validation Settings Tab */}
-          <TabsContent value="validation" className="flex-1 m-0 overflow-auto p-6">
-            <div className="max-w-3xl space-y-6">
+          <TabsContent value="validation" className="outline-none p-6">
+            <div className="max-w-3xl space-y-6 animate-in fade-in-0 duration-300">
               <Card className="p-6">
                 <div className="space-y-6">
                   <div>
@@ -817,8 +1236,8 @@ export const SettingsPage = () => {
           </TabsContent>
 
           {/* Team Features Tab */}
-          <TabsContent value="team" className="flex-1 m-0 overflow-auto p-6">
-            <div className="max-w-3xl space-y-6">
+          <TabsContent value="team" className="outline-none p-6">
+            <div className="max-w-3xl space-y-6 animate-in fade-in-0 duration-300">
               <Card className="p-6">
                 <div className="flex items-start gap-4">
                   <div className="rounded-lg bg-primary/10 p-3">
@@ -931,11 +1350,9 @@ export const SettingsPage = () => {
                           </p>
                         </div>
 
-                        {connectionTestResult && (
-                          <Alert variant={connectionTestResult.success ? 'success' : 'destructive'}>
-                            <AlertDescription>{connectionTestResult.message}</AlertDescription>
-                          </Alert>
-                        )}
+                        <SmoothAlert open={!!connectionTestResult} variant={connectionTestResult?.success ? 'success' : 'destructive'}>
+                          <AlertDescription>{lastConnectionResult?.message}</AlertDescription>
+                        </SmoothAlert>
 
                         <div className="flex gap-3">
                           <Button 
@@ -976,11 +1393,9 @@ export const SettingsPage = () => {
                           </AlertDescription>
                         </Alert>
 
-                        {teamActionMessage && (
-                          <Alert variant={teamActionMessage.success ? 'success' : 'destructive'}>
-                            <AlertDescription>{teamActionMessage.message}</AlertDescription>
-                          </Alert>
-                        )}
+                        <SmoothAlert open={!!teamActionMessage} variant={teamActionMessage?.success ? 'success' : 'destructive'}>
+                          <AlertDescription>{lastTeamMessage?.message}</AlertDescription>
+                        </SmoothAlert>
 
                         <div className="space-y-3">
                           <div className="flex items-center gap-3">
@@ -1070,7 +1485,7 @@ export const SettingsPage = () => {
                         </div>
 
                         {validationResult && (
-                          <div className="space-y-3 pt-4 border-t">
+                          <div className="space-y-3 pt-4 border-t animate-in fade-in-0 duration-300">
                             <div className="flex items-center justify-between">
                               <h4 className="text-sm font-medium">Schema Validation Results</h4>
                               <Button
@@ -1102,7 +1517,7 @@ export const SettingsPage = () => {
                             </div>
 
                             {showValidationDetails && (
-                              <div className="space-y-2 max-h-96 overflow-y-auto">
+                              <div className="space-y-2 max-h-96 overflow-y-auto animate-in fade-in-0 duration-300">
                                 {Object.entries(validationResult.tables).map(([tableName, result]) => (
                                   <div
                                     key={tableName}
@@ -1155,7 +1570,7 @@ export const SettingsPage = () => {
                         )}
 
                         {showMigrationInfo && (
-                          <div className="space-y-3 pt-4 border-t">
+                          <div className="space-y-3 pt-4 border-t animate-in fade-in-0 duration-300">
                             <div className="flex items-center justify-between">
                               <h4 className="text-sm font-medium">Database Migration Scripts</h4>
                               <Button
@@ -1197,13 +1612,13 @@ export const SettingsPage = () => {
                                     <Badge variant="secondary">Run First</Badge>
                                   </button>
                                   {expandedMigration === 'setup' && (
-                                    <div className="border-t p-3 space-y-2">
+                                    <div className="border-t p-3 space-y-2 animate-in fade-in-0 duration-300">
                                       <div className="flex justify-end">
                                         <Button size="sm" variant="outline" onClick={() => handleCopySQL(migrationData.schemaSetup, 'Schema Setup')}>
                                           <Copy className="size-3 mr-1" /> Copy SQL
                                         </Button>
                                       </div>
-                                      <pre className="text-xs bg-muted p-3 rounded-md whitespace-pre-wrap break-words max-h-48 overflow-y-auto w-full">
+                                      <pre className="text-xs bg-muted p-3 rounded-md whitespace-pre-wrap wrap-break-words max-h-48 overflow-y-auto w-full">
                                         {migrationData.schemaSetup}
                                       </pre>
                                     </div>
@@ -1243,7 +1658,7 @@ export const SettingsPage = () => {
                                         </Badge>
                                       </button>
                                       {expandedMigration === migration.id && (
-                                        <div className="border-t p-3 space-y-2">
+                                        <div className="border-t p-3 space-y-2 animate-in fade-in-0 duration-300">
                                           <div className="flex justify-between items-center">
                                             <span className="text-xs text-muted-foreground">{migration.description}</span>
                                             <Button size="sm" variant="outline" onClick={() => handleCopySQL(migration.sql, migration.id)}>
