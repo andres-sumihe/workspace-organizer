@@ -29,6 +29,12 @@ export const changePasswordSchema = z.object({
   newPassword: z.string().min(8, 'New password must be at least 8 characters'),
 });
 
+export const resetPasswordWithKeySchema = z.object({
+  username: z.string().min(1, 'Username or email is required'),
+  recoveryKey: z.string().min(1, 'Recovery key is required'),
+  newPassword: z.string().min(8, 'New password must be at least 8 characters'),
+});
+
 // ============================================
 // Type Exports
 // ============================================

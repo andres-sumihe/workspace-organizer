@@ -8,11 +8,12 @@ import { getDb } from '../db/client.js';
 import { settingsRepository } from '../repositories/settings.repository.js';
 import { modeService } from '../services/mode.service.js';
 
-import type { LoginRequest, LoginResponse, LocalUser, CreateAccountRequest, LoginContext } from '@workspace/shared';
+import type { LoginRequest, LoginResponse, LocalUser, CreateAccountRequest, LoginContext, CreateAccountResponse } from '@workspace/shared';
 
 const BCRYPT_ROUNDS = 12;
 const ACCESS_TOKEN_EXPIRY = '15m';
 const REFRESH_TOKEN_EXPIRY_DAYS = 7;
+const RECOVERY_KEY_LENGTH = 32; // 256 bits
 
 interface LocalUserRow {
   id: string;
@@ -21,6 +22,7 @@ interface LocalUserRow {
   password_hash: string;
   display_name: string | null;
   is_active: number;
+  recovery_key_hash: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -85,10 +87,18 @@ const getJwtSecret = async (): Promise<string> => {
 
 export const localAuthProvider = {
   /**
+   * Generate a cryptographically secure recovery key (hex format)
+   */
+  generateRecoveryKey(): string {
+    return randomBytes(RECOVERY_KEY_LENGTH).toString('hex');
+  },
+
+  /**
    * Create a new local user (Solo mode)
    * SECURITY: Only one user is allowed per device
+   * Returns the user AND the plaintext recovery key (one-time view)
    */
-  async createUser(request: CreateAccountRequest): Promise<LocalUser> {
+  async createUser(request: CreateAccountRequest): Promise<CreateAccountResponse> {
     const db = await getDb();
     
     // SECURITY: Check if a user already exists (single user enforcement)
@@ -101,17 +111,24 @@ export const localAuthProvider = {
     const passwordHash = await bcrypt.hash(request.password, BCRYPT_ROUNDS);
     const now = new Date().toISOString();
 
+    // Generate and hash recovery key
+    const recoveryKey = this.generateRecoveryKey();
+    const recoveryKeyHash = await bcrypt.hash(recoveryKey, BCRYPT_ROUNDS);
+
     db.prepare(
-      `INSERT INTO local_users (id, username, email, password_hash, display_name, is_active, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, 1, ?, ?)`
-    ).run(userId, request.username, request.email, passwordHash, request.displayName ?? null, now, now);
+      `INSERT INTO local_users (id, username, email, password_hash, display_name, is_active, recovery_key_hash, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)`
+    ).run(userId, request.username, request.email, passwordHash, request.displayName ?? null, recoveryKeyHash, now, now);
 
     const row = db.prepare('SELECT * FROM local_users WHERE id = ?').get(userId);
     if (!isLocalUserRow(row)) {
       throw new Error('Failed to create local user');
     }
 
-    return mapRowToLocalUser(row);
+    return {
+      user: mapRowToLocalUser(row),
+      recoveryKey
+    };
   },
 
   /**
@@ -291,6 +308,39 @@ export const localAuthProvider = {
       'UPDATE local_users SET password_hash = ?, updated_at = ? WHERE id = ?'
     ).run(newPasswordHash, new Date().toISOString(), userId);
   },
+
+  /**
+   * Reset password using recovery key (for forgotten passwords)
+   * SECURITY: Validates recovery key before allowing password reset
+   */
+  async resetPasswordWithKey(username: string, recoveryKey: string, newPassword: string): Promise<void> {
+    const db = await getDb();
+    const row = db.prepare(
+      'SELECT * FROM local_users WHERE username = ? OR email = ?'
+    ).get(username, username);
+
+    if (!isLocalUserRow(row)) {
+      throw new Error('USER_NOT_FOUND');
+    }
+
+    if (!row.recovery_key_hash) {
+      throw new Error('RECOVERY_NOT_AVAILABLE');
+    }
+
+    const keyMatch = await bcrypt.compare(recoveryKey, row.recovery_key_hash);
+    if (!keyMatch) {
+      throw new Error('INVALID_RECOVERY_KEY');
+    }
+
+    const newPasswordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+    db.prepare(
+      'UPDATE local_users SET password_hash = ?, updated_at = ? WHERE id = ?'
+    ).run(newPasswordHash, new Date().toISOString(), row.id);
+
+    // Invalidate all existing sessions after password reset
+    db.prepare('DELETE FROM local_sessions WHERE user_id = ?').run(row.id);
+  },
+
 
   /**
    * Check if any local user exists

@@ -4,13 +4,13 @@ import { localAuthProvider } from '../../auth/local-auth.provider.js';
 import { modeAwareAuthProvider } from '../../auth/mode-aware-auth.provider.js';
 import { authMiddleware } from '../../middleware/auth.middleware.js';
 import { validate } from '../../middleware/validate.middleware.js';
-import { loginSchema, refreshTokenSchema, changePasswordSchema } from '../../schemas/auth.schema.js';
+import { loginSchema, refreshTokenSchema, changePasswordSchema, resetPasswordWithKeySchema } from '../../schemas/auth.schema.js';
 import { attestationService } from '../../services/attestation.service.js';
 import { modeService } from '../../services/mode.service.js';
 import { sessionService } from '../../services/session.service.js';
 
 import type { AuthenticatedRequest } from '../../middleware/auth.middleware.js';
-import type { LoginRequest, RefreshTokenRequest, ChangePasswordRequest, LocalUserResetRequest } from '@workspace/shared';
+import type { LoginRequest, RefreshTokenRequest, ChangePasswordRequest, LocalUserResetRequest, ResetPasswordWithKeyRequest } from '@workspace/shared';
 import type { Request, Response } from 'express';
 
 export const authRouter = Router();
@@ -104,6 +104,52 @@ authRouter.post('/refresh', validate(refreshTokenSchema), async (req: Request, r
     const message = error instanceof Error ? error.message : 'Token refresh failed';
     res.status(401).json({
       code: 'UNAUTHORIZED',
+      message
+    });
+  }
+});
+
+/**
+ * POST /auth/reset-password
+ * Reset password using recovery key (no auth required)
+ */
+authRouter.post('/reset-password', validate(resetPasswordWithKeySchema), async (req: Request, res: Response) => {
+  try {
+    const body = req.body as ResetPasswordWithKeyRequest;
+
+    await localAuthProvider.resetPasswordWithKey(body.username, body.recoveryKey, body.newPassword);
+
+    res.json({ success: true, message: 'Password has been reset successfully. You can now log in.' });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Password reset failed';
+
+    // Map internal error codes to user-friendly messages
+    if (message === 'USER_NOT_FOUND') {
+      res.status(404).json({
+        code: 'USER_NOT_FOUND',
+        message: 'No account found with that username or email'
+      });
+      return;
+    }
+
+    if (message === 'RECOVERY_NOT_AVAILABLE') {
+      res.status(400).json({
+        code: 'RECOVERY_NOT_AVAILABLE',
+        message: 'Password recovery is not available for this account'
+      });
+      return;
+    }
+
+    if (message === 'INVALID_RECOVERY_KEY') {
+      res.status(401).json({
+        code: 'INVALID_RECOVERY_KEY',
+        message: 'The recovery key is invalid'
+      });
+      return;
+    }
+
+    res.status(400).json({
+      code: 'RESET_FAILED',
       message
     });
   }

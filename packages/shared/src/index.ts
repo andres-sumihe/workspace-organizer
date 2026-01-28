@@ -973,6 +973,24 @@ export interface CreateAccountRequest {
   displayName?: string;
 }
 
+/**
+ * Response from account creation, includes a one-time recovery key.
+ */
+export interface CreateAccountResponse {
+  user: LocalUser;
+  recoveryKey: string;
+}
+
+/**
+ * Request to reset password using recovery key.
+ */
+export interface ResetPasswordWithKeyRequest {
+  username: string;
+  recoveryKey: string;
+  newPassword: string;
+}
+
+
 // Migration Types
 export interface MigrationMapping {
   localId: string;
