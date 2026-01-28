@@ -509,3 +509,18 @@ ins.remark-ins {
 .dark .remark-container-title.info {
   color: oklch(0.7 0.2 230);
 }
+
+/* React Day Picker Dropdown Fix for Dark Mode */
+.dark .rdp-dropdowns select,
+.dark .rdp-dropdown,
+.dark select.rdp-dropdown {
+  color-scheme: dark !important;
+  background-color: #1f1f1f; /* Fallback */
+  color: white;
+}
+
+.dark .rdp-dropdowns select option,
+.dark .rdp-dropdown option {
+  background-color: #1f1f1f !important;
+  color: white !important;
+}
