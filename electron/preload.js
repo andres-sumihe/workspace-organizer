@@ -38,6 +38,16 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('update-available', listener);
     return () => ipcRenderer.removeListener('update-available', listener);
   },
+  onUpdateNotAvailable: (callback) => {
+    const listener = (event, info) => callback(info);
+    ipcRenderer.on('update-not-available', listener);
+    return () => ipcRenderer.removeListener('update-not-available', listener);
+  },
+  onUpdateError: (callback) => {
+    const listener = (event, err) => callback(err);
+    ipcRenderer.on('update-error', listener);
+    return () => ipcRenderer.removeListener('update-error', listener);
+  },
   onUpdateDownloaded: (callback) => {
     const listener = (event, info) => callback(info);
     ipcRenderer.on('update-downloaded', listener);

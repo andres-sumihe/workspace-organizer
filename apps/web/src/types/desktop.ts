@@ -176,8 +176,13 @@ export interface DesktopApi {
   }>;
   onProgress: (cb: (data: unknown) => void) => () => void;
   onUpdateAvailable: (callback: (info: unknown) => void) => () => void;
+  onUpdateNotAvailable: (callback: (info: unknown) => void) => () => void;
+  onUpdateError: (callback: (err: string) => void) => () => void;
   onUpdateDownloaded: (callback: (info: unknown) => void) => () => void;
   restartAndInstall: () => Promise<void>;
+  getAppVersion: () => Promise<string>;
+  getProcessVersions: () => Promise<unknown>;
+  checkForUpdates: () => Promise<{ ok: boolean; result?: unknown; error?: string }>;
   toggleDevTools: () => Promise<void>;
   onMenuCommand: (cb: (payload: { id: string }) => void) => () => void;
   invokeMainAction: (actionId: string, args?: unknown) => Promise<unknown>;
