@@ -1,3 +1,4 @@
+import { DatePicker } from '@/components/ui/date-picker';
 import { Calculator, Clock, Eye, EyeOff, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -36,6 +37,9 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
+
+
 
 type DayType = 'workday' | 'holiday_weekend';
 
@@ -255,9 +259,28 @@ export const OvertimePage = () => {
     }
   }, []);
 
+  // Handler for date changes to auto-detect day type
+  const handleDateChange = (dateStr: string) => {
+    setCalc(prev => ({ ...prev, date: dateStr }));
+    
+    // Auto-detect weekend
+    if (dateStr) {
+      const date = new Date(dateStr + 'T00:00:00');
+      const day = date.getDay();
+      const isWeekend = day === 0 || day === 6; // 0 Sunday, 6 Saturday
+      const newDayType = isWeekend ? 'holiday_weekend' : 'workday';
+      
+      setCalc(prev => {
+        // Only update if actually different to prevent unnecessary re-renders
+        if (prev.dayType === newDayType) return prev;
+        return { ...prev, dayType: newDayType };
+      });
+    }
+  };
+
   // Validation helpers
-  const startTimeValid = isValidOvertimeStartTime(calc.startTime);
-  const durationValid = preview.totalHours > 1;
+  const startTimeValid = calc.dayType === 'holiday_weekend' || isValidOvertimeStartTime(calc.startTime);
+  const durationValid = preview.totalHours >= 1;
 
   // Save entry
   const handleSaveEntry = async () => {
@@ -278,7 +301,7 @@ export const OvertimePage = () => {
       return;
     }
     if (!durationValid) {
-      setError('Overtime duration must be more than 1 hour');
+      setError('Overtime duration must be at least 1 hour');
       return;
     }
 
@@ -319,11 +342,16 @@ export const OvertimePage = () => {
   const handleDeleteEntry = async () => {
     if (!entryToDelete) return;
 
+    const idToDelete = entryToDelete.id;
+
     try {
-      await toolsApi.deleteOvertimeEntry(entryToDelete.id);
+      await toolsApi.deleteOvertimeEntry(idToDelete);
+      
+      // Reactive update: remove from local state immediately
+      setEntries(prev => prev.filter(e => e.id !== idToDelete));
+      
       setSuccessMessage('Entry deleted successfully');
       setTimeout(() => setSuccessMessage(null), 3000);
-      await refreshEntries();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete entry');
     } finally {
@@ -399,7 +427,7 @@ export const OvertimePage = () => {
               )}
 
               {successMessage && (
-                <Alert variant="success">
+                <Alert className="border-green-500 bg-green-50 text-green-900 dark:bg-green-900/20 dark:text-green-100">
                   <AlertDescription>{successMessage}</AlertDescription>
                 </Alert>
               )}
@@ -465,12 +493,11 @@ export const OvertimePage = () => {
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor="date">Date</Label>
-                      <Input
-                        id="date"
-                        type="date"
-                        value={calc.date}
-                        onChange={(e) => setCalc({ ...calc, date: e.target.value })}
+                      <Label>Date</Label>
+                      <DatePicker 
+                        value={calc.date} 
+                        onChange={handleDateChange}
+                        placeholder="Pick a date"
                       />
                     </div>
 
@@ -478,7 +505,7 @@ export const OvertimePage = () => {
                       <Label htmlFor="dayType">Day Type</Label>
                       <Select
                         value={calc.dayType}
-                        onValueChange={(value: DayType) => setCalc({ ...calc, dayType: value })}
+                        onValueChange={(value: DayType) => setCalc(prev => ({ ...prev, dayType: value }))}
                       >
                         <SelectTrigger id="dayType">
                           <SelectValue placeholder="Select day type" />
@@ -497,13 +524,22 @@ export const OvertimePage = () => {
 
                     <div className="space-y-2">
                       <Label htmlFor="startTime">Start Time</Label>
-                      <Input
-                        id="startTime"
-                        type="time"
-                        value={calc.startTime}
-                        onChange={(e) => setCalc({ ...calc, startTime: e.target.value })}
-                        className={!startTimeValid && calc.startTime ? 'border-destructive' : ''}
-                      />
+                      <div className="relative">
+                        <Clock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="startTime"
+                          type="time"
+                          value={calc.startTime}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setCalc(prev => ({ ...prev, startTime: val }));
+                          }}
+                          className={cn(
+                            "pl-9 bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none",
+                            !startTimeValid && calc.startTime ? "border-destructive" : ""
+                          )}
+                        />
+                      </div>
                       {!startTimeValid && calc.startTime && (
                         <p className="text-xs text-destructive">
                           Must be 5:30 PM or later, or before 6:00 AM
@@ -513,20 +549,29 @@ export const OvertimePage = () => {
 
                     <div className="space-y-2">
                       <Label htmlFor="endTime">End Time</Label>
-                      <Input
-                        id="endTime"
-                        type="time"
-                        value={calc.endTime}
-                        onChange={(e) => setCalc({ ...calc, endTime: e.target.value })}
-                        className={!durationValid && preview.totalHours > 0 ? 'border-destructive' : ''}
-                      />
+                      <div className="relative">
+                        <Clock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="endTime"
+                          type="time"
+                          value={calc.endTime}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setCalc(prev => ({ ...prev, endTime: val }));
+                          }}
+                          className={cn(
+                            "pl-9 bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none",
+                            !durationValid && preview.totalHours > 0 ? "border-destructive" : ""
+                          )}
+                        />
+                      </div>
                       <p className={`text-xs ${!durationValid && preview.totalHours > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
                         Duration: {preview.totalHours > 0 ? `${preview.totalHours.toFixed(1)} hours` : '-'}
                         {calc.startTime && calc.endTime && calc.endTime < calc.startTime && (
                           <span className="text-amber-500"> (overnight)</span>
                         )}
                         {!durationValid && preview.totalHours > 0 && (
-                          <span> - Must be more than 1 hour</span>
+                          <span> - Must be at least 1 hour</span>
                         )}
                       </p>
                     </div>
@@ -537,7 +582,10 @@ export const OvertimePage = () => {
                     <Textarea
                       id="note"
                       value={calc.note}
-                      onChange={(e) => setCalc({ ...calc, note: e.target.value })}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setCalc(prev => ({ ...prev, note: val }));
+                      }}
                       placeholder="e.g., Project deployment, urgent fix..."
                       rows={2}
                     />
@@ -606,7 +654,7 @@ export const OvertimePage = () => {
               )}
 
               {successMessage && (
-                <Alert variant="success">
+                <Alert className="border-green-500 bg-green-50 text-green-900 dark:bg-green-900/20 dark:text-green-100">
                   <AlertDescription>{successMessage}</AlertDescription>
                 </Alert>
               )}
