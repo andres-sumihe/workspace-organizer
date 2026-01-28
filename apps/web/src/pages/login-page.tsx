@@ -1,6 +1,6 @@
 import { Loader2, Lock, User } from 'lucide-react';
 import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 
 import type { FormEvent } from 'react';
 
@@ -93,6 +93,14 @@ export function LoginPage() {
                   disabled={isLoading}
                   autoComplete="current-password"
                 />
+              </div>
+              <div className="flex justify-end">
+                <Link 
+                  to="/recover" 
+                  className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                >
+                  Forgot password?
+                </Link>
               </div>
             </div>
 

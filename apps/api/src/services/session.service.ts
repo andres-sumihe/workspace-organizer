@@ -23,7 +23,8 @@ const DEFAULT_CONFIG: SessionConfig = {
   refreshTokenExpiryDays: 7,
   inactivityTimeoutMinutes: 30, // Lock after 30 minutes of inactivity
   maxConcurrentSessions: 1, // Solo mode: one session only
-  heartbeatIntervalSeconds: 60 // Client should ping every 60 seconds
+  heartbeatIntervalSeconds: 60, // Client should ping every 60 seconds
+  enableSessionLock: true
 };
 
 export const sessionService = {
@@ -99,16 +100,19 @@ export const sessionService = {
     }
 
     // Check inactivity timeout
-    const inactivityMs = config.inactivityTimeoutMinutes * 60 * 1000;
-    const timeSinceActivity = now.getTime() - lastActivity.getTime();
-    
-    if (timeSinceActivity > inactivityMs) {
-      // Session timed out due to inactivity - don't invalidate, just report
-      return { 
-        valid: false, 
-        expiresAt: row.expires_at, 
-        shouldRefresh: false 
-      };
+    // Only if session lock is enabled (default true)
+    if (config.enableSessionLock !== false) {
+      const inactivityMs = config.inactivityTimeoutMinutes * 60 * 1000;
+      const timeSinceActivity = now.getTime() - lastActivity.getTime();
+      
+      if (timeSinceActivity > inactivityMs) {
+        // Session timed out due to inactivity - don't invalidate, just report
+        return { 
+          valid: false, 
+          expiresAt: row.expires_at, 
+          shouldRefresh: false 
+        };
+      }
     }
 
     // Calculate if token should be refreshed (within 5 minutes of expiry)
@@ -216,10 +220,15 @@ export const sessionService = {
       : new Date(session.created_at);
     
     // Check inactivity timeout
-    const inactivityMs = config.inactivityTimeoutMinutes * 60 * 1000;
-    const timeSinceActivity = now.getTime() - lastActivity.getTime();
-    const isTimedOut = timeSinceActivity > inactivityMs;
-    const isActive = !isTimedOut && new Date(session.expires_at) > now;
+    let isActive = new Date(session.expires_at) > now;
+    
+    // Check lock timeout if enabled
+    if (config.enableSessionLock !== false) {
+      const inactivityMs = config.inactivityTimeoutMinutes * 60 * 1000;
+      const timeSinceActivity = now.getTime() - lastActivity.getTime();
+      const isTimedOut = timeSinceActivity > inactivityMs;
+      isActive = isActive && !isTimedOut;
+    }
 
     return {
       id: session.id,

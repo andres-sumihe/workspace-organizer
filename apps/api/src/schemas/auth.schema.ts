@@ -35,6 +35,10 @@ export const resetPasswordWithKeySchema = z.object({
   newPassword: z.string().min(8, 'New password must be at least 8 characters'),
 });
 
+export const deleteAccountSchema = z.object({
+  password: z.string().min(1, 'Password is required to confirm account deletion'),
+});
+
 // ============================================
 // Type Exports
 // ============================================
@@ -43,3 +47,4 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateAccountInput = z.infer<typeof createAccountSchema>;
 export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+export type DeleteAccountInput = z.infer<typeof deleteAccountSchema>;

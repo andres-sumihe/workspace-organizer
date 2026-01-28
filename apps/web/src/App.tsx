@@ -9,10 +9,10 @@ import { LockScreen } from '@/components/lock-screen';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { UpdateChecker } from '@/components/update-checker';
 import { UpdateNotifier } from '@/components/update-notifier';
-import { AuthProvider, useAuth } from '@/contexts/auth-context';
+import { useAuth } from '@/contexts/auth-context';
 import { FileManagerProvider } from '@/contexts/file-manager-context';
-import { InstallationProvider, useInstallation } from '@/contexts/installation-context';
-import { ModeProvider, useMode } from '@/contexts/mode-context';
+import { useInstallation } from '@/contexts/installation-context';
+import { useMode } from '@/contexts/mode-context';
 import { WorkspaceProvider } from '@/contexts/workspace-context';
 import { useMenuCommands } from '@/hooks/useMenuCommands';
 import { AuthenticatedLayout } from '@/layouts/authenticated-layout';
@@ -24,6 +24,7 @@ import { NotesPage } from '@/pages/notes-page';
 import { OvertimePage } from '@/pages/overtime-page';
 import { ProjectDetailPage } from '@/pages/project-detail-page';
 import { ProjectsPage } from '@/pages/projects-page';
+import { RecoveryPage } from '@/pages/recovery-page';
 import { ScriptsPage } from '@/pages/scripts-page';
 import { SettingsPage } from '@/pages/settings-page';
 import { SetupPage } from '@/pages/setup-page';
@@ -302,21 +303,16 @@ function AppContent() {
 export function App() {
   return (
     <BrowserRouter>
-      <InstallationProvider>
-        <ModeProvider>
-          <AuthProvider>
-            <UpdateNotifier />
-            <Routes>
-              {/* Public routes - outside of auth protection */}
-              <Route path="/install" element={<InstallationPage />} />
-              <Route path="/setup" element={<SetupPage />} />
-              <Route path="/login" element={<LoginPage />} />
-              {/* Protected routes - require installation and authentication */}
-              <Route path="/*" element={<ProtectedRoutes />} />
-            </Routes>
-          </AuthProvider>
-        </ModeProvider>
-      </InstallationProvider>
+      <UpdateNotifier />
+      <Routes>
+        {/* Public routes - outside of auth protection */}
+        <Route path="/install" element={<InstallationPage />} />
+        <Route path="/setup" element={<SetupPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/recover" element={<RecoveryPage />} />
+        {/* Protected routes - require installation and authentication */}
+        <Route path="/*" element={<ProtectedRoutes />} />
+      </Routes>
     </BrowserRouter>
   );
 }

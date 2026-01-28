@@ -6,10 +6,18 @@ import type { FormEvent } from 'react';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useMode } from '@/contexts/mode-context';
+import { CheckCircle, Copy, FileKey } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -24,6 +32,25 @@ export function SetupPage() {
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [recoveryKey, setRecoveryKey] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  // Handle copying recovery key to clipboard
+  const copyToClipboard = async () => {
+    if (recoveryKey) {
+      await navigator.clipboard.writeText(recoveryKey);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  // Proceed to dashboard after saving key
+  const handleComplete = async () => {
+    // Refresh mode context
+    await refreshMode();
+    // Navigate to dashboard
+    navigate('/', { replace: true });
+  };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -89,17 +116,78 @@ export function SetupPage() {
         localStorage.setItem('auth_refresh_token', data.auth.refreshToken);
       }
 
-      // Refresh mode context
-      await refreshMode();
-
-      // Navigate to dashboard
-      navigate('/', { replace: true });
+      // Set recovery key to display
+      if (data.recoveryKey) {
+        setRecoveryKey(data.recoveryKey);
+      } else {
+        // Fallback if no key returned (shouldn't happen with new API)
+        await handleComplete();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create account');
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (recoveryKey) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md border-green-200 shadow-lg">
+          <CardHeader className="text-center">
+            <div className="flex justify-center mb-4">
+              <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
+                <CheckCircle className="h-8 w-8 text-green-600" />
+              </div>
+            </div>
+            <CardTitle className="text-2xl font-bold text-green-700">Account Created!</CardTitle>
+            <CardDescription>
+              Your local account has been successfully created.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Alert className="bg-amber-50 border-amber-200 text-amber-800">
+              <FileKey className="h-4 w-4 text-amber-600" />
+              <AlertDescription>
+                <span className="font-semibold">IMPORTANT:</span> SQL Recovery Key.
+                Save this key in a secure location. It is the <strong>ONLY</strong> way to recover your account if you forget your password.
+              </AlertDescription>
+            </Alert>
+
+            <div className="space-y-2">
+              <Label htmlFor="recovery-key">Your Recovery Key</Label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    id="recovery-key"
+                    value={recoveryKey}
+                    readOnly
+                    className="font-mono text-sm bg-muted pr-10"
+                  />
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={copyToClipboard}
+                  title="Copy to clipboard"
+                >
+                  {copied ? <CheckCircle className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground text-center">
+                We do not store this key in plain text. We cannot recover it for you.
+              </p>
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button onClick={handleComplete} className="w-full" size="lg">
+              I have saved my key, continue to Dashboard
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
