@@ -82,7 +82,8 @@ import {
   getWeekStart,
   getTodayDate,
   getYesterdayDate,
-  parseContentForSuggestions
+  parseContentForSuggestions,
+  formatFullDate
 } from '@/utils/journal-parser';
 
 // ============================================================================
@@ -136,17 +137,21 @@ const KANBAN_COLUMNS: WorkLogStatus[] = ['todo', 'in_progress', 'done'];
 // Hooks
 // ============================================================================
 
-function useJournalData(weekStart: Date, projectFilter?: string) {
+function useJournalData(currentDate: Date, viewMode: 'week' | 'day', projectFilter?: string) {
   const [entries, setEntries] = useState<WorkLogEntry[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [projects, setProjects] = useState<PersonalProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const from = formatDate(weekStart);
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekEnd.getDate() + 6);
-  const to = formatDate(weekEnd);
+  const start = viewMode === 'week' ? getWeekStart(currentDate) : currentDate;
+  const from = formatDate(start);
+  
+  const end = new Date(start);
+  if (viewMode === 'week') {
+    end.setDate(end.getDate() + 6);
+  }
+  const to = formatDate(end);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -934,8 +939,9 @@ function RolloverDialog({ open, onOpenChange, onRollover, unfinishedCount }: Rol
 // ============================================================================
 
 export function JournalPage() {
-  // Week navigation state
-  const [currentWeekStart, setCurrentWeekStart] = useState(() => getWeekStart(new Date()));
+  // Navigation state
+  const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [viewMode, setViewMode] = useState<'week' | 'day'>('week');
 
   // Filter state
   const [projectFilter, setProjectFilter] = useState<string | undefined>(undefined);
@@ -951,7 +957,8 @@ export function JournalPage() {
 
   // Data
   const { entries, tags, projects, isLoading, error, refetch, setEntries, setTags } = useJournalData(
-    currentWeekStart,
+    currentDate,
+    viewMode,
     projectFilter
   );
 
@@ -981,20 +988,29 @@ export function JournalPage() {
   );
 
   // Navigation handlers
-  const goToPreviousWeek = () => {
-    const prev = new Date(currentWeekStart);
-    prev.setDate(prev.getDate() - 7);
-    setCurrentWeekStart(prev);
+  const goToPrevious = () => {
+    const prev = new Date(currentDate);
+    if (viewMode === 'week') {
+      prev.setDate(prev.getDate() - 7);
+    } else {
+      prev.setDate(prev.getDate() - 1);
+    }
+    setCurrentDate(prev);
   };
 
-  const goToNextWeek = () => {
-    const next = new Date(currentWeekStart);
-    next.setDate(next.getDate() + 7);
-    setCurrentWeekStart(next);
+  const goToNext = () => {
+    const next = new Date(currentDate);
+    if (viewMode === 'week') {
+      next.setDate(next.getDate() + 7);
+    } else {
+      next.setDate(next.getDate() + 1);
+    }
+    setCurrentDate(next);
   };
 
-  const goToCurrentWeek = () => {
-    setCurrentWeekStart(getWeekStart(new Date()));
+  const goToToday = () => {
+    setCurrentDate(new Date());
+    setViewMode('day'); // Switch to day view when clicking Today
   };
 
   // Entry handlers - optimistic updates
@@ -1206,16 +1222,39 @@ export function JournalPage() {
         {/* Header: Navigation + Filter + Stats */}
         <div className="flex items-center justify-between mb-4 flex-shrink-0">
           <div className="flex items-center gap-3">
-            <Button variant="outline" size="icon" onClick={goToPreviousWeek}>
+            <Button variant="outline" size="icon" onClick={goToPrevious}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div className="text-lg font-semibold min-w-[200px] text-center">
-              {getWeekRangeLabel(currentWeekStart)}
+              {viewMode === 'week' 
+                ? getWeekRangeLabel(getWeekStart(currentDate))
+                : formatFullDate(currentDate)
+              }
             </div>
-            <Button variant="outline" size="icon" onClick={goToNextWeek}>
+            <Button variant="outline" size="icon" onClick={goToNext}>
               <ArrowRight className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm" onClick={goToCurrentWeek}>
+            
+            <div className="flex items-center rounded-md border p-1 bg-muted/20">
+              <Button 
+                variant={viewMode === 'day' ? 'secondary' : 'ghost'} 
+                size="sm" 
+                onClick={() => setViewMode('day')}
+                className="h-7 px-3 text-xs"
+              >
+                Day
+              </Button>
+              <Button 
+                variant={viewMode === 'week' ? 'secondary' : 'ghost'} 
+                size="sm" 
+                onClick={() => setViewMode('week')}
+                className="h-7 px-3 text-xs"
+              >
+                Week
+              </Button>
+            </div>
+
+            <Button variant="ghost" size="sm" onClick={goToToday}>
               Today
             </Button>
             
