@@ -698,6 +698,31 @@ export function ProjectDetailPage() {
                     <CardTitle className="text-base">Details</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {/* Business IDs */}
+                    {project.businessProposalId && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Hash className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">Business Proposal ID</span>
+                        </div>
+                        <div className="text-sm font-mono font-medium pl-6">
+                          {project.businessProposalId}
+                        </div>
+                      </div>
+                    )}
+
+                    {project.changeId && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Hash className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">Change Request ID</span>
+                        </div>
+                        <div className="text-sm font-mono font-medium pl-6">
+                          {project.changeId}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Dates */}
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-sm">
@@ -732,33 +757,6 @@ export function ProjectDetailPage() {
                     )}
                   </CardContent>
                 </Card>
-
-                {/* Business IDs */}
-                {(project.businessProposalId || project.changeId) && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Business Reference</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {project.businessProposalId && (
-                        <div className="flex items-center gap-2">
-                          <Hash className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm text-muted-foreground">BP:</span>
-                          <span className="text-sm font-mono font-medium">
-                            {project.businessProposalId}
-                          </span>
-                        </div>
-                      )}
-                      {project.changeId && (
-                        <div className="flex items-center gap-2">
-                          <Hash className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm text-muted-foreground">CR:</span>
-                          <span className="text-sm font-mono font-medium">{project.changeId}</span>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
 
                 {/* Linked Workspace */}
                 <Card>

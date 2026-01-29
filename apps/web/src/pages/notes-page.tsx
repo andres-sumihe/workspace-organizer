@@ -1,37 +1,21 @@
-import { markdown } from '@codemirror/lang-markdown';
-import { languages } from '@codemirror/language-data';
-import CodeMirror from '@uiw/react-codemirror';
 import {
-  Eye,
   FileText,
   FolderOpen,
   Key,
   Loader2,
   Lock,
   LockOpen,
-  Pencil,
-  Pin,
-  PinOff,
   Plus,
   Search,
   Trash2,
   Unlock,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  Eye,
+  Pencil,
+  Pin
 } from 'lucide-react';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import Markdown from 'react-markdown';
-import rehypeHighlight from 'rehype-highlight';
-import rehypeKatex from 'rehype-katex';
-import rehypeRaw from 'rehype-raw';
-import remarkDeflist from 'remark-deflist';
-import remarkEmoji from 'remark-emoji';
-import remarkFlexibleContainers from 'remark-flexible-containers';
-import remarkFlexibleMarkers from 'remark-flexible-markers';
-import remarkGfm from 'remark-gfm';
-import remarkIns from 'remark-ins';
-import remarkMath from 'remark-math';
-import remarkSupersub from 'remark-supersub';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type {
   Note,
@@ -42,13 +26,11 @@ import type {
   CredentialData
 } from '@workspace/shared';
 
-import 'highlight.js/styles/github-dark.css';
-import 'katex/dist/katex.min.css';
-
 import { personalProjectsApi } from '@/api/journal';
 import { notesApi, credentialsApi, vaultApi } from '@/api/notes-vault';
 import { AppPage, AppPageContent } from '@/components/layout/app-page';
-import { useTheme } from '@/components/theme-provider';
+import { NoteEditor } from '@/components/notes/note-editor';
+import { NoteViewer } from '@/components/notes/note-viewer';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -95,59 +77,6 @@ const CREDENTIAL_TYPE_CONFIG: Record<CredentialType, { label: string; icon: type
   generic: { label: 'Generic', icon: Key }
 };
 
-// Memoized markdown components configuration
-const markdownComponents = {
-  h1: (props: React.ComponentProps<'h1'>) => <h1 className="text-3xl font-bold mt-6 mb-4" {...props} />,
-  h2: (props: React.ComponentProps<'h2'>) => <h2 className="text-2xl font-bold mt-5 mb-3" {...props} />,
-  h3: (props: React.ComponentProps<'h3'>) => <h3 className="text-xl font-bold mt-4 mb-2" {...props} />,
-  h4: (props: React.ComponentProps<'h4'>) => <h4 className="text-lg font-bold mt-3 mb-2" {...props} />,
-  h5: (props: React.ComponentProps<'h5'>) => <h5 className="text-base font-bold mt-2 mb-1" {...props} />,
-  h6: (props: React.ComponentProps<'h6'>) => <h6 className="text-sm font-bold mt-2 mb-1" {...props} />,
-  p: (props: React.ComponentProps<'p'>) => <p className="mb-4 leading-7" {...props} />,
-  ul: (props: React.ComponentProps<'ul'>) => <ul className="list-disc list-inside mb-4 space-y-2" {...props} />,
-  ol: (props: React.ComponentProps<'ol'>) => <ol className="list-decimal list-inside mb-4 space-y-2" {...props} />,
-  li: (props: React.ComponentProps<'li'>) => <li className="leading-7" {...props} />,
-  code: (props: React.ComponentProps<'code'>) => <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono" {...props} />,
-  pre: (props: React.ComponentProps<'pre'>) => <pre className="bg-muted p-4 rounded-lg overflow-x-auto mb-4 font-mono text-sm" {...props} />,
-  blockquote: (props: React.ComponentProps<'blockquote'>) => <blockquote className="border-l-4 border-primary pl-4 italic my-4" {...props} />,
-  a: (props: React.ComponentProps<'a'>) => <a className="text-blue-500 hover:text-blue-700 underline cursor-pointer" target="_blank" rel="noopener noreferrer" {...props} />,
-  table: (props: React.ComponentProps<'table'>) => <table className="w-full border-collapse my-4" {...props} />,
-  thead: (props: React.ComponentProps<'thead'>) => <thead className="bg-muted" {...props} />,
-  tbody: (props: React.ComponentProps<'tbody'>) => <tbody {...props} />,
-  tr: (props: React.ComponentProps<'tr'>) => <tr className="border-b" {...props} />,
-  th: (props: React.ComponentProps<'th'>) => <th className="border px-4 py-2 text-left font-semibold" {...props} />,
-  td: (props: React.ComponentProps<'td'>) => <td className="border px-4 py-2" {...props} />,
-  hr: (props: React.ComponentProps<'hr'>) => <hr className="my-8 border-border" {...props} />,
-  img: (props: React.ComponentProps<'img'>) => <img className="max-w-full h-auto rounded-lg my-4" {...props} />,
-  del: (props: React.ComponentProps<'del'>) => <del className="line-through opacity-60" {...props} />,
-  ins: (props: React.ComponentProps<'ins'>) => <ins className="decoration-green-500 underline bg-green-100 dark:bg-green-900/30" {...props} />,
-  mark: (props: React.ComponentProps<'mark'>) => <mark className="bg-yellow-200 dark:bg-yellow-900/40 px-1" {...props} />,
-  sup: (props: React.ComponentProps<'sup'>) => <sup className="text-[0.75em] relative -top-[0.5em]" {...props} />,
-  sub: (props: React.ComponentProps<'sub'>) => <sub className="text-[0.75em] relative top-[0.25em]" {...props} />,
-  dl: (props: React.ComponentProps<'dl'>) => <dl className="my-4" {...props} />,
-  dt: (props: React.ComponentProps<'dt'>) => <dt className="font-bold mt-2" {...props} />,
-  dd: (props: React.ComponentProps<'dd'>) => <dd className="ml-4 mb-2 text-muted-foreground" {...props} />,
-  input: (props: React.ComponentProps<'input'>) => {
-    if (props.type === 'checkbox') {
-      return <input className="mr-2 align-middle" {...props} />;
-    }
-    return <input {...props} />;
-  },
-};
-
-// Memoized remark/rehype plugin arrays to prevent recreation
-const remarkPlugins: Parameters<typeof Markdown>[0]['remarkPlugins'] = [
-  remarkGfm,
-  remarkMath,
-  remarkDeflist,
-  [remarkEmoji, { emoticon: true }], // Enable emoticon conversion :-) :D <3
-  remarkSupersub,           // H~2~O for subscript, x^2^ for superscript
-  remarkFlexibleMarkers,    // ==highlighted text==
-  remarkIns,                // ++inserted text++
-  remarkFlexibleContainers, // ::: note/warning/tip containers
-];
-const rehypePlugins = [rehypeRaw, rehypeHighlight, rehypeKatex];
-
 // ============================================================================
 // Hooks
 // ============================================================================
@@ -156,8 +85,6 @@ function useNotesData(projectFilter?: string) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [projects, setProjects] = useState<PersonalProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
-
   const [error, setError] = useState<string | null>(null);
   const [migrated, setMigrated] = useState(false);
 
@@ -263,179 +190,6 @@ function useVaultData() {
     refreshStatus: fetchStatus,
     setCredentials
   };
-}
-
-// ============================================================================
-// Note Editor Component
-// ============================================================================
-
-interface NoteEditorProps {
-  note: Note | null;
-  projects: PersonalProject[];
-  onSave: (id: string | null, data: { title: string; content: string; isPinned: boolean; projectId?: string }) => Promise<void>;
-  onClose: () => void;
-  // Called when the draft becomes dirty/clean
-  onDirtyChange?: (dirty: boolean) => void;
-  // Token to request a save action from parent; increment to request another save
-  saveRequestId?: number;
-  onSaveCompleted?: () => void;
-}
-
-function NoteEditor({ note, projects, onSave, onClose, onDirtyChange, saveRequestId, onSaveCompleted }: NoteEditorProps) {
-  const { theme } = useTheme();
-  const [title, setTitle] = useState(note?.title ?? '');
-  const [content, setContent] = useState(note?.content ?? '');
-  const [isPinned, setIsPinned] = useState(note?.isPinned ?? false);
-  const [projectId, setProjectId] = useState<string>(note?.projectId ?? 'none');
-  const [isSaving, setIsSaving] = useState(false);
-  const [previewMode, setPreviewMode] = useState(false);
-  const initialRef = React.useRef({ title: note?.title ?? '', content: note?.content ?? '', isPinned: note?.isPinned ?? false, projectId: note?.projectId ?? 'none' });
-  const dirty = title !== initialRef.current.title || content !== initialRef.current.content || isPinned !== initialRef.current.isPinned || projectId !== initialRef.current.projectId;
-
-  const editorTheme = useMemo(() => {
-    if (theme === 'dark') return 'dark';
-    if (theme === 'light') return 'light';
-    return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-  }, [theme]);
-
-  const extensions = useMemo(() => [markdown({ codeLanguages: languages })], []);
-
-  const handleSave = useCallback(async (closeAfterSave = true) => {
-    if (!title.trim()) return;
-    setIsSaving(true);
-    try {
-      await onSave(note?.id ?? null, {
-        title: title.trim(),
-        content,
-        isPinned,
-        projectId: projectId !== 'none' ? projectId : undefined
-      });
-
-      // Update initial snapshot after successful save
-      initialRef.current = { title: title.trim(), content, isPinned, projectId };
-      onDirtyChange?.(false);
-
-      if (closeAfterSave) onClose();
-    } finally {
-      setIsSaving(false);
-    }
-  }, [note?.id, title, content, isPinned, projectId, onSave, onClose, onDirtyChange]);
-
-  // Notify parent when draft becomes dirty/clean
-  useEffect(() => {
-    onDirtyChange?.(dirty);
-  }, [dirty, onDirtyChange]);
-
-  // Respond to parent's save token (save without closing)
-  useEffect(() => {
-    if (saveRequestId && saveRequestId > 0) {
-      // save without closing, then notify parent via callback
-      (async () => {
-        await handleSave(false);
-        onSaveCompleted?.();
-      })();
-    }
-  }, [saveRequestId, onSaveCompleted, handleSave]);
-
-  return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b">
-        <div className="flex items-center gap-2">
-          <Input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Note title..."
-            className="text-md font-semibold border-none shadow-none focus-visible:ring-0 px-0 h-auto"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsPinned(!isPinned)}
-            title={isPinned ? 'Unpin' : 'Pin'}
-          >
-            {isPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setPreviewMode(!previewMode)}
-            title={previewMode ? 'Edit' : 'Preview'}
-          >
-            {previewMode ? <Pencil className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          </Button>
-        </div>
-      </div>
-
-      {/* Metadata */}
-      <div className="px-4 py-2 border-b bg-muted/30">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Label className="text-xs text-muted-foreground">Project:</Label>
-            <Select value={projectId} onValueChange={setProjectId}>
-              <SelectTrigger className="h-7 w-40 text-xs">
-                <SelectValue placeholder="No project" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No project</SelectItem>
-                {projects.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </div>
-
-      {/* Editor/Preview */}
-      <div className="flex-1 overflow-hidden">
-        {previewMode ? (
-          <ScrollArea className="h-full">
-            <div className="p-6 prose prose-slate dark:prose-invert max-w-none note-preview">
-              <Markdown
-                remarkPlugins={remarkPlugins}
-                rehypePlugins={rehypePlugins}
-                components={markdownComponents}
-              >
-                {content || '*No content*'}
-              </Markdown>
-            </div>
-          </ScrollArea>
-        ) : (
-          <CodeMirror
-            value={content}
-            height="100%"
-            extensions={extensions}
-            onChange={setContent}
-            theme={editorTheme}
-            placeholder="Write your notes in Markdown..."
-            basicSetup={{
-              lineNumbers: false,
-              highlightActiveLineGutter: false,
-              foldGutter: false,
-              highlightActiveLine: false
-            }}
-            className="h-full note-editor"
-          />
-        )}
-      </div>
-
-      {/* Footer */}
-      <div className="flex items-center justify-end gap-2 p-4 border-t">
-        <Button variant="outline" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button onClick={() => handleSave()} disabled={isSaving || !title.trim()}>
-          {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-          Save
-        </Button>
-      </div>
-    </div>
-  );
 }
 
 // ============================================================================
@@ -934,6 +688,58 @@ export function NotesPage() {
   const [saveRequestId, setSaveRequestId] = useState(0);
   const [navigateAfterSave, setNavigateAfterSave] = useState(false);
 
+  // PiP window tracking - track which notes are open/editing in PiP windows
+  const [pipOpenNotes, setPipOpenNotes] = useState<Set<string>>(new Set());
+  const [pipEditingNotes, setPipEditingNotes] = useState<Set<string>>(new Set());
+
+  // Listen for PiP window messages via BroadcastChannel
+  useEffect(() => {
+    const channel = new BroadcastChannel('note-pip-channel');
+    
+    const handleMessage = (event: MessageEvent) => {
+      const { type, noteId, isEditing: pipEditing } = event.data;
+      
+      switch (type) {
+        case 'pip-opened':
+          setPipOpenNotes(prev => new Set(prev).add(noteId));
+          break;
+        case 'pip-closed':
+          setPipOpenNotes(prev => {
+            const next = new Set(prev);
+            next.delete(noteId);
+            return next;
+          });
+          setPipEditingNotes(prev => {
+            const next = new Set(prev);
+            next.delete(noteId);
+            return next;
+          });
+          break;
+        case 'pip-editing':
+          setPipEditingNotes(prev => {
+            const next = new Set(prev);
+            if (pipEditing) {
+              next.add(noteId);
+            } else {
+              next.delete(noteId);
+            }
+            return next;
+          });
+          break;
+        case 'note-updated':
+          // Refresh notes list when PiP updates a note
+          refetchNotes();
+          break;
+      }
+    };
+
+    channel.addEventListener('message', handleMessage);
+    return () => {
+      channel.removeEventListener('message', handleMessage);
+      channel.close();
+    };
+  }, [refetchNotes]);
+
   // Filtered notes
   const filteredNotes = useMemo(() => {
     if (!searchQuery) return notes;
@@ -956,6 +762,10 @@ export function NotesPage() {
           // Update selected note with fresh data from server
           if (savedNote?.note) {
             setSelectedNote(savedNote.note);
+            // Notify PiP windows about the update
+            const channel = new BroadcastChannel('note-pip-channel');
+            channel.postMessage({ type: 'note-updated', noteId: id });
+            channel.close();
           }
         } else {
           const savedNote = await notesApi.create(data);
@@ -997,6 +807,30 @@ export function NotesPage() {
       refetchNotes();
     }
   }, [deleteNoteId, selectedNote, setNotes, refetchNotes]);
+
+  // Handle Note Popout
+  const handlePopout = useCallback(() => {
+    if (!selectedNote) return;
+    
+    // If PiP is already open for this note, request focus via BroadcastChannel
+    if (pipOpenNotes.has(selectedNote.id)) {
+      const channel = new BroadcastChannel('note-pip-channel');
+      channel.postMessage({ type: 'request-focus', noteId: selectedNote.id });
+      channel.close();
+      return;
+    }
+    
+    const width = 800;
+    const height = 900;
+    const left = (window.screen.width - width) / 2;
+    const top = (window.screen.height - height) / 2;
+    
+    window.open(
+      `/popout/notes/${selectedNote.id}`,
+      `note_${selectedNote.id}`,
+      `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no`
+    );
+  }, [selectedNote, pipOpenNotes]);
 
   // Attempt to select a note; if editor is open with unsaved changes, prompt
   const attemptSelectNote = (note: Note | null) => {
@@ -1253,46 +1087,17 @@ export function NotesPage() {
                           setEditorDirty(false);
                         }
                       }}
+                      onPopout={handlePopout}
                     />
-                  ) : selectedNote ? (
-                    <div className="flex flex-col h-full">
-                      <div className="flex items-center justify-between p-4 border-b">
-                        <div className="flex items-center gap-2">
-                          {selectedNote.isPinned && <Pin className="h-4 w-4 text-primary" />}
-                          <h2 className="text-[14px] font-semibold">{selectedNote.title}</h2>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="icon" onClick={() => setIsEditing(true)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDeleteNoteId(selectedNote.id)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </div>
-                      <ScrollArea className="flex-1">
-                        <div className="p-6 prose prose-slate dark:prose-invert max-w-none">
-                          <Markdown
-                            remarkPlugins={remarkPlugins}
-                            rehypePlugins={rehypePlugins}
-                            components={markdownComponents}
-                          >
-                            {selectedNote.content || '*No content*'}
-                          </Markdown>
-                        </div>
-                      </ScrollArea>
-                    </div>
                   ) : (
-                    <div className="flex items-center justify-center h-full text-muted-foreground">
-                      <div className="text-center">
-                        <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                        <p>Select a note to view</p>
-                      </div>
-                    </div>
+                    <NoteViewer
+                      note={selectedNote}
+                      onEdit={() => setIsEditing(true)}
+                      onDelete={(id) => setDeleteNoteId(id)}
+                      onPopout={handlePopout}
+                      isPipOpen={selectedNote ? pipOpenNotes.has(selectedNote.id) : false}
+                      isPipEditing={selectedNote ? pipEditingNotes.has(selectedNote.id) : false}
+                    />
                   )}
                 </div>
               </div>
@@ -1300,7 +1105,7 @@ export function NotesPage() {
           </TabsContent>
 
           {/* Vault Tab */}
-          <TabsContent value="vault" className="flex-1 overflow-hidden m-0">
+          <TabsContent value="vault" className="flex-1 flex flex-col overflow-hidden m-0">
             {vaultLoading ? (
               <div className="flex-1 flex items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />

@@ -9,7 +9,7 @@ import { highlightSelectionMatches } from '@codemirror/search';
 import { EditorSelection } from '@codemirror/state';
 import { type EditorView } from '@codemirror/view';
 import CodeMirror from '@uiw/react-codemirror';
-import { Save, Search, SplitSquareHorizontal, X, ChevronDown, ChevronUp, Image, Film, Music, FileText } from 'lucide-react';
+import { Save, Search, SplitSquareHorizontal, Image, Film, Music, FileText } from 'lucide-react';
 import { useMemo, useRef, useEffect, useState, useCallback } from 'react';
 
 import { toHex, type MediaType } from '../utils';
@@ -20,6 +20,7 @@ import type { WorkspaceFilePreview, WorkspaceMediaPreview } from '@/types/deskto
 
 import { useTheme } from '@/components/theme-provider';
 import { Button } from '@/components/ui/button';
+import { ContentSearchBar, type ContentSearchBarRef } from '@/components/ui/content-search-bar';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useValidationSettings } from '@/contexts/validation-settings-context';
 import { detectISO20022, validateISO20022 } from '@/utils/iso20022-validator';
@@ -109,7 +110,7 @@ export const PreviewPanel = ({
   const [caseSensitive, setCaseSensitive] = useState(false);
   const [currentMatch, setCurrentMatch] = useState(0);
   const [totalMatches, setTotalMatches] = useState(0);
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchInputRef = useRef<ContentSearchBarRef>(null);
   
   const extensions = useMemo(() => {
     const exts = [highlightSelectionMatches()];
@@ -389,63 +390,18 @@ export const PreviewPanel = ({
               ) : editMode ? (
                 <div className="relative h-[500px]">
                   {searchOpen && (
-                    <div className="absolute top-2 right-2 z-10 bg-background border border-border rounded-md shadow-lg p-2 flex items-center gap-1">
-                      <input
-                        ref={searchInputRef}
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Find"
-                        className="w-48 px-2 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.shiftKey ? handlePrevious() : handleNext();
-                          }
-                        }}
-                      />
-                      <span className="text-xs text-muted-foreground px-1">
-                        {totalMatches > 0 ? `${currentMatch + 1}/${totalMatches}` : 'No results'}
-                      </span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0"
-                        onClick={handlePrevious}
-                        disabled={totalMatches === 0}
-                      >
-                        <ChevronUp className="size-3" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0"
-                        onClick={handleNext}
-                        disabled={totalMatches === 0}
-                      >
-                        <ChevronDown className="size-3" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className={`h-6 w-6 p-0 ${caseSensitive ? 'bg-primary/20 hover:bg-primary/30' : ''}`}
-                        onClick={() => setCaseSensitive(!caseSensitive)}
-                        title="Match Case"
-                      >
-                        <span className={`text-xs font-semibold ${caseSensitive ? 'text-primary' : 'text-muted-foreground'}`}>Aa</span>
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0"
-                        onClick={handleSearchToggle}
-                      >
-                        <X className="size-3" />
-                      </Button>
-                    </div>
+                    <ContentSearchBar
+                      ref={searchInputRef}
+                      query={searchQuery}
+                      onQueryChange={setSearchQuery}
+                      caseSensitive={caseSensitive}
+                      onCaseSensitiveChange={setCaseSensitive}
+                      onNext={handleNext}
+                      onPrevious={handlePrevious}
+                      onClose={handleSearchToggle}
+                      currentMatch={currentMatch}
+                      totalMatches={totalMatches}
+                    />
                   )}
                   <CodeMirror
                     value={editBuffer}
@@ -482,63 +438,18 @@ export const PreviewPanel = ({
               ) : (
                 <div className="relative h-[500px]">
                   {searchOpen && (
-                    <div className="absolute top-2 right-2 z-10 bg-background border border-border rounded-md shadow-lg p-2 flex items-center gap-1">
-                      <input
-                        ref={searchInputRef}
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Find"
-                        className="w-48 px-2 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.shiftKey ? handlePrevious() : handleNext();
-                          }
-                        }}
-                      />
-                      <span className="text-xs text-muted-foreground px-1">
-                        {totalMatches > 0 ? `${currentMatch + 1}/${totalMatches}` : 'No results'}
-                      </span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0"
-                        onClick={handlePrevious}
-                        disabled={totalMatches === 0}
-                      >
-                        <ChevronUp className="size-3" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0"
-                        onClick={handleNext}
-                        disabled={totalMatches === 0}
-                      >
-                        <ChevronDown className="size-3" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className={`h-6 w-6 p-0 ${caseSensitive ? 'bg-primary/20 hover:bg-primary/30' : ''}`}
-                        onClick={() => setCaseSensitive(!caseSensitive)}
-                        title="Match Case"
-                      >
-                        <span className={`text-xs font-semibold ${caseSensitive ? 'text-primary' : 'text-muted-foreground'}`}>Aa</span>
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0"
-                        onClick={handleSearchToggle}
-                      >
-                        <X className="size-3" />
-                      </Button>
-                    </div>
+                    <ContentSearchBar
+                      ref={searchInputRef}
+                      query={searchQuery}
+                      onQueryChange={setSearchQuery}
+                      caseSensitive={caseSensitive}
+                      onCaseSensitiveChange={setCaseSensitive}
+                      onNext={handleNext}
+                      onPrevious={handlePrevious}
+                      onClose={handleSearchToggle}
+                      currentMatch={currentMatch}
+                      totalMatches={totalMatches}
+                    />
                   )}
                   <CodeMirror
                     value={preview.content}
