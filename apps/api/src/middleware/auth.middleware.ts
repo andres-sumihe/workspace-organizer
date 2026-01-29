@@ -1,4 +1,5 @@
 import { modeAwareAuthProvider } from '../auth/mode-aware-auth.provider.js';
+import { modeService } from '../services/mode.service.js';
 import { sessionService } from '../services/session.service.js';
 import { authLogger } from '../utils/logger.js';
 
@@ -71,14 +72,28 @@ export const authMiddleware = async (
       return;
     }
 
-    const sessionInfo = await sessionService.getSessionInfo(user.id);
+    // Get mode and session config to determine if we should check session timeout
+    const mode = await modeService.getMode();
+    const sessionConfig = await sessionService.getConfig();
 
-    if (!sessionInfo || !sessionInfo.isActive) {
-      res.status(401).json({
-        code: 'SESSION_EXPIRED',
-        message: 'Session has expired or timed out due to inactivity'
-      });
-      return;
+    // Session Lock controls automatic session expiry:
+    // - When disabled: Session never expires automatically (user logs in once, stays logged in)
+    // - When enabled: Session will timeout after inactivity period
+    // This applies to ALL modes, not just Solo
+    const sessionLockEnabled = sessionConfig.enableSessionLock !== false;
+    
+    if (sessionLockEnabled && mode === 'solo') {
+      // Only check session timeout in Solo mode with session lock enabled
+      // In Shared mode, external auth systems handle session management
+      const sessionInfo = await sessionService.getSessionInfo(user.id);
+
+      if (!sessionInfo || !sessionInfo.isActive) {
+        res.status(401).json({
+          code: 'SESSION_EXPIRED',
+          message: 'Session has expired or timed out due to inactivity'
+        });
+        return;
+      }
     }
 
     // Attach user, permissions, and mode to request

@@ -107,7 +107,7 @@ const SmoothAlert = ({
 
 export const SettingsPage = () => {
   const { status: installationStatus, isLoading: installLoading, checkStatus } = useInstallation();
-  const { isSoloMode, isSharedMode, refreshAuth, sessionConfig, refreshSessionConfig } = useAuth();
+  const { isSoloMode, isSharedMode, refreshAuth, sessionConfig, refreshSessionConfig, isLoading: authLoading } = useAuth();
   const { refreshStatus } = useMode();
   const {
     criteria,
@@ -774,9 +774,9 @@ export const SettingsPage = () => {
                     <div className="flex items-center gap-3">
                       <Switch
                         id="session-lock"
-                        checked={sessionConfig?.enableSessionLock ?? true}
+                        checked={sessionConfig?.enableSessionLock !== false}
                         onCheckedChange={handleToggleSessionLock}
-                        disabled={isUpdatingSession}
+                        disabled={isUpdatingSession || authLoading || !sessionConfig}
                       />
                       <div className="space-y-1">
                         <Label htmlFor="session-lock" className="font-medium cursor-pointer">
@@ -784,8 +784,8 @@ export const SettingsPage = () => {
                         </Label>
                         <p className="text-xs text-muted-foreground">
                           When enabled, the application will lock automatically after 30 minutes of inactivity.
-                          You will need to enter your password to resume. Disabling this keeps your session active 
-                          as long as the browser window is open.
+                          You will need to enter your password to resume. When disabled, your session stays 
+                          active indefinitely after login (until you manually log out).
                         </p>
                       </div>
                     </div>
