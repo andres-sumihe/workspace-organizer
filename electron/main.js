@@ -612,7 +612,8 @@ ipcMain.handle('check-for-updates', async () => {
   try {
     // In dev, autoUpdater might not be fully configured, but we try anyway
     const result = await autoUpdater.checkForUpdates();
-    return { ok: true, result };
+    // Return only serializable data, not the full result which contains non-cloneable CancellationToken
+    return { ok: true, updateInfo: result?.updateInfo || null };
   } catch (err) {
     console.error('[Updater] Failed to check for updates:', err);
     return { ok: false, error: err.message };
