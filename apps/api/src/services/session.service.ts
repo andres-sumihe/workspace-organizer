@@ -30,10 +30,13 @@ const DEFAULT_CONFIG: SessionConfig = {
 export const sessionService = {
   /**
    * Get session configuration
+   * Always merges stored config with defaults to ensure all fields exist
    */
   async getConfig(): Promise<SessionConfig> {
-    const stored = await settingsRepository.get<SessionConfig>('session_config');
-    return stored?.value ?? DEFAULT_CONFIG;
+    const stored = await settingsRepository.get<Partial<SessionConfig>>('session_config');
+    // Merge defaults with stored config to ensure all fields exist
+    // Stored values take precedence over defaults
+    return { ...DEFAULT_CONFIG, ...(stored?.value ?? {}) };
   },
 
   /**

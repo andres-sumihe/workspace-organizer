@@ -1,6 +1,6 @@
 import { Briefcase, FolderGit2, LayoutDashboard, LineChart, Settings, FileCode, Loader2, Users, Wrench, BookOpen, StickyNote } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation, Outlet } from 'react-router-dom';
 
 import type { SidebarNavItem } from '@/components/layout/app-sidebar';
 
@@ -20,6 +20,7 @@ import { DashboardPage } from '@/pages/dashboard-page';
 import { InstallationPage } from '@/pages/installation-page';
 import { JournalPage } from '@/pages/journal-page';
 import { LoginPage } from '@/pages/login-page';
+import { NotePopoutPage } from '@/pages/note-popout-page';
 import { NotesPage } from '@/pages/notes-page';
 import { OvertimePage } from '@/pages/overtime-page';
 import { ProjectDetailPage } from '@/pages/project-detail-page';
@@ -130,7 +131,7 @@ function ProtectedRoutes() {
   return (
     <WorkspaceProvider>
       <FileManagerProvider>
-        <AppContent />
+        <Outlet />
       </FileManagerProvider>
     </WorkspaceProvider>
   );
@@ -311,7 +312,10 @@ export function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/recover" element={<RecoveryPage />} />
         {/* Protected routes - require installation and authentication */}
-        <Route path="/*" element={<ProtectedRoutes />} />
+        <Route element={<ProtectedRoutes />}>
+          <Route path="/popout/notes/:noteId" element={<NotePopoutPage />} />
+          <Route path="/*" element={<AppContent />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   );
