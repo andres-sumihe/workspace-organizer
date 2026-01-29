@@ -374,20 +374,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthError((event) => {
       /**
-       * Best practice session handling:
+       * Session Lock behavior:
        * 
-       * LOCK SCREEN (can unlock with password):
-       * - session_expired: User was idle too long, session timed out
-       * - User still exists and is valid, just needs to re-authenticate
+       * When DISABLED (enableSessionLock === false):
+       * - Session NEVER expires automatically
+       * - User logs in once on app open, stays logged in indefinitely
+       * - No auto-lock, no inactivity timeout
+       * - Applies to ALL modes
        * 
-       * FORCE LOGOUT (must go to login page):
+       * When ENABLED:
+       * - LOCK SCREEN (can unlock with password):
+       *   - session_expired: User was idle too long, session timed out
+       *   - User still exists and is valid, just needs to re-authenticate
+       * 
+       * FORCE LOGOUT (applies regardless of session lock setting):
        * - unauthorized: Token invalid, corrupted, or user doesn't exist
        * - User was deleted, deactivated, or token was tampered with
        */
-      if (event.type === 'session_expired' && state.user) {
-        // Session expired due to inactivity - show lock screen
+      const config = state.sessionConfig || DEFAULT_SESSION_CONFIG;
+      const sessionLockEnabled = config.enableSessionLock !== false;
+      
+      if (event.type === 'session_expired' && state.user && sessionLockEnabled) {
+        // Session expired due to inactivity AND session lock is enabled - show lock screen
         // User can re-enter password to continue
         setState((prev) => ({ ...prev, isLocked: true }));
+      } else if (event.type === 'session_expired' && !sessionLockEnabled) {
+        // Session expired but lock is disabled - this shouldn't happen normally
+        // but if it does, just refresh the token silently
+        tryRefreshToken();
       } else {
         // Unauthorized, invalid token, or no user context
         // Force full logout - must go to login page
@@ -405,12 +419,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return unsubscribe;
-  }, [state.user]);
+  }, [state.user, state.sessionConfig, tryRefreshToken]);
 
   // Setup heartbeat and inactivity check when authenticated
+  // Only active when session lock is enabled
   useEffect(() => {
+    const config = state.sessionConfig || DEFAULT_SESSION_CONFIG;
+    const sessionLockEnabled = config.enableSessionLock !== false;
+    
+    // Skip all activity tracking if session lock is disabled
+    // Session will stay active indefinitely once logged in
+    if (!sessionLockEnabled) {
+      return;
+    }
+    
     if (state.isAuthenticated && !state.isLocked && state.mode === 'solo') {
-      const config = state.sessionConfig || DEFAULT_SESSION_CONFIG;
 
       // Setup heartbeat interval
       heartbeatIntervalRef.current = setInterval(
