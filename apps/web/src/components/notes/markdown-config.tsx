@@ -15,14 +15,57 @@ import remarkSupersub from 'remark-supersub';
 import 'highlight.js/styles/github-dark.css';
 import 'katex/dist/katex.min.css';
 
+const extractText = (node: React.ReactNode): string => {
+  if (node === null || node === undefined) return '';
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(extractText).join('');
+  if (React.isValidElement(node)) return extractText(node.props.children);
+  return '';
+};
+
+const slugifyHeading = (node: React.ReactNode): string => {
+  const raw = extractText(node)
+    .trim()
+    .toLowerCase()
+    .replace(/["'`]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+  return raw;
+};
+
 // Memoized markdown components configuration
 export const markdownComponents = {
-  h1: (props: React.ComponentProps<'h1'>) => <h1 className="text-3xl font-bold mt-6 mb-4" {...props} />,
-  h2: (props: React.ComponentProps<'h2'>) => <h2 className="text-2xl font-bold mt-5 mb-3" {...props} />,
-  h3: (props: React.ComponentProps<'h3'>) => <h3 className="text-xl font-bold mt-4 mb-2" {...props} />,
-  h4: (props: React.ComponentProps<'h4'>) => <h4 className="text-lg font-bold mt-3 mb-2" {...props} />,
-  h5: (props: React.ComponentProps<'h5'>) => <h5 className="text-base font-bold mt-2 mb-1" {...props} />,
-  h6: (props: React.ComponentProps<'h6'>) => <h6 className="text-sm font-bold mt-2 mb-1" {...props} />,
+  h1: ({ id, children, ...props }: React.ComponentProps<'h1'>) => (
+    <h1 id={id ?? slugifyHeading(children)} className="text-3xl font-bold mt-6 mb-4" {...props}>
+      {children}
+    </h1>
+  ),
+  h2: ({ id, children, ...props }: React.ComponentProps<'h2'>) => (
+    <h2 id={id ?? slugifyHeading(children)} className="text-2xl font-bold mt-5 mb-3" {...props}>
+      {children}
+    </h2>
+  ),
+  h3: ({ id, children, ...props }: React.ComponentProps<'h3'>) => (
+    <h3 id={id ?? slugifyHeading(children)} className="text-xl font-bold mt-4 mb-2" {...props}>
+      {children}
+    </h3>
+  ),
+  h4: ({ id, children, ...props }: React.ComponentProps<'h4'>) => (
+    <h4 id={id ?? slugifyHeading(children)} className="text-lg font-bold mt-3 mb-2" {...props}>
+      {children}
+    </h4>
+  ),
+  h5: ({ id, children, ...props }: React.ComponentProps<'h5'>) => (
+    <h5 id={id ?? slugifyHeading(children)} className="text-base font-bold mt-2 mb-1" {...props}>
+      {children}
+    </h5>
+  ),
+  h6: ({ id, children, ...props }: React.ComponentProps<'h6'>) => (
+    <h6 id={id ?? slugifyHeading(children)} className="text-sm font-bold mt-2 mb-1" {...props}>
+      {children}
+    </h6>
+  ),
   p: (props: React.ComponentProps<'p'>) => <p className="mb-4 leading-7" {...props} />,
   ul: (props: React.ComponentProps<'ul'>) => <ul className="list-disc list-inside mb-4 space-y-2" {...props} />,
   ol: (props: React.ComponentProps<'ol'>) => <ol className="list-decimal list-inside mb-4 space-y-2" {...props} />,
@@ -30,7 +73,38 @@ export const markdownComponents = {
   code: (props: React.ComponentProps<'code'>) => <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono" {...props} />,
   pre: (props: React.ComponentProps<'pre'>) => <pre className="bg-muted p-4 rounded-lg overflow-x-auto mb-4 font-mono text-sm" {...props} />,
   blockquote: (props: React.ComponentProps<'blockquote'>) => <blockquote className="border-l-4 border-primary pl-4 italic my-4" {...props} />,
-  a: (props: React.ComponentProps<'a'>) => <a className="text-blue-500 hover:text-blue-700 underline cursor-pointer" target="_blank" rel="noopener noreferrer" {...props} />,
+  a: ({ href, onClick, ...props }: React.ComponentProps<'a'>) => {
+    const url = href ?? '';
+    const isExternal = /^(https?:|mailto:)/i.test(url);
+    const isAnchor = url.startsWith('#');
+    const target = isExternal ? '_blank' : undefined;
+    const rel = isExternal ? 'noopener noreferrer' : undefined;
+
+    const handleClick: React.MouseEventHandler<HTMLAnchorElement> = (event) => {
+      onClick?.(event);
+      if (event.defaultPrevented) return;
+
+      if (isAnchor) {
+        event.preventDefault();
+        const targetId = decodeURIComponent(url.slice(1));
+        const element = document.getElementById(targetId);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    };
+
+    return (
+      <a
+        className="text-blue-500 hover:text-blue-700 underline cursor-pointer"
+        href={href}
+        target={target}
+        rel={rel}
+        onClick={handleClick}
+        {...props}
+      />
+    );
+  },
   table: (props: React.ComponentProps<'table'>) => <table className="w-full border-collapse my-4" {...props} />,
   thead: (props: React.ComponentProps<'thead'>) => <thead className="bg-muted" {...props} />,
   tbody: (props: React.ComponentProps<'tbody'>) => <tbody {...props} />,
