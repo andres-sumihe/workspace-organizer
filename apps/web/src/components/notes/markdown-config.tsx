@@ -19,7 +19,10 @@ const extractText = (node: React.ReactNode): string => {
   if (node === null || node === undefined) return '';
   if (typeof node === 'string' || typeof node === 'number') return String(node);
   if (Array.isArray(node)) return node.map(extractText).join('');
-  if (React.isValidElement(node)) return extractText(node.props.children);
+  if (React.isValidElement(node)) {
+    const props = (node as React.ReactElement<{ children?: React.ReactNode }>).props;
+    return extractText(props.children);
+  }
   return '';
 };
 

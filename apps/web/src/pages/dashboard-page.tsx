@@ -1,10 +1,7 @@
 import {
-  Briefcase,
-  Calendar as CalendarIcon,
   CheckCircle2,
   DollarSign,
   Flame,
-  LayoutDashboard,
   Loader2,
   Plus,
   StickyNote,
@@ -15,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 
 import type { Note, OvertimeStatistics, PersonalProject, WorkLogEntry } from '@workspace/shared';
 
+import { ProductivityHeatmapCard } from '@/components/dashboard/productivity-heatmap-card';
 import { personalProjectsApi, workLogsApi } from '@/api/journal';
 import { notesApi } from '@/api/notes-vault';
 import { toolsApi } from '@/api/tools';
@@ -24,7 +22,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 export const DashboardPage = () => {
@@ -61,7 +58,7 @@ export const DashboardPage = () => {
       weekStart.setDate(today.getDate() - dist);
       const weekStartStr = weekStart.toISOString().split('T')[0];
 
-      // Calculate 60 days ago for Heatmap/Trends
+      // Calculate 60 days ago for Recent Activity & Stats
       const sixtyDaysAgo = new Date(today);
       sixtyDaysAgo.setDate(today.getDate() - 60);
       const sixtyDaysAgoStr = sixtyDaysAgo.toISOString().split('T')[0];
@@ -79,7 +76,7 @@ export const DashboardPage = () => {
       ] = await Promise.all([
         // Active Tasks (Todo/InProgress)
         workLogsApi.list({ status: ['todo', 'in_progress'] }),
-        // History (Last 60 days) for Heatmap & Stats
+        // Recent History (Last 60 days) for Stats/Recents
         workLogsApi.list({ from: sixtyDaysAgoStr }),
         // Active Projects
         personalProjectsApi.list({ status: ['active'] }),
@@ -108,7 +105,6 @@ export const DashboardPage = () => {
       let checkDate = new Date(today);
 
       // If no activity today, check yesterday to start streak counting?
-      // Or strict: must have activity today? Let's be lenient: if not today, check yesterday.
       if (!activityDates.has(todayStr)) {
         checkDate.setDate(checkDate.getDate() - 1);
       }
@@ -260,15 +256,7 @@ export const DashboardPage = () => {
         <div className="col-span-4 space-y-6">
 
           {/* 2. Productivity Heatmap */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Productivity Heatmap</CardTitle>
-              <CardDescription>Activity over the last 60 days</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ProductivityHeatmap logs={historyLogs} />
-            </CardContent>
-          </Card>
+          <ProductivityHeatmapCard />
 
           {/* 3. Active Focus */}
           <Card>
@@ -385,59 +373,6 @@ export const DashboardPage = () => {
 
 // --- Sub-components ---
 
-const ProductivityHeatmap = ({ logs }: { logs: WorkLogEntry[]; }) => {
-  // Generate last 60 days
-  const days = useMemo(() => {
-    const d = [];
-    const today = new Date();
-    for (let i = 59; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(today.getDate() - i);
-      d.push(date.toISOString().split('T')[0]);
-    }
-    return d;
-  }, []);
-
-  // Map counts
-  const counts = useMemo(() => {
-    const map = new Map<string, number>();
-    logs.forEach(l => {
-      map.set(l.date, (map.get(l.date) || 0) + 1);
-    });
-    return map;
-  }, [logs]);
-
-  const getColor = (count: number) => {
-    if (count === 0) return "bg-muted/40";
-    if (count <= 2) return "bg-green-200 dark:bg-green-900/40";
-    if (count <= 5) return "bg-green-400 dark:bg-green-700/60";
-    return "bg-green-600 dark:bg-green-500";
-  };
-
-  // Calculate grid columns to keep roughly 7 rows (weeks)
-  // 60 days ~ 9 weeks. 
-
-  return (
-    <div className="flex flex-wrap gap-1">
-      {days.map(date => {
-        const count = counts.get(date) || 0;
-        return (
-          <TooltipProvider key={date}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className={cn("w-3 h-3 rounded-[2px]", getColor(count))} />
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{date}: {count} tasks</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        );
-      })}
-    </div>
-  );
-};
-
 const RecentActivityList = ({ historyLogs, recentNotes }: { historyLogs: WorkLogEntry[], recentNotes: Note[]; }) => {
   // Combine and sort top 5 most recent items
   const items = useMemo(() => {
@@ -481,6 +416,7 @@ const RecentActivityList = ({ historyLogs, recentNotes }: { historyLogs: WorkLog
     </div>
   );
 };
+
 
 function DashboardSkeleton() {
   return (

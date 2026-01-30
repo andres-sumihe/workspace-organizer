@@ -131,6 +131,11 @@ export const apiRequest = async <TResponse>(
     throw new ApiError(message, response.status);
   }
 
+  // Handle 204 No Content responses (common for DELETE)
+  if (response.status === 204) {
+    return undefined as TResponse;
+  }
+
   return (await response.json()) as TResponse;
 };
 
