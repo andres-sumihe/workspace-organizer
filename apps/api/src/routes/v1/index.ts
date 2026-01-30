@@ -12,6 +12,7 @@ import { scriptsRouter } from './scripts.js';
 import { settingsRouter } from './settings.js';
 import { setupRouter } from './setup.js';
 import { tagsRouter } from './tags.js';
+import { taskUpdatesRouter } from './task-updates.js';
 import { teamConfigRouter } from './team-config.js';
 import { teamControlmJobsRouter } from './team-controlm-jobs.js';
 import { teamScriptsRouter } from './team-scripts.js';
@@ -49,6 +50,7 @@ v1Router.use('/tools/overtime', toolsOvertimeRouter);
 v1Router.use('/tags', tagsRouter);
 v1Router.use('/work-logs', workLogsRouter);
 v1Router.use('/personal-projects', personalProjectsRouter);
+v1Router.use('/task-updates', taskUpdatesRouter);
 
 // Notes & Vault routes - always available (local data only)
 v1Router.use('/notes', notesRouter);

@@ -19,6 +19,7 @@ import * as migration0018 from './0018-create-personal-projects.js';
 import * as migration0019 from './0019-create-notes-credentials.js';
 import * as migration0020 from './0020-add-recovery-key-hash.js';
 import * as migration0021 from './0021-add-project-folder-path.js';
+import * as migration0022 from './0022-create-task-updates.js';
 
 import type Database from 'better-sqlite3';
 
@@ -48,7 +49,8 @@ const migrations: Migration[] = [
   { id: migration0018.id, up: migration0018.up },
   { id: migration0019.id, up: migration0019.up },
   { id: migration0020.id, up: migration0020.up },
-  { id: migration0021.id, up: migration0021.up }
+  { id: migration0021.id, up: migration0021.up },
+  { id: migration0022.id, up: migration0022.up }
 ];
 
 export const runMigrations = async (db: Database.Database) => {
