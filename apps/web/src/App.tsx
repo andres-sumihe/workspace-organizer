@@ -1,4 +1,4 @@
-import { Briefcase, FolderGit2, LayoutDashboard, LineChart, Settings, FileCode, Loader2, Users, Wrench, BookOpen, StickyNote } from 'lucide-react';
+import { Briefcase, FolderGit2, LayoutDashboard, Settings, FileCode, Loader2, Users, Wrench, BookOpen, StickyNote } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation, Outlet } from 'react-router-dom';
 
@@ -6,7 +6,6 @@ import type { SidebarNavItem } from '@/components/layout/app-sidebar';
 
 import { AboutDialog } from '@/components/about-dialog';
 import { LockScreen } from '@/components/lock-screen';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { UpdateChecker } from '@/components/update-checker';
 import { UpdateNotifier } from '@/components/update-notifier';
 import { useAuth } from '@/contexts/auth-context';
@@ -32,58 +31,6 @@ import { SetupPage } from '@/pages/setup-page';
 import { TeamPage } from '@/pages/team-page';
 import { WorkspaceDetailPage } from '@/pages/workspace-detail-page';
 import { WorkspacesPage } from '@/pages/workspaces-page';
-
-type AppPage = 'dashboard' | 'workspaces' | 'files' | 'scripts' | 'templates' | 'analytics' | 'settings' | 'system';
-
-const placeholderCopy: Record<AppPage, { title: string; description: string }> = {
-  dashboard: {
-    title: 'Dashboard',
-    description: 'Executive overview summarising workspace health and operational metrics.',
-  },
-  workspaces: {
-    title: 'Workspaces',
-    description: 'Manage workspace inventory, indexing cadence, and template associations.',
-  },
-  analytics: {
-    title: 'Analytics',
-    description: 'Visualise adoption, usage trends, and automation coverage across workspaces.',
-  },
-  files: {
-    title: 'Files',
-    description: 'Inspect and operate on workspace files directly from the desktop shell.',
-  },
-  scripts: {
-    title: 'Batch Scripts',
-    description: 'Track and manage batch scripts with drive mapping conflict detection.',
-  },
-  templates: {
-    title: 'Templates',
-    description: 'Capture folder structures once and reuse them for new projects.',
-  },
-  settings: {
-    title: 'Settings',
-    description: 'Configure application settings and validation criteria.',
-  },
-  system: {
-    title: 'System',
-    description: 'Configure connectors, notifications, and integration policies.',
-  },
-};
-
-const renderPlaceholder = (page: AppPage) => {
-  const copy = placeholderCopy[page];
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{copy.title}</CardTitle>
-        <CardDescription>{copy.description}</CardDescription>
-      </CardHeader>
-      <CardContent className="text-sm text-muted-foreground">
-        Delivery for this module is scheduled in an upcoming milestone. Track the roadmap for availability updates.
-      </CardContent>
-    </Card>
-  );
-};
 
 function LoadingScreen() {
   return (
@@ -143,10 +90,10 @@ function AppContent() {
   const { isSoloMode } = useAuth();
   const [aboutOpen, setAboutOpen] = useState(false);
   const [updateCheckerOpen, setUpdateCheckerOpen] = useState(false);
-  
+
   // Store the last visited workspace route so we can return to it
   const lastWorkspaceRoute = useRef<string>('/workspaces');
-  
+
   // Update last workspace route when on a workspace page
   useEffect(() => {
     if (location.pathname.startsWith('/workspaces/')) {
@@ -159,7 +106,7 @@ function AppContent() {
     'open-workspace-root': async () => {
       try {
         if (window.api?.invokeMainAction) {
-          const result = await window.api.invokeMainAction('open-workspace-root', {}) as { canceled?: boolean; path?: string };
+          const result = await window.api.invokeMainAction('open-workspace-root', {}) as { canceled?: boolean; path?: string; };
           if (result?.path) {
             console.log('Selected workspace root:', result.path);
             navigate('/workspaces');
@@ -198,9 +145,9 @@ function AppContent() {
       { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { key: 'workspaces', label: 'Workspaces', icon: FolderGit2 },
       { key: 'projects', label: 'Projects', icon: Briefcase },
-      { 
-        key: 'scripts', 
-        label: 'Scripts', 
+      {
+        key: 'scripts',
+        label: 'Scripts',
         icon: FileCode,
         // Visual hint that this is a team feature
         badge: isSoloMode ? 'Team' : undefined
@@ -209,15 +156,14 @@ function AppContent() {
       ...(!isSoloMode ? [{ key: 'teams', label: 'Teams', icon: Users }] : []),
       { key: 'journal', label: 'Journal', icon: BookOpen },
       { key: 'notes', label: 'Notes & Vault', icon: StickyNote },
-      { 
-        key: 'tools', 
-        label: 'Tools', 
+      {
+        key: 'tools',
+        label: 'Tools',
         icon: Wrench,
         subItems: [
           { key: 'overtime', label: 'Overtime' }
         ]
       },
-      { key: 'analytics', label: 'Analytics', icon: LineChart },
       { key: 'settings', label: 'Settings', icon: Settings },
     ],
     [isSoloMode]
@@ -233,7 +179,8 @@ function AppContent() {
     if (path.startsWith('/journal')) return 'journal';
     if (path.startsWith('/notes')) return 'notes';
     if (path.startsWith('/tools')) return 'tools';
-    if (path.startsWith('/analytics')) return 'analytics';
+    if (path.startsWith('/notes')) return 'notes';
+    if (path.startsWith('/tools')) return 'tools';
     if (path.startsWith('/settings')) return 'settings';
     return 'dashboard';
   };
@@ -253,50 +200,49 @@ function AppContent() {
         activeSidebarKey={getActiveKey()}
         activeSidebarSubKey={getActiveSubKey()}
         onNavigate={(key, subKey) => {
-        if (key === 'workspaces') {
-          // Navigate to last visited workspace route (or list if none)
-          navigate(lastWorkspaceRoute.current);
-        } else if (key === 'tools' && subKey) {
-          // Navigate to tools sub-page
-          const toolsRoutes: Record<string, string> = {
-            overtime: '/tools/overtime'
-          };
-          navigate(toolsRoutes[subKey] || '/tools');
-        } else {
-          const routes: Record<string, string> = {
-            dashboard: '/',
-            projects: '/projects',
-            scripts: '/scripts',
-            teams: '/teams',
-            journal: '/journal',
-            notes: '/notes',
-            tools: '/tools',
-            analytics: '/analytics',
-            settings: '/settings'
-          };
-          navigate(routes[key] || '/');
-        }
-      }}
-      connectionLabel="Connected to workspace datastore"
-    >
-      <Routes>
-        <Route path="/" element={<DashboardPage />} />
-        <Route path="/workspaces" element={<WorkspacesPage />} />
-        <Route path="/workspaces/:workspaceId" element={<WorkspaceDetailPage />} />
-        <Route path="/workspaces/:workspaceId/:tab" element={<WorkspaceDetailPage />} />
-        <Route path="/projects" element={<ProjectsPage />} />
-        <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
-        <Route path="/scripts" element={<ScriptsPage />} />
-        <Route path="/scripts/:scriptId" element={<ScriptsPage />} />
-        <Route path="/teams" element={<TeamPage />} />
-        <Route path="/journal" element={<JournalPage />} />
-        <Route path="/notes" element={<NotesPage />} />
-        <Route path="/tools/overtime" element={<OvertimePage />} />
-        <Route path="/analytics" element={renderPlaceholder('analytics')} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </AuthenticatedLayout>
+          if (key === 'workspaces') {
+            // Navigate to last visited workspace route (or list if none)
+            navigate(lastWorkspaceRoute.current);
+          } else if (key === 'tools' && subKey) {
+            // Navigate to tools sub-page
+            const toolsRoutes: Record<string, string> = {
+              overtime: '/tools/overtime'
+            };
+            navigate(toolsRoutes[subKey] || '/tools');
+          } else {
+            const routes: Record<string, string> = {
+              dashboard: '/',
+              projects: '/projects',
+              scripts: '/scripts',
+              teams: '/teams',
+              journal: '/journal',
+              notes: '/notes',
+              tools: '/tools',
+              analytics: '/analytics',
+              settings: '/settings'
+            };
+            navigate(routes[key] || '/');
+          }
+        }}
+        connectionLabel="Connected to workspace datastore"
+      >
+        <Routes>
+          <Route path="/" element={<DashboardPage />} />
+          <Route path="/workspaces" element={<WorkspacesPage />} />
+          <Route path="/workspaces/:workspaceId" element={<WorkspaceDetailPage />} />
+          <Route path="/workspaces/:workspaceId/:tab" element={<WorkspaceDetailPage />} />
+          <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
+          <Route path="/scripts" element={<ScriptsPage />} />
+          <Route path="/scripts/:scriptId" element={<ScriptsPage />} />
+          <Route path="/teams" element={<TeamPage />} />
+          <Route path="/journal" element={<JournalPage />} />
+          <Route path="/notes" element={<NotesPage />} />
+          <Route path="/tools/overtime" element={<OvertimePage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AuthenticatedLayout>
     </>
   );
 }
