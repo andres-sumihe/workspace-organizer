@@ -1226,6 +1226,11 @@ export type WorkLogStatus = 'todo' | 'in_progress' | 'done' | 'blocked';
 export type WorkLogPriority = 'low' | 'medium' | 'high';
 
 /**
+ * Flags for task status indicators.
+ */
+export type TaskUpdateFlag = 'blocked' | 'needs_confirmation' | 'urgent' | 'on_hold' | 'waiting_feedback';
+
+/**
  * Global tag entity - reusable across multiple features (work logs, projects, etc.)
  */
 export interface Tag {
@@ -1245,6 +1250,7 @@ export interface WorkLogEntry {
   content: string; // Markdown supported description
   status: WorkLogStatus;
   priority?: WorkLogPriority;
+  flags?: TaskUpdateFlag[]; // Quick status indicators
 
   // Task Planning Fields
   startDate?: string; // ISO8601 (Planned Start)
@@ -1279,6 +1285,7 @@ export interface CreateWorkLogRequest {
   content: string;
   status?: WorkLogStatus;
   priority?: WorkLogPriority;
+  flags?: TaskUpdateFlag[];
   startDate?: string;
   dueDate?: string;
   projectId?: string;
@@ -1293,6 +1300,7 @@ export interface UpdateWorkLogRequest {
   content?: string;
   status?: WorkLogStatus;
   priority?: WorkLogPriority;
+  flags?: TaskUpdateFlag[];
   startDate?: string;
   dueDate?: string;
   actualEndDate?: string;
@@ -1329,6 +1337,57 @@ export interface WorkLogListResponse {
  */
 export interface WorkLogResponse {
   entry: WorkLogEntry;
+}
+
+// ============================================================================
+// Task Updates Types
+// ============================================================================
+
+/**
+ * Entity type for polymorphic task updates.
+ */
+export type TaskUpdateEntityType = 'work_log' | 'personal_project';
+
+/**
+ * A timestamped progress note/update for a task.
+ */
+export interface TaskUpdate {
+  id: string;
+  entityType: TaskUpdateEntityType;
+  entityId: string;
+  content: string; // Markdown supported
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Request to create a new task update.
+ */
+export interface CreateTaskUpdateRequest {
+  entityType: TaskUpdateEntityType;
+  entityId: string;
+  content: string;
+}
+
+/**
+ * Request to update an existing task update.
+ */
+export interface UpdateTaskUpdateRequest {
+  content: string;
+}
+
+/**
+ * Response containing a list of task updates.
+ */
+export interface TaskUpdateListResponse {
+  items: TaskUpdate[];
+}
+
+/**
+ * Response containing a single task update.
+ */
+export interface TaskUpdateResponse {
+  update: TaskUpdate;
 }
 
 /**

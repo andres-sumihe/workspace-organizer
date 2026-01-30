@@ -2,7 +2,7 @@ import { taggingsRepository } from './taggings.repository.js';
 import { tagsRepository } from './tags.repository.js';
 import { getDb } from '../db/client.js';
 
-import type { WorkLogEntry, WorkLogStatus, WorkLogPriority, Tag, PersonalProjectSummary } from '@workspace/shared';
+import type { WorkLogEntry, WorkLogStatus, WorkLogPriority, Tag, PersonalProjectSummary, TaskUpdateFlag } from '@workspace/shared';
 
 interface WorkLogRow {
   id: string;
@@ -14,6 +14,7 @@ interface WorkLogRow {
   due_date: string | null;
   actual_end_date: string | null;
   project_id: string | null;
+  flags: string;
   created_at: string;
   updated_at: string;
 }
@@ -47,6 +48,15 @@ const isProjectRow = (value: unknown): value is ProjectRow => {
   );
 };
 
+const parseFlags = (flagsJson: string): TaskUpdateFlag[] => {
+  try {
+    const parsed = JSON.parse(flagsJson);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
 const mapRowToEntry = (row: WorkLogRow, tags: Tag[], project?: PersonalProjectSummary): WorkLogEntry => ({
   id: row.id,
   date: row.date,
@@ -59,6 +69,7 @@ const mapRowToEntry = (row: WorkLogRow, tags: Tag[], project?: PersonalProjectSu
   projectId: row.project_id ?? undefined,
   project,
   tags,
+  flags: parseFlags(row.flags),
   createdAt: row.created_at,
   updatedAt: row.updated_at
 });
@@ -72,6 +83,7 @@ export interface CreateWorkLogData {
   startDate?: string;
   dueDate?: string;
   projectId?: string;
+  flags?: TaskUpdateFlag[];
 }
 
 export interface UpdateWorkLogData {
@@ -83,6 +95,7 @@ export interface UpdateWorkLogData {
   dueDate?: string;
   actualEndDate?: string;
   projectId?: string;
+  flags?: TaskUpdateFlag[];
 }
 
 export interface ListWorkLogsParams {
@@ -103,8 +116,8 @@ export const workLogsRepository = {
     const db = await getDb();
 
     db.prepare(
-      `INSERT INTO work_logs (id, date, content, status, priority, start_date, due_date, project_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO work_logs (id, date, content, status, priority, start_date, due_date, project_id, flags)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       data.id,
       data.date,
@@ -113,7 +126,8 @@ export const workLogsRepository = {
       data.priority ?? null,
       data.startDate ?? null,
       data.dueDate ?? null,
-      data.projectId ?? null
+      data.projectId ?? null,
+      JSON.stringify(data.flags ?? [])
     );
 
     const entry = await this.getById(data.id);
@@ -256,6 +270,10 @@ export const workLogsRepository = {
     if (data.projectId !== undefined) {
       updates.push('project_id = ?');
       params.push(data.projectId || null);
+    }
+    if (data.flags !== undefined) {
+      updates.push('flags = ?');
+      params.push(JSON.stringify(data.flags));
     }
 
     if (updates.length === 0) {
