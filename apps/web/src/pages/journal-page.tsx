@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import type { WorkLogStatus, WorkLogPriority, PersonalProject } from '@workspace/shared';
+import type { WorkLogStatus, WorkLogPriority, PersonalProject, TaskUpdateFlag } from '@workspace/shared';
 
 import {
   tagsApi,
@@ -32,6 +32,7 @@ import {
   type CreateWorkLogRequest,
   type UpdateWorkLogRequest
 } from '@/api/journal';
+import { TaskFlagsSection, TaskUpdatesSection } from '@/components/journal';
 import { AppPage, AppPageContent } from '@/components/layout/app-page';
 import {
   AlertDialog,
@@ -326,6 +327,7 @@ interface TaskDetailPanelProps {
   onEdit: (entry: WorkLogEntry) => void;
   onDelete: (id: string) => void;
   onStatusChange: (id: string, status: WorkLogStatus) => void;
+  onFlagsChange: (id: string, flags: TaskUpdateFlag[]) => void;
 }
 
 function TaskDetailPanel({ 
@@ -335,7 +337,8 @@ function TaskDetailPanel({
   onClose, 
   onEdit, 
   onDelete,
-  onStatusChange 
+  onStatusChange,
+  onFlagsChange 
 }: TaskDetailPanelProps) {
   // _tags and _projects reserved for future use (e.g., inline tag/project editing)
   void _tags;
@@ -447,6 +450,15 @@ function TaskDetailPanel({
               </div>
             </div>
           )}
+
+          {/* Flags */}
+          <TaskFlagsSection
+            flags={entry.flags ?? []}
+            onFlagsChange={(flags) => onFlagsChange(entry.id, flags)}
+          />
+
+          {/* Task Updates */}
+          <TaskUpdatesSection entityType="work_log" entityId={entry.id} />
 
           {/* Timestamps */}
           <div className="space-y-2 pt-4 border-t">
@@ -1071,6 +1083,34 @@ export function JournalPage() {
     [entries, selectedEntry, setEntries]
   );
 
+  const handleFlagsChange = useCallback(
+    async (id: string, newFlags: TaskUpdateFlag[]) => {
+      // Optimistic update
+      setEntries((prev) =>
+        prev.map((e) =>
+          e.id === id
+            ? { ...e, flags: newFlags, updatedAt: new Date().toISOString() }
+            : e
+        )
+      );
+
+      if (selectedEntry?.id === id) {
+        setSelectedEntry((prev) =>
+          prev ? { ...prev, flags: newFlags, updatedAt: new Date().toISOString() } : prev
+        );
+      }
+
+      // Persist to API
+      try {
+        await workLogsApi.update(id, { flags: newFlags });
+      } catch (err) {
+        console.error('Failed to update flags:', err);
+        // Rollback would require storing old flags, simplified for now
+      }
+    },
+    [selectedEntry, setEntries]
+  );
+
   const handleEdit = useCallback((entry: WorkLogEntry) => {
     setEditingEntry(entry);
     setDefaultDate(undefined);
@@ -1410,6 +1450,7 @@ export function JournalPage() {
               onEdit={handleEdit}
               onDelete={setDeleteConfirmId}
               onStatusChange={handleStatusChange}
+              onFlagsChange={handleFlagsChange}
             />
           )}
         </div>

@@ -36,7 +36,8 @@ export const workLogsService = {
       priority: request.priority,
       startDate: request.startDate,
       dueDate: request.dueDate,
-      projectId: request.projectId
+      projectId: request.projectId,
+      flags: request.flags
     };
 
     const entry = await workLogsRepository.create(data);
@@ -89,6 +90,7 @@ export const workLogsService = {
     if (request.dueDate !== undefined) data.dueDate = request.dueDate;
     if (request.actualEndDate !== undefined) data.actualEndDate = request.actualEndDate;
     if (request.projectId !== undefined) data.projectId = request.projectId;
+    if (request.flags !== undefined) data.flags = request.flags;
 
     // Update entry fields
     await workLogsRepository.update(id, data);

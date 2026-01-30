@@ -19,7 +19,13 @@ import type {
   PersonalProjectResponse,
   PersonalProjectDetailResponse,
   CreatePersonalProjectRequest,
-  UpdatePersonalProjectRequest
+  UpdatePersonalProjectRequest,
+  TaskUpdate,
+  TaskUpdateListResponse,
+  TaskUpdateResponse,
+  CreateTaskUpdateRequest,
+  UpdateTaskUpdateRequest,
+  TaskUpdateEntityType
 } from '@workspace/shared';
 
 // ============================================================================
@@ -188,17 +194,59 @@ export const personalProjectsApi = {
     })
 };
 
+// ============================================================================
+// Task Updates API
+// ============================================================================
+
+export const taskUpdatesApi = {
+  /**
+   * List task updates for an entity
+   */
+  listByEntity: (entityType: TaskUpdateEntityType, entityId: string) =>
+    apiClient.get<TaskUpdateListResponse>('/api/v1/task-updates', {
+      query: { entityType, entityId }
+    }),
+
+  /**
+   * Get a task update by ID
+   */
+  getById: (id: string) => apiClient.get<TaskUpdateResponse>(`/api/v1/task-updates/${id}`),
+
+  /**
+   * Create a new task update
+   */
+  create: (data: CreateTaskUpdateRequest) =>
+    apiClient.post<TaskUpdateResponse>('/api/v1/task-updates', data),
+
+  /**
+   * Update a task update
+   */
+  update: (id: string, data: UpdateTaskUpdateRequest) =>
+    apiClient.put<TaskUpdateResponse>(`/api/v1/task-updates/${id}`, data),
+
+  /**
+   * Delete a task update
+   */
+  delete: async (id: string): Promise<void> => {
+    await apiClient.delete(`/api/v1/task-updates/${id}`);
+  }
+};
+
 // Re-export types for convenience
 export type { 
   Tag, 
   WorkLogEntry, 
   PersonalProject,
   PersonalProjectDetail,
+  TaskUpdate,
+  TaskUpdateEntityType,
   CreateTagRequest, 
   UpdateTagRequest, 
   CreateWorkLogRequest, 
   UpdateWorkLogRequest, 
   RolloverWorkLogsRequest,
   CreatePersonalProjectRequest,
-  UpdatePersonalProjectRequest
+  UpdatePersonalProjectRequest,
+  CreateTaskUpdateRequest,
+  UpdateTaskUpdateRequest
 };
