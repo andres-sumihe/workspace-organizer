@@ -7,7 +7,7 @@ import {
   Trash2,
   MonitorSmartphone
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Markdown from 'react-markdown';
 
 import type { Note } from '@workspace/shared';
