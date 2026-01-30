@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, clipboard, protocol, net, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, clipboard, protocol, net, Menu, shell } = require('electron');
 const path = require('path');
 const http = require('http');
 const url = require('url');
@@ -533,6 +533,28 @@ function createWindow() {
   // Show window when ready to prevent white flash
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+  });
+
+  // Handle external links (target="_blank") to open in default browser
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https:') || url.startsWith('http:') || url.startsWith('mailto:')) {
+      shell.openExternal(url);
+      return { action: 'deny' };
+    }
+    return { action: 'allow' };
+  });
+
+  // Handle direct navigation to external links (if any)
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    // Check if the URL is internal to the app or external
+    const isExternal = url.startsWith('http:') || url.startsWith('https:') || url.startsWith('mailto:');
+    const isAppUrl = url.startsWith('http://127.0.0.1') || url.startsWith('app://');
+    
+    // Only intercept if it's external AND not the local dev server or app protocol
+    if (isExternal && !isAppUrl) {
+      event.preventDefault();
+      shell.openExternal(url);
+    }
   });
 
   const devUrl = 'http://127.0.0.1:5173';
