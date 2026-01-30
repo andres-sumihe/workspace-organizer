@@ -37,6 +37,7 @@ export const personalProjectsService = {
       businessProposalId: data.businessProposalId,
       changeId: data.changeId,
       notes: data.notes,
+      folderPath: data.folderPath,
       workspaceId: data.workspaceId
     });
 

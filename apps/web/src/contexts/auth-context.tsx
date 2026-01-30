@@ -406,15 +406,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Unauthorized, invalid token, or no user context
         // Force full logout - must go to login page
         clearTokens();
-        setState({
+        setState((prev) => ({
           user: null,
           permissions: [],
           isAuthenticated: false,
           isLoading: false,
           mode: 'solo',
           isLocked: false,
-          sessionConfig: null,
-        });
+          // Preserve sessionConfig since it's server-wide, not user-specific
+          sessionConfig: prev.sessionConfig,
+        }));
       }
     });
 

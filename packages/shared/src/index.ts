@@ -1153,6 +1153,14 @@ export interface LocalUserResetRequest {
 export type OvertimeDayType = 'workday' | 'holiday_weekend';
 
 /**
+ * Aggregated statistics for overtime.
+ */
+export interface OvertimeStatistics {
+  totalHours: number;
+  totalPay: number;
+}
+
+/**
  * Settings for Tools features, stored under "tools.general" key.
  * baseSalary is the monthly salary used to calculate overtime pay.
  */

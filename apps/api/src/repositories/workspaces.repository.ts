@@ -99,7 +99,14 @@ export interface ListWorkspacesParams {
 
 export const listWorkspaces = async ({ limit, offset }: ListWorkspacesParams): Promise<WorkspaceSummary[]> => {
   const db = await getDb();
-  const rowsRaw: unknown = db.prepare('SELECT * FROM workspaces ORDER BY name LIMIT ? OFFSET ?').all(
+  const rowsRaw: unknown = db.prepare(`
+    SELECT 
+      w.*,
+      (SELECT COUNT(*) FROM personal_projects p WHERE p.workspace_id = w.id) as project_count
+    FROM workspaces w 
+    ORDER BY w.name 
+    LIMIT ? OFFSET ?
+  `).all(
     limit,
     offset
   );
@@ -130,7 +137,13 @@ export const countWorkspaces = async (): Promise<number> => {
 
 export const findWorkspaceById = async (id: string): Promise<WorkspaceDetail | null> => {
   const db = await getDb();
-  const row: unknown = db.prepare('SELECT * FROM workspaces WHERE id = ?').get(id);
+  const row: unknown = db.prepare(`
+    SELECT 
+      w.*,
+      (SELECT COUNT(*) FROM personal_projects p WHERE p.workspace_id = w.id) as project_count
+    FROM workspaces w
+    WHERE w.id = ?
+  `).get(id);
 
   if (!isWorkspaceSummaryRow(row)) {
     return null;

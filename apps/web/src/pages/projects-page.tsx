@@ -221,13 +221,13 @@ function ProjectRow({ project, workspaces, onEdit, onDelete, onViewFiles }: Proj
         </Badge>
       </TableCell>
       <TableCell>
-        {workspace ? (
+        {(workspace || project.folderPath) ? (
           <Button
             variant="ghost"
             size="sm"
             className="h-auto py-1 px-2 gap-1 text-xs"
             onClick={() => onViewFiles(project.id)}
-            title={`Workspace: ${workspace.name}`}
+            title={workspace ? `Workspace: ${workspace.name}` : `Folder: ${project.folderPath}`}
           >
             <FolderOpen className="h-3 w-3" />
             Files
