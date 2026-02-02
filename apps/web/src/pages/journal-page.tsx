@@ -319,172 +319,188 @@ function KanbanColumn({ status, index, entries, selectedEntry, onSelectEntry }: 
   );
 }
 
-interface TaskDetailPanelProps {
-  entry: WorkLogEntry;
+interface TaskDetailModalProps {
+  entry: WorkLogEntry | undefined;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   tags: Tag[];
   projects: PersonalProject[];
-  onClose: () => void;
   onEdit: (entry: WorkLogEntry) => void;
   onDelete: (id: string) => void;
   onStatusChange: (id: string, status: WorkLogStatus) => void;
   onFlagsChange: (id: string, flags: TaskUpdateFlag[]) => void;
 }
 
-function TaskDetailPanel({ 
-  entry, 
+function TaskDetailModal({ 
+  entry,
+  open,
+  onOpenChange,
   tags: _tags, 
   projects: _projects,
-  onClose, 
   onEdit, 
   onDelete,
   onStatusChange,
   onFlagsChange 
-}: TaskDetailPanelProps) {
+}: TaskDetailModalProps) {
   // _tags and _projects reserved for future use (e.g., inline tag/project editing)
   void _tags;
   void _projects;
+
+  if (!entry) return null;
+
   const statusConfig = STATUS_CONFIG[entry.status];
   const StatusIcon = statusConfig.icon;
 
   return (
-    <div className="w-[400px] shadow-[-4px_0_12px_rgba(0,0,0,0.1)] dark:shadow-[-4px_0_12px_rgba(0,0,0,0.5)] bg-card flex flex-col h-full z-20">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b">
-        <h3 className="font-semibold">Task Details</h3>
-        <Button variant="ghost" size="icon" onClick={onClose}>
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
-
-      {/* Content */}
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-6">
-          {/* Status */}
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground uppercase">Status</Label>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full justify-start gap-2">
-                  <StatusIcon className={`h-4 w-4 ${statusConfig.color}`} />
-                  {statusConfig.label}
-                  <ChevronDown className="h-4 w-4 ml-auto" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-48">
-                {(Object.entries(STATUS_CONFIG) as [WorkLogStatus, typeof statusConfig][]).map(
-                  ([s, c]) => (
-                    <DropdownMenuItem
-                      key={s}
-                      onClick={() => onStatusChange(entry.id, s)}
-                      className="gap-2"
-                    >
-                      <c.icon className={`h-4 w-4 ${c.color}`} />
-                      {c.label}
-                    </DropdownMenuItem>
-                  )
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
+        {/* Header */}
+        <DialogHeader className="px-6 py-4 border-b shrink-0">
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-lg font-semibold">Task Details</DialogTitle>
           </div>
+          <DialogDescription className="sr-only">
+            View and manage task details, status, and updates
+          </DialogDescription>
+        </DialogHeader>
 
-          {/* Content */}
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground uppercase">Description</Label>
-            <p className="text-sm">{entry.content}</p>
-          </div>
+        {/* Content - Scrollable */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Left Column - Main Info */}
+            <div className="space-y-6">
+              {/* Status */}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground uppercase">Status</Label>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start gap-2">
+                      <StatusIcon className={`h-4 w-4 ${statusConfig.color}`} />
+                      {statusConfig.label}
+                      <ChevronDown className="h-4 w-4 ml-auto" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-48">
+                    {(Object.entries(STATUS_CONFIG) as [WorkLogStatus, typeof statusConfig][]).map(
+                      ([s, c]) => (
+                        <DropdownMenuItem
+                          key={s}
+                          onClick={() => onStatusChange(entry.id, s)}
+                          className="gap-2"
+                        >
+                          <c.icon className={`h-4 w-4 ${c.color}`} />
+                          {c.label}
+                        </DropdownMenuItem>
+                      )
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
 
-          {/* Date */}
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground uppercase">Date</Label>
-            <p className="text-sm">{formatDateDisplay(entry.date)}</p>
-          </div>
+              {/* Description */}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground uppercase">Description</Label>
+                <p className="text-sm whitespace-pre-wrap">{entry.content}</p>
+              </div>
 
-          {/* Priority */}
-          {entry.priority && (
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground uppercase">Priority</Label>
-              <Badge
-                className={`${PRIORITY_CONFIG[entry.priority].color} text-white border-0`}
-              >
-                {PRIORITY_CONFIG[entry.priority].label}
-              </Badge>
-            </div>
-          )}
+              {/* Date */}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground uppercase">Date</Label>
+                <p className="text-sm">{formatDateDisplay(entry.date)}</p>
+              </div>
 
-          {/* Due Date */}
-          {entry.dueDate && (
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground uppercase">Due Date</Label>
-              <p className="text-sm flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                {formatDateDisplay(entry.dueDate)}
-              </p>
-            </div>
-          )}
-
-          {/* Project */}
-          {entry.project && (
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground uppercase">Project</Label>
-              <Badge variant="secondary" className="gap-1">
-                <FolderOpen className="h-3 w-3" />
-                {entry.project.title}
-              </Badge>
-            </div>
-          )}
-
-          {/* Tags */}
-          {entry.tags.length > 0 && (
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground uppercase">Tags</Label>
-              <div className="flex flex-wrap gap-1">
-                {entry.tags.map((tag) => (
+              {/* Priority */}
+              {entry.priority && (
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground uppercase">Priority</Label>
                   <Badge
-                    key={tag.id}
-                    variant="secondary"
-                    style={{ backgroundColor: tag.color ? `${tag.color}20` : undefined }}
+                    className={`${PRIORITY_CONFIG[entry.priority].color} text-white border-0`}
                   >
-                    #{tag.name}
+                    {PRIORITY_CONFIG[entry.priority].label}
                   </Badge>
-                ))}
+                </div>
+              )}
+
+              {/* Due Date */}
+              {entry.dueDate && (
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground uppercase">Due Date</Label>
+                  <p className="text-sm flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    {formatDateDisplay(entry.dueDate)}
+                  </p>
+                </div>
+              )}
+
+              {/* Project */}
+              {entry.project && (
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground uppercase">Project</Label>
+                  <Badge variant="secondary" className="gap-1">
+                    <FolderOpen className="h-3 w-3" />
+                    {entry.project.title}
+                  </Badge>
+                </div>
+              )}
+
+              {/* Tags */}
+              {entry.tags.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground uppercase">Tags</Label>
+                  <div className="flex flex-wrap gap-1">
+                    {entry.tags.map((tag) => (
+                      <Badge
+                        key={tag.id}
+                        variant="secondary"
+                        style={{ backgroundColor: tag.color ? `${tag.color}20` : undefined }}
+                      >
+                        #{tag.name}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Flags */}
+              <TaskFlagsSection
+                flags={entry.flags ?? []}
+                onFlagsChange={(flags) => onFlagsChange(entry.id, flags)}
+              />
+
+              {/* Timestamps */}
+              <div className="space-y-2 pt-4 border-t">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Created</span>
+                  <span>{formatTimestampDisplay(entry.createdAt)}</span>
+                </div>
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Updated</span>
+                  <span>{formatTimestampDisplay(entry.updatedAt)}</span>
+                </div>
               </div>
             </div>
-          )}
 
-          {/* Flags */}
-          <TaskFlagsSection
-            flags={entry.flags ?? []}
-            onFlagsChange={(flags) => onFlagsChange(entry.id, flags)}
-          />
-
-          {/* Task Updates */}
-          <TaskUpdatesSection entityType="work_log" entityId={entry.id} />
-
-          {/* Timestamps */}
-          <div className="space-y-2 pt-4 border-t">
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Created</span>
-              <span>{formatTimestampDisplay(entry.createdAt)}</span>
-            </div>
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Updated</span>
-              <span>{formatTimestampDisplay(entry.updatedAt)}</span>
+            {/* Right Column - Updates/Activity */}
+            <div className="space-y-4">
+              <TaskUpdatesSection entityType="work_log" entityId={entry.id} />
             </div>
           </div>
         </div>
-      </ScrollArea>
 
-      {/* Actions */}
-      <div className="p-4 border-t flex gap-2">
-        <Button variant="outline" className="flex-1 gap-2" onClick={() => onEdit(entry)}>
-          <Pencil className="h-4 w-4" />
-          Edit
-        </Button>
-        <Button variant="destructive" size="icon" onClick={() => onDelete(entry.id)}>
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </div>
-    </div>
+        {/* Footer */}
+        <DialogFooter className="px-6 py-4 border-t shrink-0">
+          <div className="flex gap-2 w-full">
+            <Button variant="outline" className="flex-1 gap-2" onClick={() => onEdit(entry)}>
+              <Pencil className="h-4 w-4" />
+              Edit
+            </Button>
+            <Button variant="destructive" size="icon" onClick={() => onDelete(entry.id)}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1439,22 +1455,21 @@ export function JournalPage() {
               </div>
             </DragDropProvider>
           )}
-
-          {/* Task Detail Panel */}
-          {!isLoading && !error && selectedEntry && (
-            <TaskDetailPanel
-              entry={selectedEntry}
-              tags={tags}
-              projects={projects}
-              onClose={() => setSelectedEntry(undefined)}
-              onEdit={handleEdit}
-              onDelete={setDeleteConfirmId}
-              onStatusChange={handleStatusChange}
-              onFlagsChange={handleFlagsChange}
-            />
-          )}
         </div>
       </AppPageContent>
+
+      {/* Task Detail Modal */}
+      <TaskDetailModal
+        entry={selectedEntry}
+        open={!!selectedEntry}
+        onOpenChange={(open) => !open && setSelectedEntry(undefined)}
+        tags={tags}
+        projects={projects}
+        onEdit={handleEdit}
+        onDelete={setDeleteConfirmId}
+        onStatusChange={handleStatusChange}
+        onFlagsChange={handleFlagsChange}
+      />
 
       {/* Entry Form Dialog */}
       <EntryFormDialog
