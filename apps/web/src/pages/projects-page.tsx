@@ -19,19 +19,18 @@ import {
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
 
-import { queryKeys } from '@/lib/query-client';
+import type { PersonalProject, PersonalProjectStatus, Tag, WorkspaceSummary } from '@workspace/shared';
 
-import type { PersonalProject, PersonalProjectStatus, WorkspaceSummary, Tag } from '@workspace/shared';
-
+import { type CreatePersonalProjectRequest, type UpdatePersonalProjectRequest } from '@/api/journal';
 import {
-  tagsApi,
-  personalProjectsApi,
-  type CreatePersonalProjectRequest,
-  type UpdatePersonalProjectRequest
-} from '@/api/journal';
-import { workspacesApi } from '@/api/workspaces';
+  usePersonalProjectsList,
+  useCreatePersonalProject,
+  useUpdatePersonalProject,
+  useDeletePersonalProject
+} from '@/hooks/use-personal-projects';
+import { useTagsList, useCreateTag } from '@/hooks/use-tags';
+import { useWorkspacesList } from '@/hooks/use-workspaces';
 import { AppPage, AppPageContent } from '@/components/layout/app-page';
 import {
   AlertDialog,
@@ -122,41 +121,7 @@ const STATUS_CONFIG: Record<
 // Hooks
 // ============================================================================
 
-function useProjectsData(workspaceFilter?: string, statusFilter?: PersonalProjectStatus[]) {
-  const [projects, setProjects] = useState<PersonalProject[]>([]);
-  const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
-  const [tags, setTags] = useState<Tag[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const [projectsRes, workspacesRes, tagsRes] = await Promise.all([
-        personalProjectsApi.list({
-          workspaceId: workspaceFilter,
-          status: statusFilter
-        }),
-        workspacesApi.list({ page: 1, pageSize: 100 }),
-        tagsApi.list()
-      ]);
-      setProjects(projectsRes.items);
-      setWorkspaces(workspacesRes.items);
-      setTags(tagsRes.items);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load projects');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [workspaceFilter, statusFilter]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return { projects, workspaces, tags, isLoading, error, refetch: fetchData, setProjects, setTags };
-}
+// Internal hook removed - using TanStack Query hooks directly in component
 
 // ============================================================================
 // Helper Functions
@@ -952,9 +917,8 @@ function StatusFilter({ selectedStatuses, onSelectStatuses }: StatusFilterProps)
 // ============================================================================
 
 export function ProjectsPage() {
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   
   // Get default workspace and edit project ID from URL params
   const defaultWorkspaceId = searchParams.get('workspaceId') ?? undefined;
@@ -970,9 +934,26 @@ export function ProjectsPage() {
   const [editingProject, setEditingProject] = useState<PersonalProject | undefined>();
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
-  // Data
-  const { projects, workspaces, tags, isLoading, error, refetch, setProjects, setTags } =
-    useProjectsData(workspaceFilter, statusFilter.length > 0 ? statusFilter : undefined);
+  // TanStack Query hooks for data
+  const { data: projectsData, isLoading: projectsLoading, error: projectsError, refetch } = usePersonalProjectsList({
+    workspaceId: workspaceFilter,
+    status: statusFilter.length > 0 ? statusFilter : undefined
+  });
+  const { data: workspacesData, isLoading: workspacesLoading } = useWorkspacesList({ page: 1, pageSize: 100 });
+  const { data: tagsData, isLoading: tagsLoading } = useTagsList();
+  
+  // Mutation hooks
+  const createProjectMutation = useCreatePersonalProject();
+  const updateProjectMutation = useUpdatePersonalProject();
+  const deleteProjectMutation = useDeletePersonalProject();
+  const createTagMutation = useCreateTag();
+  
+  // Derive data from queries
+  const projects = projectsData?.items ?? [];
+  const workspaces = workspacesData?.items ?? [];
+  const tags = tagsData?.items ?? [];
+  const isLoading = projectsLoading || workspacesLoading || tagsLoading;
+  const error = projectsError ? (projectsError instanceof Error ? projectsError.message : 'Failed to load projects') : null;
 
   // Filtered projects by search
   const filteredProjects = useMemo(() => {
@@ -1027,6 +1008,19 @@ export function ProjectsPage() {
     setFormDialogOpen(true);
   }, []);
 
+  // Handler for dialog open/close that clears URL edit param when closing
+  const handleFormDialogOpenChange = useCallback((open: boolean) => {
+    setFormDialogOpen(open);
+    if (!open) {
+      // Clear the edit param from URL when closing
+      if (searchParams.has('edit')) {
+        searchParams.delete('edit');
+        setSearchParams(searchParams, { replace: true });
+      }
+      setEditingProject(undefined);
+    }
+  }, [searchParams, setSearchParams]);
+
   const handleViewFiles = useCallback(
     (projectId: string) => {
       navigate(`/projects/${projectId}?tab=files`);
@@ -1036,56 +1030,52 @@ export function ProjectsPage() {
 
   const handleSaveProject = useCallback(
     async (data: CreatePersonalProjectRequest | UpdatePersonalProjectRequest, id?: string) => {
-      if (id) {
-        // Update existing project
-        const response = await personalProjectsApi.update(id, data as UpdatePersonalProjectRequest);
-        // Optimistically update local state
-        setProjects((prev) =>
-          prev.map((p) => (p.id === id ? response.project : p))
-        );
-      } else {
-        // Create new project
-        const response = await personalProjectsApi.create(data as CreatePersonalProjectRequest);
-        // Optimistically add to local state
-        setProjects((prev) => [response.project, ...prev]);
+      try {
+        if (id) {
+          // Update existing project
+          await updateProjectMutation.mutateAsync(
+            { projectId: id, data: data as UpdatePersonalProjectRequest }
+          );
+        } else {
+          // Create new project
+          await createProjectMutation.mutateAsync(data as CreatePersonalProjectRequest);
+        }
+      } catch (err) {
+        console.error('Failed to save project:', err);
+        throw err;
       }
-      // Also refetch to ensure consistency
-      await refetch();
-      // Invalidate dashboard queries so changes appear immediately
-      queryClient.invalidateQueries({ queryKey: queryKeys.personalProjects.all });
     },
-    [refetch, setProjects, queryClient]
+    [updateProjectMutation, createProjectMutation]
   );
 
-  const handleDeleteProject = useCallback(async () => {
+  const handleDeleteProject = useCallback(() => {
     if (!deleteConfirmId) return;
 
-    // Optimistic delete
-    const projectToDelete = projects.find((p) => p.id === deleteConfirmId);
-    setProjects((prev) => prev.filter((p) => p.id !== deleteConfirmId));
-
-    try {
-      await personalProjectsApi.delete(deleteConfirmId);
-      // Invalidate dashboard queries
-      queryClient.invalidateQueries({ queryKey: queryKeys.personalProjects.all });
-    } catch (err) {
-      console.error('Failed to delete project:', err);
-      // Rollback
-      if (projectToDelete) {
-        setProjects((prev) => [...prev, projectToDelete]);
+    deleteProjectMutation.mutate(deleteConfirmId, {
+      onSuccess: () => {
+        setDeleteConfirmId(null);
+      },
+      onError: (err) => {
+        console.error('Failed to delete project:', err);
+        setDeleteConfirmId(null);
       }
-    } finally {
-      setDeleteConfirmId(null);
-    }
-  }, [deleteConfirmId, projects, setProjects, queryClient]);
+    });
+  }, [deleteConfirmId, deleteProjectMutation]);
 
   const handleCreateTag = useCallback(
     async (name: string): Promise<Tag> => {
-      const result = await tagsApi.create({ name });
-      setTags((prev) => [...prev, result.tag]);
-      return result.tag;
+      return new Promise((resolve, reject) => {
+        createTagMutation.mutate({ name }, {
+          onSuccess: (result) => {
+            resolve(result.tag);
+          },
+          onError: (err) => {
+            reject(err);
+          }
+        });
+      });
     },
-    [setTags]
+    [createTagMutation]
   );
 
   return (
@@ -1174,7 +1164,7 @@ export function ProjectsPage() {
         {error && (
           <div className="flex flex-col items-center justify-center py-12 text-destructive">
             <p>{error}</p>
-            <Button variant="outline" onClick={refetch} className="mt-4">
+            <Button variant="outline" onClick={() => refetch()} className="mt-4">
               Retry
             </Button>
           </div>
@@ -1234,7 +1224,7 @@ export function ProjectsPage() {
       {/* Form Dialog */}
       <ProjectFormDialog
         open={formDialogOpen}
-        onOpenChange={setFormDialogOpen}
+        onOpenChange={handleFormDialogOpenChange}
         project={editingProject}
         workspaces={workspaces}
         tags={tags}

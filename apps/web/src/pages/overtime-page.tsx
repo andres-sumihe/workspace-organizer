@@ -1,8 +1,10 @@
 import { DatePicker } from '@/components/ui/date-picker';
 import { Calculator, Clock, Eye, EyeOff, Loader2, Plus, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
-import { toolsApi, type OvertimeEntry } from '@/api/tools';
+import type { OvertimeEntry } from '@workspace/shared';
+
+import { useOvertimeList, useToolsGeneralSettings, useCreateOvertimeEntry, useDeleteOvertimeEntry } from '@/hooks/use-overtime';
 import { AppPage, AppPageContent, AppPageTabs } from '@/components/layout/app-page';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -174,13 +176,14 @@ export const OvertimePage = () => {
     note: ''
   });
   
-  // Settings state
-  const [savedBaseSalary, setSavedBaseSalary] = useState<number | null>(null);
-  const [settingsLoading, setSettingsLoading] = useState(true);
+  // TanStack Query: Settings and entries
+  const { data: settings, isLoading: settingsLoading } = useToolsGeneralSettings();
+  const { data: entriesRes, isLoading: entriesLoading } = useOvertimeList();
+  const createMutation = useCreateOvertimeEntry();
+  const deleteMutation = useDeleteOvertimeEntry();
   
-  // Entries state
-  const [entries, setEntries] = useState<OvertimeEntry[]>([]);
-  const [entriesLoading, setEntriesLoading] = useState(true);
+  const savedBaseSalary = settings?.baseSalary ?? null;
+  const entries = entriesRes?.items ?? [];
   
   // Filter state - default to current month/year
   const [filter, setFilter] = useState<FilterState>({
@@ -192,32 +195,12 @@ export const OvertimePage = () => {
   const [showSalary, setShowSalary] = useState(false);
   
   // UI state
-  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [entryToDelete, setEntryToDelete] = useState<OvertimeEntry | null>(null);
 
-  // Load settings and entries
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [settings, entriesResponse] = await Promise.all([
-          toolsApi.getGeneralSettings(),
-          toolsApi.listOvertimeEntries()
-        ]);
-        
-        setSavedBaseSalary(settings.baseSalary);
-        setEntries(entriesResponse.items);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load data');
-      } finally {
-        setSettingsLoading(false);
-        setEntriesLoading(false);
-      }
-    };
-
-    loadData();
-  }, []);
+  // Derive isSaving from mutation state
+  const isSaving = createMutation.isPending || deleteMutation.isPending;
 
   // Calculate preview
   const preview = useMemo(() => {
@@ -249,16 +232,6 @@ export const OvertimePage = () => {
     });
   }, [entries, filter]);
 
-  // Refresh entries
-  const refreshEntries = useCallback(async () => {
-    try {
-      const response = await toolsApi.listOvertimeEntries();
-      setEntries(response.items);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to refresh entries');
-    }
-  }, []);
-
   // Handler for date changes to auto-detect day type
   const handleDateChange = (dateStr: string) => {
     setCalc(prev => ({ ...prev, date: dateStr }));
@@ -283,7 +256,7 @@ export const OvertimePage = () => {
   const durationValid = preview.totalHours >= 1;
 
   // Save entry
-  const handleSaveEntry = async () => {
+  const handleSaveEntry = () => {
     if (!savedBaseSalary || savedBaseSalary <= 0) {
       setError('Please configure your base salary in Settings → Tools first');
       return;
@@ -305,58 +278,55 @@ export const OvertimePage = () => {
       return;
     }
 
-    setIsSaving(true);
     setError(null);
 
-    try {
-      await toolsApi.createOvertimeEntry({
+    createMutation.mutate(
+      {
         date: calc.date,
         dayType: calc.dayType,
         startTime: calc.startTime,
         endTime: calc.endTime,
         note: calc.note || undefined
-      });
+      },
+      {
+        onSuccess: () => {
+          setSuccessMessage('Overtime entry saved successfully');
+          setTimeout(() => setSuccessMessage(null), 3000);
 
-      setSuccessMessage('Overtime entry saved successfully');
-      setTimeout(() => setSuccessMessage(null), 3000);
-
-      // Reset form (keep default times)
-      setCalc(prev => ({
-        ...prev,
-        startTime: '17:30',
-        endTime: '19:30',
-        date: getTodayDate(),
-        note: ''
-      }));
-
-      // Refresh entries
-      await refreshEntries();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save entry');
-    } finally {
-      setIsSaving(false);
-    }
+          // Reset form (keep default times)
+          setCalc(prev => ({
+            ...prev,
+            startTime: '17:30',
+            endTime: '19:30',
+            date: getTodayDate(),
+            note: ''
+          }));
+        },
+        onError: (err) => {
+          setError(err instanceof Error ? err.message : 'Failed to save entry');
+        }
+      }
+    );
   };
 
   // Delete entry
-  const handleDeleteEntry = async () => {
+  const handleDeleteEntry = () => {
     if (!entryToDelete) return;
 
     const idToDelete = entryToDelete.id;
 
-    try {
-      await toolsApi.deleteOvertimeEntry(idToDelete);
-      
-      // Reactive update: remove from local state immediately
-      setEntries(prev => prev.filter(e => e.id !== idToDelete));
-      
-      setSuccessMessage('Entry deleted successfully');
-      setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete entry');
-    } finally {
-      setEntryToDelete(null);
-    }
+    deleteMutation.mutate(idToDelete, {
+      onSuccess: () => {
+        setSuccessMessage('Entry deleted successfully');
+        setTimeout(() => setSuccessMessage(null), 3000);
+      },
+      onError: (err) => {
+        setError(err instanceof Error ? err.message : 'Failed to delete entry');
+      },
+      onSettled: () => {
+        setEntryToDelete(null);
+      }
+    });
   };
 
   // Calculate totals for filtered entries
