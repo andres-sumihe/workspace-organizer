@@ -1355,7 +1355,9 @@ export interface TaskUpdate {
   id: string;
   entityType: TaskUpdateEntityType;
   entityId: string;
+  parentId?: string; // If set, this is a reply to another update
   content: string; // Markdown supported
+  replies?: TaskUpdate[]; // Nested replies (populated by API)
   createdAt: string;
   updatedAt: string;
 }
@@ -1366,6 +1368,7 @@ export interface TaskUpdate {
 export interface CreateTaskUpdateRequest {
   entityType: TaskUpdateEntityType;
   entityId: string;
+  parentId?: string; // Optional: create as a reply to another update
   content: string;
 }
 

@@ -20,6 +20,7 @@ export const taskUpdatesService = {
       id,
       entityType: request.entityType,
       entityId: request.entityId,
+      parentId: request.parentId,
       content: request.content
     });
   },
