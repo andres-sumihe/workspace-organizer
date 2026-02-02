@@ -29,6 +29,11 @@ export const queryClient = new QueryClient({
 /**
  * Query key factory for consistent cache key management
  * Following TanStack Query best practices for key hierarchy
+ * 
+ * Structure: [domain, scope, ...params]
+ * - all: Base key for the domain (used for broad invalidation)
+ * - lists/list: For list queries with optional filters
+ * - details/detail: For single item queries
  */
 export const queryKeys = {
   // Scripts domain
@@ -64,7 +69,7 @@ export const queryKeys = {
     detail: (id: string) => [...queryKeys.workspaces.details(), id] as const,
   },
 
-  // Projects domain
+  // Workspace Projects domain (within a workspace)
   projects: {
     all: ['projects'] as const,
     byWorkspace: (workspaceId: string) => [...queryKeys.projects.all, 'workspace', workspaceId] as const,
@@ -74,30 +79,63 @@ export const queryKeys = {
   // Personal Projects domain
   personalProjects: {
     all: ['personalProjects'] as const,
-    list: (params?: Record<string, unknown>) => [...queryKeys.personalProjects.all, 'list', params] as const,
+    lists: () => [...queryKeys.personalProjects.all, 'list'] as const,
+    list: (params?: Record<string, unknown>) => [...queryKeys.personalProjects.lists(), params] as const,
+    details: () => [...queryKeys.personalProjects.all, 'detail'] as const,
+    detail: (id: string) => [...queryKeys.personalProjects.details(), id] as const,
   },
 
   // Templates domain
   templates: {
     all: ['templates'] as const,
     lists: () => [...queryKeys.templates.all, 'list'] as const,
+    list: (filters?: Record<string, unknown>) => [...queryKeys.templates.lists(), filters] as const,
   },
 
   // Notes domain
   notes: {
     all: ['notes'] as const,
-    list: (params?: Record<string, unknown>) => [...queryKeys.notes.all, 'list', params] as const,
+    lists: () => [...queryKeys.notes.all, 'list'] as const,
+    list: (params?: Record<string, unknown>) => [...queryKeys.notes.lists(), params] as const,
+    details: () => [...queryKeys.notes.all, 'detail'] as const,
+    detail: (id: string) => [...queryKeys.notes.details(), id] as const,
   },
 
-  // Work Logs domain
+  // Work Logs domain (Journal)
   workLogs: {
     all: ['workLogs'] as const,
-    list: (params?: Record<string, unknown>) => [...queryKeys.workLogs.all, 'list', params] as const,
+    lists: () => [...queryKeys.workLogs.all, 'list'] as const,
+    list: (params?: Record<string, unknown>) => [...queryKeys.workLogs.lists(), params] as const,
+    details: () => [...queryKeys.workLogs.all, 'detail'] as const,
+    detail: (id: string) => [...queryKeys.workLogs.details(), id] as const,
   },
 
-  // Tools domain
-  tools: {
-    all: ['tools'] as const,
-    overtimeStats: (params?: Record<string, unknown>) => [...queryKeys.tools.all, 'overtime', 'stats', params] as const,
-  }
+  // Tags domain (shared across features)
+  tags: {
+    all: ['tags'] as const,
+    lists: () => [...queryKeys.tags.all, 'list'] as const,
+    list: () => [...queryKeys.tags.lists()] as const,
+  },
+
+  // Overtime domain (Tools)
+  overtime: {
+    all: ['overtime'] as const,
+    lists: () => [...queryKeys.overtime.all, 'list'] as const,
+    list: (params?: Record<string, unknown>) => [...queryKeys.overtime.lists(), params] as const,
+    stats: (params?: Record<string, unknown>) => [...queryKeys.overtime.all, 'stats', params] as const,
+  },
+
+  // Settings domain
+  settings: {
+    all: ['settings'] as const,
+    toolsGeneral: () => [...queryKeys.settings.all, 'tools', 'general'] as const,
+  },
+
+  // Vault domain (Credentials)
+  vault: {
+    all: ['vault'] as const,
+    status: () => [...queryKeys.vault.all, 'status'] as const,
+    credentials: () => [...queryKeys.vault.all, 'credentials'] as const,
+    credentialList: (params?: Record<string, unknown>) => [...queryKeys.vault.credentials(), 'list', params] as const,
+  },
 };
