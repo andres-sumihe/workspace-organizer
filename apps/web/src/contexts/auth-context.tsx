@@ -399,9 +399,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // User can re-enter password to continue
         setState((prev) => ({ ...prev, isLocked: true }));
       } else if (event.type === 'session_expired' && !sessionLockEnabled) {
-        // Session expired but lock is disabled - this shouldn't happen normally
-        // but if it does, just refresh the token silently
-        tryRefreshToken();
+        // Session expired but lock is disabled - try to refresh silently
+        // The access token was cleared, but refresh token is preserved
+        tryRefreshToken().then((success) => {
+          if (!success) {
+            // Refresh failed - force logout
+            clearTokens();
+            setState((prev) => ({
+              user: null,
+              permissions: [],
+              isAuthenticated: false,
+              isLoading: false,
+              mode: 'solo',
+              isLocked: false,
+              sessionConfig: prev.sessionConfig,
+            }));
+          }
+          // If success, tokens are updated - next API call will work
+        });
       } else {
         // Unauthorized, invalid token, or no user context
         // Force full logout - must go to login page

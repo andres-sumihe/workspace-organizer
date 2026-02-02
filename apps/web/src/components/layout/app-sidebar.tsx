@@ -95,8 +95,8 @@ export const AppSidebar = ({ items, activeKey, activeSubKey, onNavigate }: AppSi
                                 isActive={item.key === activeKey && subItem.key === activeSubKey}
                                 onClick={() => onNavigate(item.key, subItem.key)}
                               >
-                                <button type="button" className="flex items-center w-full">
-                                  <span className="flex-1 min-w-0 overflow-hidden whitespace-nowrap transition-all duration-200 ease-linear opacity-100 max-w-48 group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0">{subItem.label}</span>
+                                <button type="button" className="w-full text-left">
+                                  <span>{subItem.label}</span>
                                 </button>
                               </SidebarMenuSubButton>
                             </SidebarMenuSubItem>

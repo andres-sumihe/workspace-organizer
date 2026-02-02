@@ -19,6 +19,9 @@ import {
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+
+import { queryKeys } from '@/lib/query-client';
 
 import type { PersonalProject, PersonalProjectStatus, WorkspaceSummary, Tag } from '@workspace/shared';
 
@@ -949,11 +952,13 @@ function StatusFilter({ selectedStatuses, onSelectStatuses }: StatusFilterProps)
 // ============================================================================
 
 export function ProjectsPage() {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   
-  // Get default workspace from URL params
+  // Get default workspace and edit project ID from URL params
   const defaultWorkspaceId = searchParams.get('workspaceId') ?? undefined;
+  const editProjectId = searchParams.get('edit');
 
   // Filters
   const [workspaceFilter, setWorkspaceFilter] = useState<string | undefined>(defaultWorkspaceId);
@@ -1000,6 +1005,17 @@ export function ProjectsPage() {
     };
   }, [projects]);
 
+  // Handle edit param from URL (e.g., from Project Detail page)
+  useEffect(() => {
+    if (editProjectId && projects.length > 0 && !formDialogOpen) {
+      const projectToEdit = projects.find(p => p.id === editProjectId);
+      if (projectToEdit) {
+        setEditingProject(projectToEdit);
+        setFormDialogOpen(true);
+      }
+    }
+  }, [editProjectId, projects, formDialogOpen]);
+
   // Handlers
   const handleAddProject = useCallback(() => {
     setEditingProject(undefined);
@@ -1035,8 +1051,10 @@ export function ProjectsPage() {
       }
       // Also refetch to ensure consistency
       await refetch();
+      // Invalidate dashboard queries so changes appear immediately
+      queryClient.invalidateQueries({ queryKey: queryKeys.personalProjects.all });
     },
-    [refetch, setProjects]
+    [refetch, setProjects, queryClient]
   );
 
   const handleDeleteProject = useCallback(async () => {
@@ -1048,6 +1066,8 @@ export function ProjectsPage() {
 
     try {
       await personalProjectsApi.delete(deleteConfirmId);
+      // Invalidate dashboard queries
+      queryClient.invalidateQueries({ queryKey: queryKeys.personalProjects.all });
     } catch (err) {
       console.error('Failed to delete project:', err);
       // Rollback
@@ -1057,7 +1077,7 @@ export function ProjectsPage() {
     } finally {
       setDeleteConfirmId(null);
     }
-  }, [deleteConfirmId, projects, setProjects]);
+  }, [deleteConfirmId, projects, setProjects, queryClient]);
 
   const handleCreateTag = useCallback(
     async (name: string): Promise<Tag> => {

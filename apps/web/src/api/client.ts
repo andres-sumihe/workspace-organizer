@@ -81,6 +81,11 @@ const clearAuthTokens = () => {
   localStorage.removeItem('auth_refresh_token');
 };
 
+/** Clear only access token, preserve refresh token for retry */
+const clearAccessToken = () => {
+  localStorage.removeItem('auth_access_token');
+};
+
 /** Event emitter for auth-related events */
 type AuthEventListener = (event: { type: 'session_expired' | 'unauthorized'; message: string }) => void;
 const authEventListeners: AuthEventListener[] = [];
@@ -120,10 +125,20 @@ export const apiRequest = async <TResponse>(
     
     // Handle authentication errors globally
     if (response.status === 401) {
-      if (code === 'SESSION_EXPIRED' || code === 'TOKEN_EXPIRED') {
-        clearAuthTokens();
+      if (code === 'TOKEN_EXPIRED') {
+        // Access token expired - clear it but KEEP refresh token
+        // so auth-context can attempt a refresh
+        clearAccessToken();
+        emitAuthError('session_expired', message);
+      } else if (code === 'SESSION_EXPIRED') {
+        // Session timed out due to inactivity (when session lock is enabled)
+        // Clear access token, keep refresh token for re-authentication
+        clearAccessToken();
         emitAuthError('session_expired', message);
       } else {
+        // Unauthorized, invalid token, user deleted, etc.
+        // Clear everything - must re-login
+        clearAuthTokens();
         emitAuthError('unauthorized', message);
       }
     }
