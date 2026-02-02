@@ -20,6 +20,9 @@ import {
   X
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+
+import { queryKeys } from '@/lib/query-client';
 
 import type { WorkLogStatus, WorkLogPriority, PersonalProject, TaskUpdateFlag } from '@workspace/shared';
 
@@ -967,6 +970,7 @@ function RolloverDialog({ open, onOpenChange, onRollover, unfinishedCount }: Rol
 // ============================================================================
 
 export function JournalPage() {
+  const queryClient = useQueryClient();
   // Navigation state
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [viewMode, setViewMode] = useState<'week' | 'day'>('week');
@@ -1161,8 +1165,10 @@ export function JournalPage() {
         const result = await workLogsApi.create(data as CreateWorkLogRequest);
         setEntries((prev) => [result.entry, ...prev]);
       }
+      // Invalidate dashboard queries so changes appear immediately
+      queryClient.invalidateQueries({ queryKey: queryKeys.workLogs.all });
     },
-    [selectedEntry, setEntries]
+    [selectedEntry, setEntries, queryClient]
   );
 
   const handleDeleteEntry = useCallback(async () => {
@@ -1177,6 +1183,8 @@ export function JournalPage() {
     
     try {
       await workLogsApi.delete(deleteConfirmId);
+      // Invalidate dashboard queries
+      queryClient.invalidateQueries({ queryKey: queryKeys.workLogs.all });
     } catch (err) {
       console.error('Failed to delete entry:', err);
       // Rollback on error
@@ -1186,7 +1194,7 @@ export function JournalPage() {
     } finally {
       setDeleteConfirmId(null);
     }
-  }, [deleteConfirmId, entries, selectedEntry, setEntries]);
+  }, [deleteConfirmId, entries, selectedEntry, setEntries, queryClient]);
 
   const handleCreateTag = useCallback(
     async (name: string): Promise<Tag> => {

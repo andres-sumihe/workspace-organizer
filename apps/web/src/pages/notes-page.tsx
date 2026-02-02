@@ -16,6 +16,10 @@ import {
   Pin
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+
+import { queryKeys } from '@/lib/query-client';
 
 import type {
   Note,
@@ -658,6 +662,8 @@ function CredentialRevealDialog({ open, onOpenChange, credential }: CredentialRe
 // ============================================================================
 
 export function NotesPage() {
+  const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'notes' | 'vault'>('notes');
   const [searchQuery, setSearchQuery] = useState('');
   const [projectFilter, _setProjectFilter] = useState<string | undefined>(undefined);
@@ -667,6 +673,7 @@ export function NotesPage() {
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [deleteNoteId, setDeleteNoteId] = useState<string | null>(null);
+  const [urlNoteHandled, setUrlNoteHandled] = useState(false);
 
   // Sidebar collapsed state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -740,6 +747,23 @@ export function NotesPage() {
     };
   }, [refetchNotes]);
 
+  // Handle URL params to select a note from dashboard or external link
+  useEffect(() => {
+    if (urlNoteHandled || notesLoading || notes.length === 0) return;
+    
+    const noteIdParam = searchParams.get('noteId');
+    if (noteIdParam) {
+      const noteToSelect = notes.find(n => n.id === noteIdParam);
+      if (noteToSelect) {
+        setSelectedNote(noteToSelect);
+        setActiveTab('notes');
+        // Clear the URL param after selecting
+        setSearchParams({}, { replace: true });
+      }
+      setUrlNoteHandled(true);
+    }
+  }, [searchParams, setSearchParams, notes, notesLoading, urlNoteHandled]);
+
   // Filtered notes
   const filteredNotes = useMemo(() => {
     if (!searchQuery) return notes;
@@ -767,6 +791,8 @@ export function NotesPage() {
             channel.postMessage({ type: 'note-updated', noteId: id });
             channel.close();
           }
+          // Invalidate dashboard notes query so it reflects pinned changes
+          queryClient.invalidateQueries({ queryKey: queryKeys.notes.all });
         } else {
           const savedNote = await notesApi.create(data);
           // Add new note to list and set as selected
@@ -774,6 +800,8 @@ export function NotesPage() {
             setNotes((prev) => [savedNote.note, ...prev]);
             setSelectedNote(savedNote.note);
           }
+          // Invalidate dashboard notes query
+          queryClient.invalidateQueries({ queryKey: queryKeys.notes.all });
         }
       } catch (error) {
         console.error('Failed to save note:', error);
@@ -781,7 +809,7 @@ export function NotesPage() {
         refetchNotes();
       }
     },
-    [setNotes, refetchNotes]
+    [setNotes, refetchNotes, queryClient]
   );
 
   const handleDeleteNote = useCallback(async () => {
@@ -801,12 +829,14 @@ export function NotesPage() {
     try {
       // Delete from server in background
       await notesApi.delete(noteToDelete);
+      // Invalidate dashboard notes query
+      queryClient.invalidateQueries({ queryKey: queryKeys.notes.all });
     } catch (error) {
       console.error('Failed to delete note:', error);
       // Rollback: refetch to restore state on error
       refetchNotes();
     }
-  }, [deleteNoteId, selectedNote, setNotes, refetchNotes]);
+  }, [deleteNoteId, selectedNote, setNotes, refetchNotes, queryClient]);
 
   // Handle Note Popout
   const handlePopout = useCallback(() => {

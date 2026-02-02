@@ -19,7 +19,6 @@ export const queryClient = new QueryClient({
       refetchOnReconnect: true, // Re-fetch when network recovers
       retry: 2,
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
-      refetchOnMount: 'always',
     },
     mutations: {
       retry: 1,
@@ -72,9 +71,33 @@ export const queryKeys = {
     detail: (projectId: string) => [...queryKeys.projects.all, 'detail', projectId] as const,
   },
 
+  // Personal Projects domain
+  personalProjects: {
+    all: ['personalProjects'] as const,
+    list: (params?: Record<string, unknown>) => [...queryKeys.personalProjects.all, 'list', params] as const,
+  },
+
   // Templates domain
   templates: {
     all: ['templates'] as const,
     lists: () => [...queryKeys.templates.all, 'list'] as const,
   },
+
+  // Notes domain
+  notes: {
+    all: ['notes'] as const,
+    list: (params?: Record<string, unknown>) => [...queryKeys.notes.all, 'list', params] as const,
+  },
+
+  // Work Logs domain
+  workLogs: {
+    all: ['workLogs'] as const,
+    list: (params?: Record<string, unknown>) => [...queryKeys.workLogs.all, 'list', params] as const,
+  },
+
+  // Tools domain
+  tools: {
+    all: ['tools'] as const,
+    overtimeStats: (params?: Record<string, unknown>) => [...queryKeys.tools.all, 'overtime', 'stats', params] as const,
+  }
 };
