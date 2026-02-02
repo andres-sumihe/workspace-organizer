@@ -7,12 +7,15 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDb } from '../db/client.js';
 import { settingsRepository } from '../repositories/settings.repository.js';
 import { modeService } from '../services/mode.service.js';
+import { sessionService } from '../services/session.service.js';
 
 import type { LoginRequest, LoginResponse, LocalUser, CreateAccountRequest, LoginContext, CreateAccountResponse } from '@workspace/shared';
 
 const BCRYPT_ROUNDS = 12;
-const ACCESS_TOKEN_EXPIRY = '15m';
+const ACCESS_TOKEN_EXPIRY_SHORT = '15m'; // When session lock enabled
+const ACCESS_TOKEN_EXPIRY_LONG = '365d'; // When session lock disabled (1 year)
 const REFRESH_TOKEN_EXPIRY_DAYS = 7;
+const REFRESH_TOKEN_EXPIRY_DAYS_LONG = 365; // When session lock disabled
 const RECOVERY_KEY_LENGTH = 32; // 256 bits
 
 interface LocalUserRow {
@@ -160,18 +163,25 @@ export const localAuthProvider = {
     // Get current mode dynamically
     const mode = await modeService.getMode();
 
+    // Check session lock setting to determine token expiry
+    const sessionConfig = await sessionService.getConfig();
+    const sessionLockEnabled = sessionConfig.enableSessionLock !== false;
+    const tokenExpiry = sessionLockEnabled ? ACCESS_TOKEN_EXPIRY_SHORT : ACCESS_TOKEN_EXPIRY_LONG;
+    const refreshExpiryDays = sessionLockEnabled ? REFRESH_TOKEN_EXPIRY_DAYS : REFRESH_TOKEN_EXPIRY_DAYS_LONG;
+    const expiresInSeconds = sessionLockEnabled ? 900 : 365 * 24 * 60 * 60;
+
     // Generate tokens
     const secret = await getJwtSecret();
     const accessToken = jwt.sign(
       { userId: row.id, username: row.username, mode },
       secret,
-      { expiresIn: ACCESS_TOKEN_EXPIRY }
+      { expiresIn: tokenExpiry }
     );
 
     const refreshToken = uuidv4();
     const sessionId = uuidv4();
     const now = new Date().toISOString();
-    const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const expiresAt = new Date(Date.now() + refreshExpiryDays * 24 * 60 * 60 * 1000).toISOString();
 
     // Store refresh token with session metadata
     db.prepare(
@@ -182,7 +192,7 @@ export const localAuthProvider = {
     return {
       accessToken,
       refreshToken,
-      expiresIn: 900, // 15 minutes
+      expiresIn: expiresInSeconds,
       mode,
       user: {
         id: row.id,
@@ -230,18 +240,24 @@ export const localAuthProvider = {
     // Get current mode dynamically
     const mode = await modeService.getMode();
 
+    // Check session lock setting to determine token expiry
+    const sessionConfig = await sessionService.getConfig();
+    const sessionLockEnabled = sessionConfig.enableSessionLock !== false;
+    const tokenExpiry = sessionLockEnabled ? ACCESS_TOKEN_EXPIRY_SHORT : ACCESS_TOKEN_EXPIRY_LONG;
+    const expiresInSeconds = sessionLockEnabled ? 900 : 365 * 24 * 60 * 60;
+
     // Generate new access token
     const secret = await getJwtSecret();
     const accessToken = jwt.sign(
       { userId: userRow.id, username: userRow.username, mode },
       secret,
-      { expiresIn: ACCESS_TOKEN_EXPIRY }
+      { expiresIn: tokenExpiry }
     );
 
     return {
       accessToken,
       refreshToken,
-      expiresIn: 900,
+      expiresIn: expiresInSeconds,
       mode,
       user: {
         id: userRow.id,

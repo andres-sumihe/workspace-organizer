@@ -13,6 +13,7 @@ import { FileManagerProvider } from '@/contexts/file-manager-context';
 import { useInstallation } from '@/contexts/installation-context';
 import { useMode } from '@/contexts/mode-context';
 import { WorkspaceProvider } from '@/contexts/workspace-context';
+import { useDashboardPrefetch } from '@/hooks/useDashboardPrefetch';
 import { useMenuCommands } from '@/hooks/useMenuCommands';
 import { AuthenticatedLayout } from '@/layouts/authenticated-layout';
 import { DashboardPage } from '@/pages/dashboard-page';
@@ -90,6 +91,9 @@ function AppContent() {
   const { isSoloMode } = useAuth();
   const [aboutOpen, setAboutOpen] = useState(false);
   const [updateCheckerOpen, setUpdateCheckerOpen] = useState(false);
+
+  // Prefetch dashboard data in background on app mount
+  useDashboardPrefetch();
 
   // Store the last visited workspace route so we can return to it
   const lastWorkspaceRoute = useRef<string>('/workspaces');

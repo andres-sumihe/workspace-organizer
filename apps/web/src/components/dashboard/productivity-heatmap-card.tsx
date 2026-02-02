@@ -12,40 +12,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { workLogsApi } from '@/api/journal';
 import { cn } from '@/lib/utils';
 import type { WorkLogEntry } from '@workspace/shared';
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/query-client';
 
-export const ProductivityHeatmapCard = () => {
+export const ProductivityHeatmapCard = memo(function ProductivityHeatmapCard() {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
-  const [historyLogs, setHistoryLogs] = useState<WorkLogEntry[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    const fetchLogs = async () => {
-      setIsLoading(true);
-      try {
-        const startOfYear = `${selectedYear}-01-01`;
-        const endOfYear = `${selectedYear}-12-31`;
-        const res = await workLogsApi.list({ from: startOfYear, to: endOfYear });
-        setHistoryLogs(res.items);
-      } catch (error) {
-        console.error('Failed to load heatmap data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // Use query for fetching logs
+  const { data: logsRes, isLoading } = useQuery({
+    queryKey: queryKeys.workLogs.list({ from: `${selectedYear}-01-01`, to: `${selectedYear}-12-31` }),
+    queryFn: () => workLogsApi.list({ from: `${selectedYear}-01-01`, to: `${selectedYear}-12-31` }),
+    placeholderData: (prev) => prev,
+  });
 
-    fetchLogs();
-  }, [selectedYear]);
+  const historyLogs = useMemo(() => logsRes?.items ?? [], [logsRes]);
 
   const yearOptions = [currentYear, currentYear - 1, currentYear - 2];
 
@@ -78,9 +63,9 @@ export const ProductivityHeatmapCard = () => {
       </CardContent>
     </Card>
   );
-};
+});
 
-const ProductivityHeatmap = ({ logs, year }: { logs: WorkLogEntry[]; year: number }) => {
+const ProductivityHeatmap = memo(function ProductivityHeatmap({ logs, year }: { logs: WorkLogEntry[]; year: number }) {
   // Helper to format date as YYYY-MM-DD in local timezone
   const formatDateLocal = (date: Date): string => {
     const y = date.getFullYear();
@@ -114,44 +99,71 @@ const ProductivityHeatmap = ({ logs, year }: { logs: WorkLogEntry[]; year: numbe
     return map;
   }, [logs]);
 
+  // Improved color scheme with better visibility in both themes
   const getColor = (count: number) => {
-    if (count === 0) return "bg-muted/40";
-    if (count <= 2) return "bg-green-200 dark:bg-green-900/40";
-    if (count <= 5) return "bg-green-400 dark:bg-green-700/60";
-    return "bg-green-600 dark:bg-green-500";
+    if (count === 0) return "bg-neutral-200 dark:bg-neutral-700 border-neutral-300 dark:border-neutral-600";
+    if (count <= 2) return "bg-green-300 dark:bg-green-800 border-green-400 dark:border-green-700";
+    if (count <= 5) return "bg-green-500 dark:bg-green-600 border-green-600 dark:border-green-500";
+    return "bg-green-700 dark:bg-green-400 border-green-800 dark:border-green-300";
   };
 
   // Determine starting weekday of the year (0=Sun, 6=Sat)
   const startDay = new Date(year, 0, 1).getDay();
+  
+  // Calculate number of weeks (columns)
+  const totalDays = startDay + days.length;
+  const numWeeks = Math.ceil(totalDays / 7);
+  
+  // Calculate cell size: (100% - gaps) / numWeeks
+  // Gap is 2px between cells, so total gap width = (numWeeks - 1) * 2px
+  // Cell size = (containerWidth - totalGaps) / numWeeks
+  const gapPx = 2;
+  const cellSize = `calc((100% - ${(numWeeks - 1) * gapPx}px) / ${numWeeks})`;
 
   return (
-    <div className="flex overflow-x-auto pb-2 w-full">
-      <div className="grid grid-rows-7 grid-flow-col gap-1 min-w-max">
+    <div className="w-full">
+      {/* Responsive grid with consistent cell sizes */}
+      <div 
+        className="grid grid-rows-7 grid-flow-col"
+        style={{ 
+          gridTemplateColumns: `repeat(${numWeeks}, ${cellSize})`,
+          gap: `${gapPx}px`,
+        }}
+      >
         {/* Render placeholders for days before Jan 1st to align the grid properly */}
         {Array.from({ length: startDay }).map((_, i) => (
-          <div key={`placeholder-${i}`} className="w-3 h-3" />
+          <div key={`placeholder-${i}`} style={{ paddingBottom: '100%' }} />
         ))}
         
-        {/* Render actual days */}
+        {/* Render actual days - use native title for performance */}
         {days.map(date => {
-          // Use local timezone for date string to match database format
           const dateStr = formatDateLocal(date);
           const count = counts.get(dateStr) || 0;
+          const titleText = `${date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}: ${count} tasks completed`;
           return (
-            <TooltipProvider key={dateStr}>
-              <Tooltip delayDuration={200}>
-                <TooltipTrigger asChild>
-                  <div className={cn("w-3 h-3 rounded-[2px]", getColor(count))} />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="text-xs font-semibold">{date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
-                  <p className="text-xs text-muted-foreground">{count} tasks completed</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <div 
+              key={dateStr}
+              title={titleText}
+              className={cn(
+                "rounded-[2px] border cursor-default",
+                getColor(count)
+              )} 
+              style={{ paddingBottom: '100%' }}
+            />
           );
         })}
       </div>
+      {/* Legend */}
+      <div className="flex items-center justify-end gap-2 mt-3 text-xs text-muted-foreground">
+        <span>Less</span>
+        <div className="flex gap-[2px]">
+          <div className="w-3 h-3 rounded-[2px] border bg-neutral-200 dark:bg-neutral-700 border-neutral-300 dark:border-neutral-600" />
+          <div className="w-3 h-3 rounded-[2px] border bg-green-300 dark:bg-green-800 border-green-400 dark:border-green-700" />
+          <div className="w-3 h-3 rounded-[2px] border bg-green-500 dark:bg-green-600 border-green-600 dark:border-green-500" />
+          <div className="w-3 h-3 rounded-[2px] border bg-green-700 dark:bg-green-400 border-green-800 dark:border-green-300" />
+        </div>
+        <span>More</span>
+      </div>
     </div>
   );
-};
+});
