@@ -30,8 +30,10 @@ import type {
   CredentialData
 } from '@workspace/shared';
 
-import { personalProjectsApi } from '@/api/journal';
 import { notesApi, credentialsApi, vaultApi } from '@/api/notes-vault';
+import { useNotesList } from '@/hooks/use-notes';
+import { usePersonalProjectsList } from '@/hooks/use-personal-projects';
+import { useVaultStatus, useCredentialsList } from '@/hooks/use-vault';
 import { AppPage, AppPageContent } from '@/components/layout/app-page';
 import { NoteEditor } from '@/components/notes/note-editor';
 import { NoteViewer } from '@/components/notes/note-viewer';
@@ -82,119 +84,8 @@ const CREDENTIAL_TYPE_CONFIG: Record<CredentialType, { label: string; icon: type
 };
 
 // ============================================================================
-// Hooks
+// Internal hooks replaced with TanStack Query hooks in NotesPage component
 // ============================================================================
-
-function useNotesData(projectFilter?: string) {
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [projects, setProjects] = useState<PersonalProject[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [migrated, setMigrated] = useState(false);
-
-  // Migration: Sync personal project notes to Notes feature (run once)
-  const migrateProjectNotes = useCallback(async () => {
-    if (migrated) return;
-    try {
-      const projectsRes = await personalProjectsApi.list();
-      const projectsWithNotes = projectsRes.items.filter(p => p.notes && p.notes.trim());
-      
-      for (const project of projectsWithNotes) {
-        // Check if a note already exists for this project
-        const existingNotes = await notesApi.list({ projectId: project.id });
-        if (existingNotes.items.length === 0) {
-          // Create a note from the project notes
-          await notesApi.create({
-            title: `${project.title} Notes`,
-            content: project.notes!,
-            projectId: project.id,
-            isPinned: false
-          });
-        }
-      }
-      setMigrated(true);
-    } catch (err) {
-      console.error('Failed to migrate project notes:', err);
-    }
-  }, [migrated]);
-
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const [notesRes, projectsRes] = await Promise.all([
-        notesApi.list({ projectId: projectFilter }),
-        personalProjectsApi.list()
-      ]);
-      setNotes(notesRes.items);
-      setProjects(projectsRes.items);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load notes');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [projectFilter]);
-
-  useEffect(() => {
-    migrateProjectNotes().then(() => fetchData());
-  }, [migrateProjectNotes, fetchData]);
-
-  return { notes, projects, isLoading, error, refetch: fetchData, setNotes };
-}
-
-function useVaultData() {
-  const [credentials, setCredentials] = useState<Credential[]>([]);
-  const [vaultStatus, setVaultStatus] = useState<{ isSetup: boolean; isUnlocked: boolean }>({
-    isSetup: false,
-    isUnlocked: false
-  });
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchStatus = useCallback(async () => {
-    try {
-      const status = await vaultApi.getStatus();
-      setVaultStatus(status);
-      return status;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to get vault status');
-      return null;
-    }
-  }, []);
-
-  const fetchCredentials = useCallback(async () => {
-    try {
-      const res = await credentialsApi.list();
-      setCredentials(res.items);
-    } catch {
-      // Credentials list might fail if vault is locked - that's okay
-    }
-  }, []);
-
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    const status = await fetchStatus();
-    if (status?.isUnlocked) {
-      await fetchCredentials();
-    }
-    setIsLoading(false);
-  }, [fetchStatus, fetchCredentials]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return {
-    credentials,
-    vaultStatus,
-    isLoading,
-    error,
-    refetch: fetchData,
-    refreshStatus: fetchStatus,
-    setCredentials
-  };
-}
 
 // ============================================================================
 // Vault Setup Dialog
@@ -668,8 +559,50 @@ export function NotesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [projectFilter, _setProjectFilter] = useState<string | undefined>(undefined);
 
-  // Notes state
-  const { notes, projects, isLoading: notesLoading, refetch: refetchNotes, setNotes } = useNotesData(projectFilter);
+  // TanStack Query hooks for notes and projects
+  const { data: notesData, isLoading: notesQueryLoading, refetch: refetchNotes } = useNotesList({ projectId: projectFilter });
+  const { data: projectsData, isLoading: projectsLoading } = usePersonalProjectsList();
+  
+  // TanStack Query hooks for vault
+  const { data: vaultStatusData, isLoading: vaultStatusLoading, refetch: refetchVaultStatus } = useVaultStatus();
+  const vaultStatus = vaultStatusData ?? { isSetup: false, isUnlocked: false };
+  const { data: credentialsData, isLoading: credentialsLoading, refetch: refetchCredentials } = useCredentialsList(
+    undefined,
+    { enabled: vaultStatus.isUnlocked }
+  );
+  
+  // Local state for optimistic updates (synced with query data)
+  const [localNotes, setNotes] = useState<Note[]>([]);
+  const [localCredentials, setCredentials] = useState<Credential[]>([]);
+  
+  // Sync local state with query data
+  useEffect(() => {
+    if (notesData?.items) {
+      setNotes(notesData.items);
+    }
+  }, [notesData?.items]);
+  
+  useEffect(() => {
+    if (credentialsData?.items) {
+      setCredentials(credentialsData.items);
+    }
+  }, [credentialsData?.items]);
+  
+  // Derive data
+  const notes = localNotes.length > 0 || !notesData ? localNotes : (notesData?.items ?? []);
+  const projects = projectsData?.items ?? [];
+  const credentials = localCredentials.length > 0 || !credentialsData ? localCredentials : (credentialsData?.items ?? []);
+  const notesLoading = notesQueryLoading || projectsLoading;
+  const vaultLoading = vaultStatusLoading || credentialsLoading;
+  
+  // Combined refetch for vault
+  const refetchVault = useCallback(async () => {
+    await refetchVaultStatus();
+    await refetchCredentials();
+  }, [refetchVaultStatus, refetchCredentials]);
+  
+  const refreshStatus = refetchVaultStatus;
+
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [deleteNoteId, setDeleteNoteId] = useState<string | null>(null);
@@ -678,8 +611,7 @@ export function NotesPage() {
   // Sidebar collapsed state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // Vault state
-  const { credentials, vaultStatus, isLoading: vaultLoading, refetch: refetchVault, refreshStatus, setCredentials } = useVaultData();
+  // Vault UI state
   const [setupDialogOpen, setSetupDialogOpen] = useState(false);
   const [unlockDialogOpen, setUnlockDialogOpen] = useState(false);
   const [credentialFormOpen, setCredentialFormOpen] = useState(false);

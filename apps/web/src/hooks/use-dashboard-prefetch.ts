@@ -29,7 +29,7 @@ export const useDashboardPrefetch = () => {
     // Prefetch all dashboard queries in parallel
     // Using prefetchQuery so it doesn't block render and runs in background
     void queryClient.prefetchQuery({
-      queryKey: queryKeys.tools.overtimeStats({ from: monthStartStr }),
+      queryKey: queryKeys.overtime.stats({ from: monthStartStr }),
       queryFn: () => toolsApi.getOvertimeStatistics({ from: monthStartStr }),
       staleTime: 2 * 60 * 1000,
     });

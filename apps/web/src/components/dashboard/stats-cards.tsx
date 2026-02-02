@@ -32,7 +32,7 @@ export const OvertimeStatCard = () => {
   }, []);
 
   const { data: overtimeStats, isLoading } = useQuery({
-    queryKey: queryKeys.tools.overtimeStats({ from: monthStartStr }),
+    queryKey: queryKeys.overtime.stats({ from: monthStartStr }),
     queryFn: () => toolsApi.getOvertimeStatistics({ from: monthStartStr }),
     staleTime: STALE_TIME,
     placeholderData: (prev) => prev,

@@ -29,12 +29,16 @@ import type { WorkLogStatus, WorkLogPriority, PersonalProject, TaskUpdateFlag } 
 import {
   tagsApi,
   workLogsApi,
-  personalProjectsApi,
   type Tag,
   type WorkLogEntry,
   type CreateWorkLogRequest,
   type UpdateWorkLogRequest
 } from '@/api/journal';
+import {
+  useWorkLogsList
+} from '@/hooks/use-work-logs';
+import { useTagsList } from '@/hooks/use-tags';
+import { usePersonalProjectsList } from '@/hooks/use-personal-projects';
 import { TaskFlagsSection, TaskUpdatesSection } from '@/components/journal';
 import { AppPage, AppPageContent } from '@/components/layout/app-page';
 import {
@@ -141,47 +145,7 @@ const KANBAN_COLUMNS: WorkLogStatus[] = ['todo', 'in_progress', 'done'];
 // Hooks
 // ============================================================================
 
-function useJournalData(currentDate: Date, viewMode: 'week' | 'day', projectFilter?: string) {
-  const [entries, setEntries] = useState<WorkLogEntry[]>([]);
-  const [tags, setTags] = useState<Tag[]>([]);
-  const [projects, setProjects] = useState<PersonalProject[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const start = viewMode === 'week' ? getWeekStart(currentDate) : currentDate;
-  const from = formatDate(start);
-  
-  const end = new Date(start);
-  if (viewMode === 'week') {
-    end.setDate(end.getDate() + 6);
-  }
-  const to = formatDate(end);
-
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const [entriesRes, tagsRes, projectsRes] = await Promise.all([
-        workLogsApi.list({ from, to, projectId: projectFilter }),
-        tagsApi.list(),
-        personalProjectsApi.list()
-      ]);
-      setEntries(entriesRes.items);
-      setTags(tagsRes.items);
-      setProjects(projectsRes.items);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load journal data');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [from, to, projectFilter]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return { entries, tags, projects, isLoading, error, refetch: fetchData, setEntries, setTags, setProjects };
-}
+// Internal hook replaced - using TanStack Query hooks directly in component
 
 // ============================================================================
 // Sub-Components
@@ -971,6 +935,7 @@ function RolloverDialog({ open, onOpenChange, onRollover, unfinishedCount }: Rol
 
 export function JournalPage() {
   const queryClient = useQueryClient();
+  
   // Navigation state
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [viewMode, setViewMode] = useState<'week' | 'day'>('week');
@@ -987,12 +952,51 @@ export function JournalPage() {
   const [selectedEntry, setSelectedEntry] = useState<WorkLogEntry | undefined>();
   const [unfinishedPastEntries, setUnfinishedPastEntries] = useState<WorkLogEntry[]>([]);
 
-  // Data
-  const { entries, tags, projects, isLoading, error, refetch, setEntries, setTags } = useJournalData(
-    currentDate,
-    viewMode,
-    projectFilter
-  );
+  // Calculate date range for query
+  const start = useMemo(() => viewMode === 'week' ? getWeekStart(currentDate) : currentDate, [viewMode, currentDate]);
+  const from = useMemo(() => formatDate(start), [start]);
+  const to = useMemo(() => {
+    const end = new Date(start);
+    if (viewMode === 'week') {
+      end.setDate(end.getDate() + 6);
+    }
+    return formatDate(end);
+  }, [start, viewMode]);
+
+  // TanStack Query hooks for data
+  const { data: entriesData, isLoading: entriesLoading, error: entriesError, refetch } = useWorkLogsList({
+    from,
+    to,
+    projectId: projectFilter
+  });
+  const { data: tagsData, isLoading: tagsLoading } = useTagsList();
+  const { data: projectsData, isLoading: projectsLoading } = usePersonalProjectsList();
+  
+  // Note: rollover mutation not used here as handleRollover loops for multiple dates
+  
+  // Local state for optimistic updates (synced with query data)
+  const [localEntries, setEntries] = useState<WorkLogEntry[]>([]);
+  const [localTags, setTags] = useState<Tag[]>([]);
+  
+  // Sync local state with query data
+  useEffect(() => {
+    if (entriesData?.items) {
+      setEntries(entriesData.items);
+    }
+  }, [entriesData?.items]);
+  
+  useEffect(() => {
+    if (tagsData?.items) {
+      setTags(tagsData.items);
+    }
+  }, [tagsData?.items]);
+  
+  // Use local state for optimistic updates, fallback to query data
+  const entries = localEntries.length > 0 || !entriesData ? localEntries : (entriesData?.items ?? []);
+  const tags = localTags.length > 0 || !tagsData ? localTags : (tagsData?.items ?? []);
+  const projects = projectsData?.items ?? [];
+  const isLoading = entriesLoading || tagsLoading || projectsLoading;
+  const error = entriesError ? (entriesError instanceof Error ? entriesError.message : 'Failed to load journal data') : null;
 
   // Fetch unfinished tasks from all past dates (before today)
   useEffect(() => {
@@ -1361,7 +1365,7 @@ export function JournalPage() {
           {error && (
             <div className="flex-1 flex flex-col items-center justify-center text-destructive">
               <p>{error}</p>
-              <Button variant="outline" onClick={refetch} className="mt-4">
+              <Button variant="outline" onClick={() => refetch()} className="mt-4">
                 Retry
               </Button>
             </div>
