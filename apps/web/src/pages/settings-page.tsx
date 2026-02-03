@@ -588,7 +588,7 @@ export const SettingsPage = () => {
         </div>
       }
     >
-      <Tabs defaultValue="general" className="flex-1 flex flex-col">
+      <Tabs defaultValue="general" className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <AppPageTabs
           tabs={
             <TabsList className="h-12 bg-transparent">
@@ -601,7 +601,7 @@ export const SettingsPage = () => {
           }
         >
           {/* General Settings Tab */}
-          <TabsContent value="general" className="outline-none p-6">
+          <TabsContent value="general" className="flex-1 m-0 min-h-0 h-full overflow-auto p-6">
             <div className="max-w-3xl space-y-6 animate-in fade-in-0 duration-300">
 
               {/* Shared Database Status */}
@@ -665,7 +665,7 @@ export const SettingsPage = () => {
           </TabsContent>
 
           {/* Security Settings Tab */}
-          <TabsContent value="security" className="outline-none p-6">
+          <TabsContent value="security" className="flex-1 m-0 min-h-0 h-full overflow-auto p-6">
             <div className="max-w-3xl space-y-6 animate-in fade-in-0 duration-300">
 
               {/* Session Security Section */}
@@ -940,7 +940,7 @@ export const SettingsPage = () => {
           </TabsContent>
 
           {/* Tools Settings Tab */}
-          <TabsContent value="tools" className="outline-none p-6">
+          <TabsContent value="tools" className="flex-1 m-0 min-h-0 h-full overflow-auto p-6">
             <div className="max-w-3xl space-y-6 animate-in fade-in-0 duration-300">
 
               <Card className="p-6">
@@ -1016,7 +1016,7 @@ export const SettingsPage = () => {
           </TabsContent>
 
           {/* Validation Settings Tab */}
-          <TabsContent value="validation" className="outline-none p-6">
+          <TabsContent value="validation" className="flex-1 m-0 min-h-0 h-full overflow-auto p-6">
             <div className="max-w-3xl space-y-6 animate-in fade-in-0 duration-300">
               <Card className="p-6">
                 <div className="space-y-6">
@@ -1202,7 +1202,7 @@ export const SettingsPage = () => {
           </TabsContent>
 
           {/* Team Features Tab */}
-          <TabsContent value="team" className="outline-none p-6">
+          <TabsContent value="team" className="flex-1 m-0 min-h-0 h-full overflow-auto p-6">
             <div className="max-w-3xl space-y-6 animate-in fade-in-0 duration-300">
               <Card className="p-6">
                 <div className="flex items-start gap-4">

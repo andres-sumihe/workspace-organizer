@@ -43,11 +43,8 @@ export const AuthenticatedLayout = ({
         )}
       >
         <TopNav />
-        <main className="relative flex-1 overflow-y-auto px-6 py-6">
-          {/* Make the main area fill the available width so page content/cards
-              stretch to the area's width. Remove the max-width constraint so
-              the PageShell card (w-full) fills the content area as expected. */}
-          <div className="flex w-full flex-col gap-6">{children}</div>
+        <main className="relative flex-1 overflow-hidden">
+          {children}
         </main>
       </SidebarInset>
     </SidebarProvider>

@@ -371,7 +371,7 @@ export const OvertimePage = () => {
         </div>
       }
     >
-      <Tabs defaultValue="calculator" className="flex-1 flex flex-col">
+      <Tabs defaultValue="calculator" className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <AppPageTabs
           tabs={
             <TabsList className="h-12 bg-transparent">
@@ -388,7 +388,7 @@ export const OvertimePage = () => {
           }
         >
           {/* Calculator Tab */}
-          <TabsContent value="calculator" className="flex-1 m-0 overflow-auto p-6">
+          <TabsContent value="calculator" className="flex-1 m-0 min-h-0 h-full overflow-auto p-6">
             <div className="max-w-2xl space-y-6">
               {error && (
                 <Alert variant="destructive">
@@ -615,7 +615,7 @@ export const OvertimePage = () => {
           </TabsContent>
 
           {/* Tracker Tab */}
-          <TabsContent value="tracker" className="flex-1 m-0 overflow-auto p-6">
+          <TabsContent value="tracker" className="flex-1 m-0 min-h-0 h-full overflow-auto p-6">
             <div className="space-y-6">
               {error && (
                 <Alert variant="destructive">
