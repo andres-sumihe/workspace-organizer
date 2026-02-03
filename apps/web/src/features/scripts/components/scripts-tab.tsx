@@ -82,7 +82,7 @@ export const ScriptsTab = ({ initialScriptId }: ScriptsTabProps) => {
 
   return (
     <>
-      <PanelGroup direction="horizontal" className="flex-1">
+      <PanelGroup direction="horizontal" className="flex-1 h-full min-h-0">
         {/* Left Panel - Scripts List */}
         <Panel defaultSize={35} minSize={20} maxSize={60}>
           <div className="h-full border-r border-border bg-card overflow-hidden flex flex-col p-4">

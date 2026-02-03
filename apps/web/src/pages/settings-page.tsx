@@ -1,7 +1,7 @@
 import { Database, Loader2, Save, Settings as SettingsIcon, Server, Link2, Unlink, RefreshCw, CheckCircle2, XCircle, AlertCircle, AlertTriangle, Wrench, Copy, ChevronDown, ChevronRight, Shield, FileKey, Trash2, KeyRound, Lock, Eye, EyeOff } from 'lucide-react';
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Collapsible, CollapsibleContent } from '@radix-ui/react-collapsible';
+import { toast } from 'sonner';
 
 import { schemaValidationApi, type ValidationResponse, type ExportScriptsResponse } from '@/api/schema-validation';
 import { settingsApi } from '@/api/settings';
@@ -68,43 +68,6 @@ const hasConnectionRequiredFields = (form: ConnectionFormState): boolean => {
   );
 };
 
-// Helper to keep previous value during exit animations
-function useLastDefined<T>(value: T | null | undefined): T | null | undefined {
-  const ref = useRef(value);
-  useEffect(() => {
-    if (value !== null && value !== undefined) {
-      ref.current = value;
-    }
-  }, [value]);
-  // Return current value if defined, otherwise last known defined value
-  return (value !== null && value !== undefined) ? value : ref.current;
-}
-
-// Wrapper for smooth alert animations
-const SmoothAlert = ({ 
-  open, 
-  variant = 'default', 
-  children,
-  className = '' 
-}: { 
-  open: boolean; 
-  variant?: 'default' | 'destructive' | 'success' | 'warning' | 'info'; 
-  children: React.ReactNode; 
-  className?: string;
-}) => {
-  return (
-    <Collapsible open={open}>
-      <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
-        <div className={`py-1 ${className}`}>
-          <Alert variant={variant}>
-            {children}
-          </Alert>
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
-  );
-};
-
 export const SettingsPage = () => {
   const { status: installationStatus, isLoading: installLoading, checkStatus } = useInstallation();
   const { isSoloMode, isSharedMode, refreshAuth, sessionConfig, refreshSessionConfig, isLoading: authLoading } = useAuth();
@@ -124,8 +87,6 @@ export const SettingsPage = () => {
 
   const [formData, setFormData] = useState(criteria);
   const [mtFormData, setMTFormData] = useState(mtCriteria);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   
   // Team config state
@@ -135,7 +96,6 @@ export const SettingsPage = () => {
   const [isConfiguringTeam, setIsConfiguringTeam] = useState(false);
   const [isDisablingTeam, setIsDisablingTeam] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
-  const [teamActionMessage, setTeamActionMessage] = useState<{ success: boolean; message: string } | null>(null);
 
   // Schema validation state
   const [validationResult, setValidationResult] = useState<ValidationResponse | null>(null);
@@ -171,11 +131,6 @@ export const SettingsPage = () => {
   const [showDeletePassword, setShowDeletePassword] = useState(false);
 
   const navigate = useNavigate();
-
-  const lastSaveMessage = useLastDefined(saveMessage);
-  const lastErrorMessage = useLastDefined(errorMessage);
-  const lastConnectionResult = useLastDefined(connectionTestResult);
-  const lastTeamMessage = useLastDefined(teamActionMessage);
 
   const connectionString = useMemo(() => buildConnectionStringFromForm(connectionForm), [connectionForm]);
   const isConnectionFormValid = useMemo(() => hasConnectionRequiredFields(connectionForm), [connectionForm]);
@@ -225,23 +180,19 @@ export const SettingsPage = () => {
 
   const handleSaveToolsSettings = async () => {
     setIsSavingToolsSettings(true);
-    setErrorMessage(null);
 
     try {
       const salary = baseSalary.trim() === '' ? null : parseFormattedNumber(baseSalary);
       
       if (salary !== null && (isNaN(salary) || salary <= 0)) {
-        setErrorMessage('Base salary must be a positive number or empty');
-        setTimeout(() => setErrorMessage(null), 5000);
+        toast.error('Base salary must be a positive number or empty');
         return;
       }
 
       await toolsApi.updateGeneralSettings({ baseSalary: salary });
-      setSaveMessage('Tools settings saved successfully!');
-      setTimeout(() => setSaveMessage(null), 3000);
+      toast.success('Tools settings saved successfully!');
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to save tools settings');
-      setTimeout(() => setErrorMessage(null), 5000);
+      toast.error(err instanceof Error ? err.message : 'Failed to save tools settings');
     } finally {
       setIsSavingToolsSettings(false);
     }
@@ -249,7 +200,6 @@ export const SettingsPage = () => {
 
   const handleSave = async () => {
     setIsSaving(true);
-    setErrorMessage(null);
     
     try {
       // Auto-extract BIC from Logical Terminal if 12 characters entered
@@ -266,11 +216,9 @@ export const SettingsPage = () => {
       await updateCriteria(formData);
       await updateMTCriteria(processedMTFormData);
       setMTFormData(processedMTFormData);
-      setSaveMessage('Settings saved successfully!');
-      setTimeout(() => setSaveMessage(null), 3000);
+      toast.success('Settings saved successfully!');
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to save settings');
-      setTimeout(() => setErrorMessage(null), 5000);
+      toast.error(err instanceof Error ? err.message : 'Failed to save settings');
     } finally {
       setIsSaving(false);
     }
@@ -278,16 +226,13 @@ export const SettingsPage = () => {
 
   const handleReset = async () => {
     setIsSaving(true);
-    setErrorMessage(null);
     
     try {
       await settingsApi.resetValidationSettings();
       await refresh();
-      setSaveMessage('Reset to default values');
-      setTimeout(() => setSaveMessage(null), 3000);
+      toast.success('Reset to default values');
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to reset settings');
-      setTimeout(() => setErrorMessage(null), 5000);
+      toast.error(err instanceof Error ? err.message : 'Failed to reset settings');
     } finally {
       setIsSaving(false);
     }
@@ -297,8 +242,7 @@ export const SettingsPage = () => {
     try {
       await setIsEnabled(checked);
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to update setting');
-      setTimeout(() => setErrorMessage(null), 5000);
+      toast.error(err instanceof Error ? err.message : 'Failed to update setting');
     }
   };
 
@@ -306,14 +250,12 @@ export const SettingsPage = () => {
     try {
       await setIsMTEnabled(checked);
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to update setting');
-      setTimeout(() => setErrorMessage(null), 5000);
+      toast.error(err instanceof Error ? err.message : 'Failed to update setting');
     }
   };
 
   const handleGenerateRecoveryKey = async () => {
     setIsGeneratingKey(true);
-    setErrorMessage(null);
     setRecoveryKey(null);
     
     try {
@@ -329,12 +271,12 @@ export const SettingsPage = () => {
       const data = await response.json();
       if (response.ok && data.success) {
         setRecoveryKey(data.recoveryKey);
-        setSaveMessage('New recovery key generated successfully!');
+        toast.success('New recovery key generated successfully!');
       } else {
-        setErrorMessage(data.message || 'Failed to generate key');
+        toast.error(data.message || 'Failed to generate key');
       }
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to generate key');
+      toast.error(err instanceof Error ? err.message : 'Failed to generate key');
     } finally {
       setIsGeneratingKey(false);
     }
@@ -350,7 +292,6 @@ export const SettingsPage = () => {
 
   const handleToggleSessionLock = async (checked: boolean) => {
     setIsUpdatingSession(true);
-    setErrorMessage(null);
     try {
       const response = await fetch(`${API_URL}/api/v1/auth/session-config`, {
         method: 'POST',
@@ -364,13 +305,12 @@ export const SettingsPage = () => {
       const data = await response.json();
       if (response.ok && data.success) {
         await refreshSessionConfig();
-        setSaveMessage('Session settings updated successfully');
-        setTimeout(() => setSaveMessage(null), 3000);
+        toast.success('Session settings updated successfully');
       } else {
-        setErrorMessage(data.message || 'Failed to update session settings');
+        toast.error(data.message || 'Failed to update session settings');
       }
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to update session settings');
+      toast.error(err instanceof Error ? err.message : 'Failed to update session settings');
     } finally {
       setIsUpdatingSession(false);
     }
@@ -378,22 +318,21 @@ export const SettingsPage = () => {
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmNewPassword) {
-      setErrorMessage('All password fields are required');
+      toast.error('All password fields are required');
       return;
     }
 
     if (newPassword !== confirmNewPassword) {
-      setErrorMessage('New passwords do not match');
+      toast.error('New passwords do not match');
       return;
     }
 
     if (newPassword.length < 8) {
-      setErrorMessage('New password must be at least 8 characters long');
+      toast.error('New password must be at least 8 characters long');
       return;
     }
 
     setIsChangingPassword(true);
-    setErrorMessage(null);
 
     try {
       const response = await fetch(`${API_URL}/api/v1/auth/change-password`, {
@@ -407,16 +346,15 @@ export const SettingsPage = () => {
 
       const data = await response.json();
       if (response.ok && data.success) {
-        setSaveMessage('Password changed successfully!');
+        toast.success('Password changed successfully!');
         setCurrentPassword('');
         setNewPassword('');
         setConfirmNewPassword('');
-        setTimeout(() => setSaveMessage(null), 3000);
       } else {
-        setErrorMessage(data.message || 'Failed to change password');
+        toast.error(data.message || 'Failed to change password');
       }
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to change password');
+      toast.error(err instanceof Error ? err.message : 'Failed to change password');
     } finally {
       setIsChangingPassword(false);
     }
@@ -424,7 +362,7 @@ export const SettingsPage = () => {
 
   const handleDeleteAccount = async () => {
     if (!deletePassword) {
-      setErrorMessage('Please enter your password to confirm deletion');
+      toast.error('Please enter your password to confirm deletion');
       return;
     }
 
@@ -433,7 +371,6 @@ export const SettingsPage = () => {
     }
 
     setIsDeletingAccount(true);
-    setErrorMessage(null);
 
     try {
       const response = await fetch(`${API_URL}/api/v1/auth/delete-account`, {
@@ -453,10 +390,10 @@ export const SettingsPage = () => {
         navigate('/setup');
       } else {
         const data = await response.json();
-        setErrorMessage(data.message || 'Failed to delete account');
+        toast.error(data.message || 'Failed to delete account');
       }
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to delete account');
+      toast.error(err instanceof Error ? err.message : 'Failed to delete account');
     } finally {
       setIsDeletingAccount(false);
     }
@@ -465,7 +402,7 @@ export const SettingsPage = () => {
   // Team config handlers
   const handleTestConnection = async () => {
     if (!isConnectionFormValid || !connectionString) {
-      setConnectionTestResult({ success: false, message: 'All connection fields are required' });
+      toast.error('All connection fields are required');
       return;
     }
 
@@ -482,11 +419,15 @@ export const SettingsPage = () => {
       const data = await response.json();
       if (response.ok && data.success) {
         setConnectionTestResult({ success: true, message: 'Connection successful!' });
+        toast.success('Connection successful!');
       } else {
         setConnectionTestResult({ success: false, message: data.message || 'Connection failed' });
+        toast.error(data.message || 'Connection failed');
       }
     } catch (err) {
-      setConnectionTestResult({ success: false, message: err instanceof Error ? err.message : 'Connection test failed' });
+      const message = err instanceof Error ? err.message : 'Connection test failed';
+      setConnectionTestResult({ success: false, message });
+      toast.error(message);
     } finally {
       setIsTestingConnection(false);
     }
@@ -494,13 +435,11 @@ export const SettingsPage = () => {
 
   const handleConfigureTeam = async () => {
     if (!isConnectionFormValid || !connectionString) {
-      setErrorMessage('Please complete all connection fields');
-      setTimeout(() => setErrorMessage(null), 5000);
+      toast.error('Please complete all connection fields');
       return;
     }
 
     setIsConfiguringTeam(true);
-    setErrorMessage(null);
 
     try {
       const response = await fetch(`${API_URL}/api/v1/team-config/configure`, {
@@ -511,18 +450,15 @@ export const SettingsPage = () => {
 
       const data = await response.json();
       if (response.ok && data.success) {
-        setSaveMessage('Shared mode enabled successfully!');
-        setTimeout(() => setSaveMessage(null), 3000);
+        toast.success('Shared mode enabled successfully!');
         setConnectionForm(defaultConnectionForm);
         setConnectionTestResult(null);
         await Promise.all([refreshStatus(), refreshAuth(), checkStatus()]);
       } else {
-        setErrorMessage(data.message || 'Failed to configure shared mode');
-        setTimeout(() => setErrorMessage(null), 5000);
+        toast.error(data.message || 'Failed to configure shared mode');
       }
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to configure shared mode');
-      setTimeout(() => setErrorMessage(null), 5000);
+      toast.error(err instanceof Error ? err.message : 'Failed to configure shared mode');
     } finally {
       setIsConfiguringTeam(false);
     }
@@ -534,7 +470,6 @@ export const SettingsPage = () => {
     }
 
     setIsDisablingTeam(true);
-    setErrorMessage(null);
 
     try {
       const response = await fetch(`${API_URL}/api/v1/team-config/disable`, {
@@ -544,16 +479,13 @@ export const SettingsPage = () => {
 
       const data = await response.json();
       if (response.ok && data.success) {
-        setSaveMessage('Shared mode disabled. Returning to Solo mode.');
-        setTimeout(() => setSaveMessage(null), 3000);
+        toast.success('Shared mode disabled. Returning to Solo mode.');
         await Promise.all([refreshStatus(), refreshAuth(), checkStatus()]);
       } else {
-        setErrorMessage(data.message || 'Failed to disable shared mode');
-        setTimeout(() => setErrorMessage(null), 5000);
+        toast.error(data.message || 'Failed to disable shared mode');
       }
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to disable shared mode');
-      setTimeout(() => setErrorMessage(null), 5000);
+      toast.error(err instanceof Error ? err.message : 'Failed to disable shared mode');
     } finally {
       setIsDisablingTeam(false);
     }
@@ -561,7 +493,6 @@ export const SettingsPage = () => {
 
   const handleReconnect = async () => {
     setIsReconnecting(true);
-    setTeamActionMessage(null);
 
     try {
       const response = await fetch(`${API_URL}/api/v1/team-config/reconnect`, {
@@ -571,16 +502,13 @@ export const SettingsPage = () => {
 
       const data = await response.json();
       if (response.ok && data.success) {
-        setTeamActionMessage({ success: true, message: data.message || 'Reconnected successfully' });
+        toast.success(data.message || 'Reconnected successfully');
         await Promise.all([refreshStatus(), refreshAuth(), checkStatus()]);
-        setTimeout(() => setTeamActionMessage(null), 5000);
       } else {
-        setTeamActionMessage({ success: false, message: data.message || 'Failed to reconnect' });
-        setTimeout(() => setTeamActionMessage(null), 5000);
+        toast.error(data.message || 'Failed to reconnect');
       }
     } catch (err) {
-      setTeamActionMessage({ success: false, message: err instanceof Error ? err.message : 'Failed to reconnect' });
-      setTimeout(() => setTeamActionMessage(null), 5000);
+      toast.error(err instanceof Error ? err.message : 'Failed to reconnect');
     } finally {
       setIsReconnecting(false);
     }
@@ -589,7 +517,6 @@ export const SettingsPage = () => {
   const handleViewMigrationInfo = async () => {
     setIsLoadingMigrationInfo(true);
     setShowMigrationInfo(true);
-    setTeamActionMessage(null);
 
     try {
       const data = await schemaValidationApi.exportScripts();
@@ -597,8 +524,7 @@ export const SettingsPage = () => {
         setMigrationData(data);
       }
     } catch (err) {
-      setTeamActionMessage({ success: false, message: err instanceof Error ? err.message : 'Failed to load migration info' });
-      setTimeout(() => setTeamActionMessage(null), 5000);
+      toast.error(err instanceof Error ? err.message : 'Failed to load migration info');
     } finally {
       setIsLoadingMigrationInfo(false);
     }
@@ -607,35 +533,26 @@ export const SettingsPage = () => {
   const handleCopySQL = async (sql: string, migrationId?: string) => {
     try {
       await navigator.clipboard.writeText(sql);
-      setTeamActionMessage({ success: true, message: migrationId ? `Copied ${migrationId} SQL to clipboard` : 'Copied SQL to clipboard' });
-      setTimeout(() => setTeamActionMessage(null), 3000);
+      toast.success(migrationId ? `Copied ${migrationId} SQL to clipboard` : 'Copied SQL to clipboard');
     } catch {
-      setTeamActionMessage({ success: false, message: 'Failed to copy to clipboard' });
-      setTimeout(() => setTeamActionMessage(null), 3000);
+      toast.error('Failed to copy to clipboard');
     }
   };
 
   const handleValidateSchema = async () => {
     setIsValidating(true);
-    setTeamActionMessage(null);
 
     try {
       const result = await schemaValidationApi.validate();
       setValidationResult(result);
       
       if (result.valid) {
-        setTeamActionMessage({ success: true, message: '✓ All schemas valid!' });
+        toast.success('All schemas valid!');
       } else {
-        setTeamActionMessage({ 
-          success: false, 
-          message: `⚠ Schema validation failed: ${result.summary.invalid} invalid, ${result.summary.missing} missing` 
-        });
+        toast.warning(`Schema validation: ${result.summary.invalid} invalid, ${result.summary.missing} missing`);
       }
-      
-      setTimeout(() => setTeamActionMessage(null), 5000);
     } catch (err) {
-      setTeamActionMessage({ success: false, message: err instanceof Error ? err.message : 'Schema validation failed' });
-      setTimeout(() => setTeamActionMessage(null), 5000);
+      toast.error(err instanceof Error ? err.message : 'Schema validation failed');
     } finally {
       setIsValidating(false);
     }
@@ -750,14 +667,6 @@ export const SettingsPage = () => {
           {/* Security Settings Tab */}
           <TabsContent value="security" className="outline-none p-6">
             <div className="max-w-3xl space-y-6 animate-in fade-in-0 duration-300">
-              
-              <SmoothAlert open={!!saveMessage} variant="success">
-                <AlertDescription>{lastSaveMessage}</AlertDescription>
-              </SmoothAlert>
-
-              <SmoothAlert open={!!errorMessage} variant="destructive">
-                <AlertDescription>{lastErrorMessage}</AlertDescription>
-              </SmoothAlert>
 
               {/* Session Security Section */}
               <Card className="p-6">
@@ -1033,14 +942,6 @@ export const SettingsPage = () => {
           {/* Tools Settings Tab */}
           <TabsContent value="tools" className="outline-none p-6">
             <div className="max-w-3xl space-y-6 animate-in fade-in-0 duration-300">
-              
-              <SmoothAlert open={!!saveMessage} variant="success">
-                <AlertDescription>{lastSaveMessage}</AlertDescription>
-              </SmoothAlert>
-
-              <SmoothAlert open={!!errorMessage} variant="destructive">
-                <AlertDescription>{lastErrorMessage}</AlertDescription>
-              </SmoothAlert>
 
               <Card className="p-6">
                 <div className="flex items-start gap-4">
@@ -1415,10 +1316,6 @@ export const SettingsPage = () => {
                           </p>
                         </div>
 
-                        <SmoothAlert open={!!connectionTestResult} variant={connectionTestResult?.success ? 'success' : 'destructive'}>
-                          <AlertDescription>{lastConnectionResult?.message}</AlertDescription>
-                        </SmoothAlert>
-
                         <div className="flex gap-3">
                           <Button 
                             variant="outline" 
@@ -1457,10 +1354,6 @@ export const SettingsPage = () => {
                                scripts management, Control-M jobs, and audit logging are enabled.</p>
                           </AlertDescription>
                         </Alert>
-
-                        <SmoothAlert open={!!teamActionMessage} variant={teamActionMessage?.success ? 'success' : 'destructive'}>
-                          <AlertDescription>{lastTeamMessage?.message}</AlertDescription>
-                        </SmoothAlert>
 
                         <div className="space-y-3">
                           <div className="flex items-center gap-3">

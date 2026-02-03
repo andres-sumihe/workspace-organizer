@@ -13,13 +13,11 @@ interface ScriptRow {
   id: string;
   name: string;
   description: string | null;
-  file_path: string;
   content: string;
   type: string;
   is_active: boolean;
   has_credentials: boolean;
-  execution_count: number;
-  last_executed_at: string | null;
+  tags: string[] | null;
   created_by: string | null;
   updated_by: string | null;
   created_at: string;
@@ -32,7 +30,6 @@ interface DriveMappingRow {
   drive_letter: string;
   network_path: string;
   server_name: string | null;
-  share_name: string | null;
   has_credentials: boolean;
   username: string | null;
   created_at: string;
@@ -68,13 +65,12 @@ const mapRowToScript = (row: ScriptRow): BatchScript => {
     id: row.id,
     name: row.name,
     description: row.description ?? undefined,
-    filePath: row.file_path,
     content: row.content,
     type: row.type as ScriptType,
     isActive: row.is_active,
     hasCredentials: row.has_credentials ?? false,
-    executionCount: row.execution_count ?? 0,
-    lastExecutedAt: toISOString(row.last_executed_at),
+    createdBy: row.created_by ?? undefined,
+    updatedBy: row.updated_by ?? undefined,
     createdAt: toISOString(row.created_at) || new Date().toISOString(),
     updatedAt: toISOString(row.updated_at) || new Date().toISOString()
   };
@@ -88,7 +84,6 @@ const mapRowToDriveMapping = (row: DriveMappingRow): DriveMapping => ({
   driveLetter: row.drive_letter,
   networkPath: row.network_path,
   serverName: row.server_name ?? undefined,
-  shareName: row.share_name ?? undefined,
   hasCredentials: row.has_credentials ?? false,
   username: row.username ?? undefined,
   createdAt: toISOString(row.created_at) ?? new Date().toISOString(),
@@ -146,7 +141,7 @@ export const scriptsRepository = {
     }
 
     if (searchQuery !== undefined && searchQuery.trim() !== '') {
-      conditions.push(`(s.name ILIKE $${paramIndex} OR s.file_path ILIKE $${paramIndex} OR s.description ILIKE $${paramIndex} OR s.content ILIKE $${paramIndex})`);
+      conditions.push(`(s.name ILIKE $${paramIndex} OR s.description ILIKE $${paramIndex} OR s.content ILIKE $${paramIndex})`);
       values.push(`%${searchQuery}%`);
       paramIndex++;
     }
@@ -194,7 +189,7 @@ export const scriptsRepository = {
     }
 
     if (searchQuery !== undefined && searchQuery.trim() !== '') {
-      conditions.push(`(s.name ILIKE $${paramIndex} OR s.file_path ILIKE $${paramIndex} OR s.description ILIKE $${paramIndex} OR s.content ILIKE $${paramIndex})`);
+      conditions.push(`(s.name ILIKE $${paramIndex} OR s.description ILIKE $${paramIndex} OR s.content ILIKE $${paramIndex})`);
       values.push(`%${searchQuery}%`);
       paramIndex++;
     }
@@ -304,7 +299,6 @@ export const scriptsRepository = {
     data: {
       name: string;
       description?: string;
-      filePath: string;
       content: string;
       type?: ScriptType;
       isActive?: boolean;
@@ -318,13 +312,12 @@ export const scriptsRepository = {
       await client.query('BEGIN');
 
       const result = await client.query<ScriptRow>(
-        `INSERT INTO scripts (name, description, file_path, content, type, is_active, created_by, updated_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
+        `INSERT INTO scripts (name, description, content, type, is_active, created_by, updated_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $6)
          RETURNING *`,
         [
           data.name,
           data.description ?? null,
-          data.filePath,
           data.content,
           data.type ?? 'batch',
           data.isActive ?? true,
@@ -459,9 +452,8 @@ export const scriptsRepository = {
       `SELECT * FROM scripts
        WHERE UPPER(name) = $1
           OR UPPER(name) = $2
-          OR UPPER(file_path) LIKE $3
        ORDER BY name`,
-      [filename.toUpperCase(), normalizedFilename, `%${filename.toUpperCase()}`]
+      [filename.toUpperCase(), normalizedFilename]
     );
 
     return rows.map(mapRowToScript);
@@ -515,21 +507,19 @@ export const scriptsRepository = {
       driveLetter: string;
       networkPath: string;
       serverName?: string;
-      shareName?: string;
       hasCredentials?: boolean;
       username?: string;
     }
   ): Promise<DriveMapping> {
     const result = await query<DriveMappingRow>(
-      `INSERT INTO drive_mappings (script_id, drive_letter, network_path, server_name, share_name, has_credentials, username)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO drive_mappings (script_id, drive_letter, network_path, server_name, has_credentials, username)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
       [
         scriptId,
         mapping.driveLetter,
         mapping.networkPath,
         mapping.serverName ?? null,
-        mapping.shareName ?? null,
         mapping.hasCredentials ?? false,
         mapping.username ?? null
       ]

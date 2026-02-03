@@ -9,6 +9,7 @@ import {
   getDriveAnalysis,
   getConflicts,
   getAllTags,
+  createOrFindTag,
   scanDirectory,
   getScriptActivity
 } from '../services/scripts.service.js';
@@ -63,21 +64,19 @@ export const createScriptHandler: RequestHandler = async (req, res) => {
 
   const name = typeof body.name === 'string' ? body.name : undefined;
   const description = typeof body.description === 'string' ? body.description : undefined;
-  const filePath = typeof body.filePath === 'string' ? body.filePath : undefined;
   const content = typeof body.content === 'string' ? body.content : undefined;
   const type = typeof body.type === 'string' ? (body.type as ScriptType) : 'batch';
   const isActive = typeof body.isActive === 'boolean' ? body.isActive : true;
   const tagIds = Array.isArray(body.tagIds) ? body.tagIds.filter((id): id is string => typeof id === 'string') : undefined;
 
-  if (!name || !filePath || !content) {
-    return res.status(400).json({ code: 'INVALID_REQUEST', message: 'Missing required fields: name, filePath, content' });
+  if (!name || !content) {
+    return res.status(400).json({ code: 'INVALID_REQUEST', message: 'Missing required fields: name, content' });
   }
 
   const userContext = getUserContext(req as AuthenticatedRequest);
   const script = await createScriptService({
     name,
     description,
-    filePath,
     content,
     type,
     isActive,
@@ -161,6 +160,18 @@ export const getConflictsHandler: RequestHandler = async (_req, res) => {
 export const listTagsHandler: RequestHandler = async (_req, res) => {
   const tags = await getAllTags();
   res.json({ tags });
+};
+
+export const createTagHandler: RequestHandler = async (req, res) => {
+  const { name, color } = req.body as { name?: string; color?: string };
+  
+  if (!name || typeof name !== 'string' || name.trim().length === 0) {
+    res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'name is required' } });
+    return;
+  }
+
+  const tag = await createOrFindTag(name.trim(), color);
+  res.status(201).json({ tag });
 };
 
 export const getScriptActivityHandler: RequestHandler = async (req, res) => {

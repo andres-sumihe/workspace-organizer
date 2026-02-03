@@ -43,7 +43,8 @@ export const tagsController = {
 
   /**
    * POST /api/v1/tags
-   * Create a new tag
+   * Create a new tag (or return existing if name matches)
+   * Uses getOrCreate behavior - safe for concurrent calls
    */
   async create(req: Request, res: Response, next: NextFunction) {
     try {
@@ -58,16 +59,10 @@ export const tagsController = {
         return;
       }
 
-      const tag = await tagsService.create(body);
+      // Use getOrCreate to safely handle concurrent tag creation
+      const tag = await tagsService.getOrCreate(body.name, body.color);
       res.status(201).json({ tag });
     } catch (error) {
-      if (error instanceof Error && error.message.includes('already exists')) {
-        res.status(409).json({
-          code: 'TAG_EXISTS',
-          message: error.message
-        });
-        return;
-      }
       next(error);
     }
   },

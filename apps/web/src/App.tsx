@@ -1,4 +1,4 @@
-import { Briefcase, FolderGit2, LayoutDashboard, Settings, FileCode, Loader2, Users, Wrench, BookOpen, StickyNote } from 'lucide-react';
+import { Briefcase, FolderGit2, LayoutDashboard, Settings, Loader2, Users, Wrench, BookOpen, StickyNote } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation, Outlet } from 'react-router-dom';
 
@@ -149,15 +149,17 @@ function AppContent() {
       { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { key: 'workspaces', label: 'Workspaces', icon: FolderGit2 },
       { key: 'projects', label: 'Projects', icon: Briefcase },
+      // Teams group with nested items for Shared mode
       {
-        key: 'scripts',
-        label: 'Scripts',
-        icon: FileCode,
-        // Visual hint that this is a team feature
-        badge: isSoloMode ? 'Team' : undefined
+        key: 'teams',
+        label: 'Teams',
+        icon: Users,
+        badge: isSoloMode ? 'Team' : undefined,
+        subItems: [
+          { key: 'members', label: 'Members' },
+          { key: 'scripts', label: 'Scripts' }
+        ]
       },
-      // Teams sidebar item only visible in Shared mode
-      ...(!isSoloMode ? [{ key: 'teams', label: 'Teams', icon: Users }] : []),
       { key: 'journal', label: 'Journal', icon: BookOpen },
       { key: 'notes', label: 'Notes & Vault', icon: StickyNote },
       {
@@ -178,11 +180,10 @@ function AppContent() {
     const path = location.pathname;
     if (path.startsWith('/workspaces')) return 'workspaces';
     if (path.startsWith('/projects')) return 'projects';
-    if (path.startsWith('/scripts')) return 'scripts';
+    // Scripts and Teams pages fall under Teams group
+    if (path.startsWith('/scripts')) return 'teams';
     if (path.startsWith('/teams')) return 'teams';
     if (path.startsWith('/journal')) return 'journal';
-    if (path.startsWith('/notes')) return 'notes';
-    if (path.startsWith('/tools')) return 'tools';
     if (path.startsWith('/notes')) return 'notes';
     if (path.startsWith('/tools')) return 'tools';
     if (path.startsWith('/settings')) return 'settings';
@@ -192,6 +193,9 @@ function AppContent() {
   const getActiveSubKey = (): string | undefined => {
     const path = location.pathname;
     if (path.startsWith('/tools/overtime')) return 'overtime';
+    // Teams sub-navigation
+    if (path.startsWith('/scripts')) return 'scripts';
+    if (path.startsWith('/teams')) return 'members';
     return undefined;
   };
 
@@ -212,17 +216,23 @@ function AppContent() {
             const toolsRoutes: Record<string, string> = {
               overtime: '/tools/overtime'
             };
-            navigate(toolsRoutes[subKey] || '/tools');
+            navigate(toolsRoutes[subKey] || '/tools/overtime');
+          } else if (key === 'teams' && subKey) {
+            // Navigate to teams sub-page (members or scripts)
+            const teamsRoutes: Record<string, string> = {
+              members: '/teams',
+              scripts: '/scripts'
+            };
+            navigate(teamsRoutes[subKey] || '/teams');
+          } else if (key === 'teams') {
+            // Default teams navigation goes to members
+            navigate('/teams');
           } else {
             const routes: Record<string, string> = {
               dashboard: '/',
               projects: '/projects',
-              scripts: '/scripts',
-              teams: '/teams',
               journal: '/journal',
               notes: '/notes',
-              tools: '/tools',
-              analytics: '/analytics',
               settings: '/settings'
             };
             navigate(routes[key] || '/');

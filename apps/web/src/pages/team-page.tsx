@@ -1,6 +1,7 @@
 import { Users, Loader2, AlertCircle, UserPlus, Plus, Settings as SettingsIcon, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 import type { TeamWithMembership, TeamMemberDetail } from '@/api/teams';
 import type { TeamRole } from '@workspace/shared';
@@ -47,7 +48,6 @@ export const TeamPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   
   // Dialog states
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -117,15 +117,13 @@ export const TeamPage = () => {
     try {
       setError(null);
       await updateMemberRole(currentTeam.team.id, memberId, newRole);
-      setSuccessMessage('Member role updated successfully');
-      setTimeout(() => setSuccessMessage(null), 3000);
+      toast.success('Member role updated successfully');
       
       // Refresh members list
       const response = await listMembers(currentTeam.team.id);
       setMembers(response.members);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update role');
-      setTimeout(() => setError(null), 5000);
+      toast.error(err instanceof Error ? err.message : 'Failed to update role');
     }
   };
 
@@ -135,15 +133,13 @@ export const TeamPage = () => {
     try {
       setError(null);
       await removeMember(currentTeam.team.id, memberId);
-      setSuccessMessage('Member removed successfully');
-      setTimeout(() => setSuccessMessage(null), 3000);
+      toast.success('Member removed successfully');
       
       // Refresh members list
       const response = await listMembers(currentTeam.team.id);
       setMembers(response.members);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to remove member');
-      setTimeout(() => setError(null), 5000);
+      toast.error(err instanceof Error ? err.message : 'Failed to remove member');
     } finally {
       setRemoveDialogOpen(false);
       setMemberToRemove(null);
@@ -297,12 +293,6 @@ export const TeamPage = () => {
         </div>
       }
     >
-      {successMessage && (
-        <Alert className="mx-6 mt-4 bg-success/10 text-success border-success/20">
-          <AlertDescription>{successMessage}</AlertDescription>
-        </Alert>
-      )}
-
       {error && (
         <Alert variant="destructive" className="mx-6 mt-4">
           <AlertDescription>{error}</AlertDescription>
