@@ -52,68 +52,70 @@ export const DashboardPage = () => {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* 0. Header & Quick Capture */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Overview of your workspace productivity.
-          </p>
-        </div>
-        <form
-          onSubmit={handleQuickCapture}
-          className="flex w-full md:w-auto items-center gap-2"
-        >
-          <Input
-            placeholder="Quick capture task..."
-            value={quickCaptureText}
-            onChange={(e) => setQuickCaptureText(e.target.value)}
-            className="w-full md:w-[300px]"
-            disabled={isCapturing}
-          />
-          <Button
-            type="submit"
-            size="icon"
-            disabled={isCapturing || !quickCaptureText.trim()}
+    <div className="absolute inset-0 overflow-y-auto px-6 py-6">
+      <div className="flex w-full flex-col gap-6">
+        {/* 0. Header & Quick Capture */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-muted-foreground">
+              Overview of your workspace productivity.
+            </p>
+          </div>
+          <form
+            onSubmit={handleQuickCapture}
+            className="flex w-full md:w-auto items-center gap-2"
           >
-            {isCapturing ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Plus className="h-4 w-4" />
-            )}
-          </Button>
-        </form>
-      </div>
-
-      {/* 1. Stats Overview - Each card fetches its own data */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <OvertimeStatCard />
-        <TasksCompletedCard />
-        <ActiveFocusCountCard />
-        <StreakCard />
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        {/* Main Column */}
-        <div className="col-span-4 space-y-6">
-          {/* 2. Productivity Heatmap */}
-          <ProductivityHeatmapCard />
-
-          {/* 3. Active Focus */}
-          <ActiveFocusCard />
+            <Input
+              placeholder="Quick capture task..."
+              value={quickCaptureText}
+              onChange={(e) => setQuickCaptureText(e.target.value)}
+              className="w-full md:w-[300px]"
+              disabled={isCapturing}
+            />
+            <Button
+              type="submit"
+              size="icon"
+              disabled={isCapturing || !quickCaptureText.trim()}
+            >
+              {isCapturing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
+            </Button>
+          </form>
         </div>
 
-        {/* Side Column */}
-        <div className="col-span-3 space-y-4 min-w-0 overflow-hidden">
-          {/* 4. Projects Watchlist */}
-          <ProjectsWatchlistCard />
+        {/* 1. Stats Overview - Each card fetches its own data */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <OvertimeStatCard />
+          <TasksCompletedCard />
+          <ActiveFocusCountCard />
+          <StreakCard />
+        </div>
 
-          {/* 5. Recent Activity */}
-          <RecentActivityCard />
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+          {/* Main Column */}
+          <div className="col-span-4 space-y-6">
+            {/* 2. Productivity Heatmap */}
+            <ProductivityHeatmapCard />
 
-          {/* 6. Pinned Notes */}
-          <PinnedNotesCard />
+            {/* 3. Active Focus */}
+            <ActiveFocusCard />
+          </div>
+
+          {/* Side Column */}
+          <div className="col-span-3 space-y-4 min-w-0 overflow-hidden">
+            {/* 4. Projects Watchlist */}
+            <ProjectsWatchlistCard />
+
+            {/* 5. Recent Activity */}
+            <RecentActivityCard />
+
+            {/* 6. Pinned Notes */}
+            <PinnedNotesCard />
+          </div>
         </div>
       </div>
     </div>
