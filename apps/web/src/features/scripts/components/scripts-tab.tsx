@@ -78,11 +78,15 @@ export const ScriptsTab = ({ initialScriptId }: ScriptsTabProps) => {
     // Invalidate queries to refresh data
     queryClient.invalidateQueries({ queryKey: queryKeys.scripts.lists() });
     queryClient.invalidateQueries({ queryKey: queryKeys.scripts.stats() });
+    // Also invalidate the specific script detail if editing
+    if (selectedScriptId) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.scripts.detail(selectedScriptId) });
+    }
   };
 
   return (
     <>
-      <PanelGroup direction="horizontal" className="flex-1 h-full min-h-0">
+      <PanelGroup direction="horizontal" className="flex-1 h-full min-h-0 overflow-hidden">
         {/* Left Panel - Scripts List */}
         <Panel defaultSize={35} minSize={20} maxSize={60}>
           <div className="h-full border-r border-border bg-card overflow-hidden flex flex-col p-4">

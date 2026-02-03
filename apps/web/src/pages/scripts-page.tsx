@@ -135,7 +135,7 @@ export const ScriptsPage = () => {
         </>
       }
     >
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <AppPageTabs
           tabs={
             <TabsList className="h-12 bg-transparent">
@@ -154,15 +154,15 @@ export const ScriptsPage = () => {
             </TabsList>
           }
         >
-          <TabsContent value="scripts" className="flex-1 m-0 min-h-0" key={`scripts-${refreshKey}`}>
+          <TabsContent value="scripts" className="flex-1 m-0 min-h-0 h-full data-[state=active]:flex data-[state=active]:flex-col" key={`scripts-${refreshKey}`}>
             <ScriptsTab initialScriptId={scriptId} />
           </TabsContent>
 
-          <TabsContent value="jobs" className="flex-1 m-0 h-full" key={`jobs-${refreshKey}`}>
+          <TabsContent value="jobs" className="flex-1 m-0 min-h-0 h-full data-[state=active]:flex data-[state=active]:flex-col" key={`jobs-${refreshKey}`}>
             <JobsTab initialJobId={jobIdParam ?? undefined} />
           </TabsContent>
 
-          <TabsContent value="drive-mappings" className="flex-1 m-0 overflow-auto h-full" key={`mappings-${refreshKey}`}>
+          <TabsContent value="drive-mappings" className="flex-1 m-0 min-h-0 h-full overflow-auto" key={`mappings-${refreshKey}`}>
             <DriveMappingsTab />
           </TabsContent>
         </AppPageTabs>
