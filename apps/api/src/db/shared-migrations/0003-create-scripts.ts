@@ -6,7 +6,7 @@ export const id = '0003-create-scripts';
  * Migration: Scripts Table
  * 
  * Stores batch scripts shared across the team.
- * Scripts can reference drive mappings and be linked to Control-M jobs.
+ * Scripts can have drive mappings and be linked to Control-M jobs.
  */
 export const up = async (client: PoolClient): Promise<void> => {
   // Create scripts table
@@ -16,10 +16,10 @@ export const up = async (client: PoolClient): Promise<void> => {
       team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
       name VARCHAR(255) NOT NULL,
       description TEXT,
-      file_path VARCHAR(1000),
       content TEXT,
       type VARCHAR(50) DEFAULT 'batch',
       is_active BOOLEAN DEFAULT true,
+      has_credentials BOOLEAN DEFAULT false,
       tags TEXT[],
       created_by VARCHAR(255),
       updated_by VARCHAR(255),
@@ -44,19 +44,19 @@ export const up = async (client: PoolClient): Promise<void> => {
   await client.query('CREATE INDEX IF NOT EXISTS idx_scripts_is_active ON scripts (is_active)');
   await client.query('CREATE INDEX IF NOT EXISTS idx_scripts_tags ON scripts USING GIN (tags)');
 
-  // Create drive_mappings table
+  // Create drive_mappings table (per-script mappings)
   await client.query(`
     CREATE TABLE IF NOT EXISTS drive_mappings (
       id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-      team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
+      script_id UUID NOT NULL REFERENCES scripts(id) ON DELETE CASCADE,
       drive_letter CHAR(1) NOT NULL,
-      unc_path VARCHAR(1000) NOT NULL,
-      description TEXT,
-      is_active BOOLEAN DEFAULT true,
-      created_by_email VARCHAR(255),
+      network_path VARCHAR(1000) NOT NULL,
+      server_name VARCHAR(255),
+      has_credentials BOOLEAN DEFAULT false,
+      username VARCHAR(255),
       created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-      CONSTRAINT drive_mappings_team_letter_unique UNIQUE (team_id, drive_letter)
+      CONSTRAINT drive_mappings_script_letter_unique UNIQUE (script_id, drive_letter)
     )
   `);
 
@@ -70,15 +70,6 @@ export const up = async (client: PoolClient): Promise<void> => {
   `);
 
   // Create indexes for drive_mappings
-  await client.query('CREATE INDEX IF NOT EXISTS idx_drive_mappings_team ON drive_mappings (team_id)');
+  await client.query('CREATE INDEX IF NOT EXISTS idx_drive_mappings_script ON drive_mappings (script_id)');
   await client.query('CREATE INDEX IF NOT EXISTS idx_drive_mappings_letter ON drive_mappings (drive_letter)');
-
-  // Create script_drive_mappings junction table
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS script_drive_mappings (
-      script_id UUID NOT NULL REFERENCES scripts(id) ON DELETE CASCADE,
-      drive_mapping_id UUID NOT NULL REFERENCES drive_mappings(id) ON DELETE CASCADE,
-      PRIMARY KEY (script_id, drive_mapping_id)
-    )
-  `);
 };

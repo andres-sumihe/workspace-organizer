@@ -25,7 +25,6 @@ export const up = async (client: PoolClient): Promise<void> => {
       drive_letter VARCHAR(5) NOT NULL,
       network_path VARCHAR(1000) NOT NULL,
       server_name VARCHAR(255),
-      share_name VARCHAR(255),
       has_credentials BOOLEAN DEFAULT false,
       username VARCHAR(255),
       created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),

@@ -299,7 +299,7 @@ export const TeamPage = () => {
         </Alert>
       )}
 
-      <Tabs defaultValue="members" className="flex-1 flex flex-col">
+      <Tabs defaultValue="members" className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <AppPageTabs
           tabs={
             <TabsList className="h-12 bg-transparent">
@@ -309,7 +309,7 @@ export const TeamPage = () => {
             </TabsList>
           }
         >
-          <TabsContent value="members" className="flex-1 m-0 h-full overflow-auto p-6">
+          <TabsContent value="members" className="flex-1 m-0 min-h-0 h-full overflow-auto p-6">
             {isLoadingMembers ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="size-6 animate-spin text-muted-foreground" />
@@ -399,7 +399,7 @@ export const TeamPage = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="overview" className="m-0 p-6">
+          <TabsContent value="overview" className="flex-1 m-0 min-h-0 h-full overflow-auto p-6">
             <Alert>
               <AlertCircle className="size-4" />
               <AlertDescription>
@@ -408,7 +408,7 @@ export const TeamPage = () => {
             </Alert>
           </TabsContent>
 
-          <TabsContent value="settings" className="m-0 p-6">
+          <TabsContent value="settings" className="flex-1 m-0 min-h-0 h-full overflow-auto p-6">
             <Alert>
               <AlertCircle className="size-4" />
               <AlertDescription>

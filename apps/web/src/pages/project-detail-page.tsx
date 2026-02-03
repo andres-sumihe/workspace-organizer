@@ -540,7 +540,7 @@ export function ProjectDetailPage() {
       <Tabs
         value={activeTab}
         onValueChange={(v) => setActiveTab(v as TabValue)}
-        className="flex-1 flex flex-col"
+        className="flex-1 flex flex-col min-h-0 overflow-hidden"
       >
         <AppPageTabs
           tabs={
@@ -573,7 +573,7 @@ export function ProjectDetailPage() {
           }
         >
           {/* Overview Tab */}
-          <TabsContent value="overview" className="flex-1 m-0 overflow-auto p-6">
+          <TabsContent value="overview" className="flex-1 m-0 min-h-0 h-full overflow-auto p-6">
             <div className="grid grid-cols-3 gap-6">
               {/* Main Info */}
               <div className="col-span-2 space-y-6">
@@ -806,7 +806,7 @@ export function ProjectDetailPage() {
           </TabsContent>
 
           {/* Tasks Tab */}
-          <TabsContent value="tasks" className="flex-1 m-0 overflow-auto p-6">
+          <TabsContent value="tasks" className="flex-1 m-0 min-h-0 h-full overflow-auto p-6">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -865,7 +865,7 @@ export function ProjectDetailPage() {
           </TabsContent>
 
           {/* Files Tab */}
-          <TabsContent value="files" className="flex-1 m-0 overflow-auto p-6">
+          <TabsContent value="files" className="flex-1 m-0 min-h-0 h-full overflow-auto p-6">
             {(project.linkedWorkspace || project.folderPath) ? (
               <WorkspaceFilesTab 
                 workspaceId={project.linkedWorkspace?.id ?? 'standalone'} 
@@ -889,7 +889,7 @@ export function ProjectDetailPage() {
           </TabsContent>
 
           {/* Notes Tab */}
-          <TabsContent value="notes" className="flex-1 m-0 overflow-auto p-6">
+          <TabsContent value="notes" className="flex-1 m-0 min-h-0 h-full overflow-auto p-6">
             <ProjectNotesPanel projectId={project.id} />
           </TabsContent>
         </AppPageTabs>

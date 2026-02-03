@@ -149,7 +149,7 @@ export const WorkspaceDetailPage = () => {
         </Button>
       }
     >
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <AppPageTabs
           tabs={
             <TabsList className="h-12 bg-transparent">
@@ -172,19 +172,19 @@ export const WorkspaceDetailPage = () => {
             </TabsList>
           }
         >
-          <TabsContent value="overview" className="flex-1 m-0 overflow-auto p-6">
+          <TabsContent value="overview" className="flex-1 m-0 min-h-0 h-full overflow-auto p-6">
             <WorkspaceOverviewTab workspace={workspace} />
           </TabsContent>
 
-          <TabsContent value="projects" className="flex-1 m-0 overflow-auto p-6">
+          <TabsContent value="projects" className="flex-1 m-0 min-h-0 h-full overflow-auto p-6">
             <WorkspaceLinkedProjectsTab workspaceId={workspace.id} />
           </TabsContent>
 
-          <TabsContent value="templates" className="flex-1 m-0 overflow-auto p-6">
+          <TabsContent value="templates" className="flex-1 m-0 min-h-0 h-full overflow-auto p-6">
             <WorkspaceTemplatesTab workspaceId={workspace.id} />
           </TabsContent>
 
-          <TabsContent value="settings" className="flex-1 m-0 overflow-auto p-6">
+          <TabsContent value="settings" className="flex-1 m-0 min-h-0 h-full overflow-auto p-6">
             <div className="space-y-6 max-w-2xl">
               <div>
                 <h3 className="text-lg font-semibold mb-4">Workspace Settings</h3>
