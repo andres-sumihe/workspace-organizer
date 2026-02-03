@@ -6,6 +6,7 @@ import type { ControlMJobDetail } from '@workspace/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { formatTime } from '@/lib/utils'
 
@@ -18,7 +19,7 @@ export const JobDetailPanel = ({ job, loading }: JobDetailPanelProps) => {
   const navigate = useNavigate();
   if (loading) {
     return (
-      <div className="p-6">
+      <div className="p-6 h-full">
         <div className="animate-pulse space-y-4">
           <div className="h-8 bg-muted rounded w-3/4" />
           <div className="h-4 bg-muted rounded w-1/2" />
@@ -37,47 +38,48 @@ export const JobDetailPanel = ({ job, loading }: JobDetailPanelProps) => {
   }
 
   return (
-    <div className="p-4 space-y-4 overflow-auto h-full">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h2 className="text-xl font-semibold">{job.jobName}</h2>
-          <p className="text-sm text-muted-foreground">ID: {job.jobId}</p>
+    <ScrollArea className="h-full">
+      <div className="p-4 space-y-4">
+        {/* Header */}
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-xl font-semibold">{job.jobName}</h2>
+            <p className="text-sm text-muted-foreground">ID: {job.jobId}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {job.isActive ? (
+              <Badge variant="success">
+                <PlayCircle className="h-3 w-3 mr-1" />
+                Active
+              </Badge>
+            ) : (
+              <Badge variant="destructive">
+                <PauseCircle className="h-3 w-3 mr-1" />
+                Inactive
+              </Badge>
+            )}
+            {job.isCyclic && (
+              <Badge variant="secondary">
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Cyclic
+              </Badge>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          {job.isActive ? (
-            <Badge variant="success">
-              <PlayCircle className="h-3 w-3 mr-1" />
-              Active
-            </Badge>
-          ) : (
-            <Badge variant="destructive">
-              <PauseCircle className="h-3 w-3 mr-1" />
-              Inactive
-            </Badge>
-          )}
-          {job.isCyclic && (
-            <Badge variant="secondary">
-              <RefreshCw className="h-3 w-3 mr-1" />
-              Cyclic
-            </Badge>
-          )}
-        </div>
-      </div>
 
-      {/* Description */}
-      {job.description && (
-        <Card>
-          <CardHeader className="py-3">
-            <CardTitle className="text-sm">Description</CardTitle>
-          </CardHeader>
-          <CardContent className="py-2">
-            <p className="text-sm whitespace-pre-wrap">{job.description}</p>
-          </CardContent>
-        </Card>
-      )}
+        {/* Description */}
+        {job.description && (
+          <Card>
+            <CardHeader className="py-3">
+              <CardTitle className="text-sm">Description</CardTitle>
+            </CardHeader>
+            <CardContent className="py-2">
+              <p className="text-sm whitespace-pre-wrap">{job.description}</p>
+            </CardContent>
+          </Card>
+        )}
 
-      {/* Basic Info */}
+        {/* Basic Info */}
       <Card>
         <CardHeader className="py-3">
           <CardTitle className="text-sm">Configuration</CardTitle>
@@ -260,6 +262,7 @@ export const JobDetailPanel = ({ job, loading }: JobDetailPanelProps) => {
           </CardContent>
         </Card>
       )}
-    </div>
+      </div>
+    </ScrollArea>
   );
 };

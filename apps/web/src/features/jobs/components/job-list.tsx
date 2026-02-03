@@ -1,14 +1,11 @@
-import { useQueryClient } from '@tanstack/react-query';
-import { PlayCircle, PauseCircle, RefreshCw, Trash2 } from 'lucide-react';
+import { PlayCircle, PauseCircle, RefreshCw, Trash2, Search } from 'lucide-react';
 import React, { useState } from 'react';
 
-import type { ControlMJob } from '@workspace/shared';
-
-import { deleteJob } from '@/api/controlm-jobs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PageLoader } from '@/components/ui/page-loader';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import {
   Select,
   SelectContent,
@@ -24,17 +21,14 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table';
-import { useJobList, useJobFilters } from '@/hooks/use-jobs';
-import { queryKeys } from '@/lib/query-client';
+import { useJobList, useJobFilters, useDeleteJob } from '@/hooks/use-jobs';
 
 interface JobListProps {
-  onJobSelect?: (job: ControlMJob) => void;
+  onJobSelect?: (jobId: string) => void;
   selectedJobId?: string | null;
-  refreshKey?: number;
 }
 
 export const JobList = ({ onJobSelect, selectedJobId }: JobListProps) => {
-  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [application, setApplication] = useState<string>('');
@@ -44,10 +38,10 @@ export const JobList = ({ onJobSelect, selectedJobId }: JobListProps) => {
 
   const pageSize = 20;
 
-  // Load available filters (cached)
+  // Load available filters (cached) - reactive to data changes
   const { data: filters } = useJobFilters();
 
-  // Load jobs with current filters (cached + invalidated on mutations)
+  // Load jobs with current filters (cached + invalidated on mutations) - reactive
   const { data: jobsResponse, isLoading } = useJobList({
     page,
     pageSize,
@@ -58,6 +52,9 @@ export const JobList = ({ onJobSelect, selectedJobId }: JobListProps) => {
     isActive: isActive === '' ? undefined : isActive === 'true'
   });
 
+  // Use mutation hook for deleting jobs - reactive
+  const deleteJobMutation = useDeleteJob();
+
   const jobs = jobsResponse?.items ?? [];
   const total = jobsResponse?.meta.total ?? 0;
 
@@ -65,9 +62,7 @@ export const JobList = ({ onJobSelect, selectedJobId }: JobListProps) => {
     e.stopPropagation();
     if (!confirm('Delete this job?')) return;
     try {
-      await deleteJob(jobId);
-      // Invalidate queries to refresh the list
-      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+      await deleteJobMutation.mutateAsync(jobId);
     } catch (err) {
       console.error('Failed to delete job:', err);
     }
@@ -77,17 +72,20 @@ export const JobList = ({ onJobSelect, selectedJobId }: JobListProps) => {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 p-4 border-b">
-        <Input
-          placeholder="Search jobs..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-          className="w-48"
-        />
+      {/* Filters - Fixed at top */}
+      <div className="flex flex-wrap gap-3 p-4 border-b shrink-0">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search jobs..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            className="pl-9 w-48"
+          />
+        </div>
 
         <Select value={application} onValueChange={(v) => { setApplication(v === '__all__' ? '' : v); setPage(1); }}>
           <SelectTrigger className="w-40">
@@ -138,21 +136,21 @@ export const JobList = ({ onJobSelect, selectedJobId }: JobListProps) => {
         </Select>
       </div>
 
-      {/* Table */}
-      <div className="flex-1 overflow-auto relative">
+      {/* Table - Scrollable content with horizontal scroll */}
+      <ScrollArea className="flex-1">
         {isLoading ? (
           <PageLoader message="Loading jobs..." />
         ) : (
-          <Table>
-            <TableHeader>
+          <Table className="w-full">
+            <TableHeader className="sticky top-0 bg-card z-10">
               <TableRow>
-                <TableHead className="w-12">Status</TableHead>
-                <TableHead>Job Name</TableHead>
-                <TableHead>Application</TableHead>
-                <TableHead>Node</TableHead>
-                <TableHead className="w-20">Type</TableHead>
-                <TableHead className="w-20">Cyclic</TableHead>
-                <TableHead className="w-20">Actions</TableHead>
+                <TableHead className="w-16 whitespace-nowrap">Status</TableHead>
+                <TableHead className="whitespace-nowrap">Job Name</TableHead>
+                <TableHead className="whitespace-nowrap">Application</TableHead>
+                <TableHead className="whitespace-nowrap">Node</TableHead>
+                <TableHead className="whitespace-nowrap">Type</TableHead>
+                <TableHead className="whitespace-nowrap">Cyclic</TableHead>
+                <TableHead className="w-16 whitespace-nowrap">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -160,7 +158,7 @@ export const JobList = ({ onJobSelect, selectedJobId }: JobListProps) => {
                 <TableRow
                   key={job.id}
                   className={`cursor-pointer ${selectedJobId === job.id ? 'bg-muted' : ''}`}
-                  onClick={() => onJobSelect?.(job)}
+                  onClick={() => onJobSelect?.(job.id)}
                 >
                   <TableCell>
                     <div className="flex items-center justify-center">
@@ -172,36 +170,34 @@ export const JobList = ({ onJobSelect, selectedJobId }: JobListProps) => {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="font-medium">{job.jobName}</div>
+                    <div className="font-medium whitespace-nowrap">{job.jobName}</div>
                     {job.description && (
-                      <div className="text-xs text-muted-foreground truncate max-w-xs">
+                      <div className="text-xs text-muted-foreground truncate max-w-80">
                         {job.description}
                       </div>
                     )}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">{job.application}</Badge>
+                    <Badge variant="outline" className="whitespace-nowrap">{job.application}</Badge>
                   </TableCell>
-                  <TableCell className="text-sm">{job.nodeId}</TableCell>
+                  <TableCell className="text-sm whitespace-nowrap">{job.nodeId}</TableCell>
                   <TableCell>
-                    <Badge variant="secondary">{job.taskType}</Badge>
+                    <Badge variant="secondary" className="whitespace-nowrap">{job.taskType}</Badge>
                   </TableCell>
                   <TableCell>
-                    <div className="flex pl-4">
+                    <div className="flex justify-center">
                       {job.isCyclic && <RefreshCw className="h-4 w-4 text-pink-500" />}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        title="Delete"
-                        onClick={(e) => handleDelete(job.id, e)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Delete"
+                      onClick={(e) => handleDelete(job.id, e)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -215,11 +211,12 @@ export const JobList = ({ onJobSelect, selectedJobId }: JobListProps) => {
             </TableBody>
           </Table>
         )}
-      </div>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
 
-      {/* Pagination */}
+      {/* Pagination - Sticky at bottom */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between px-4 py-3 border-t">
+        <div className="flex items-center justify-between px-4 py-3 border-t shrink-0">
           <div className="text-sm text-muted-foreground">
             Showing {(page - 1) * pageSize + 1} - {Math.min(page * pageSize, total)} of {total}
           </div>

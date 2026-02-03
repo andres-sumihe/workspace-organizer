@@ -218,18 +218,35 @@ export const getJobDetailById = async (id: string): Promise<ControlMJobDetail | 
   const job = await findJobById(id);
   if (!job) return null;
 
-  const [predecessors, successors, conditions] = await Promise.all([
-    findPredecessors(id),
-    findSuccessors(id),
-    findConditionsByJobId(id)
-  ]);
+  // Fetch related data with graceful error handling
+  // Tables may not exist if migrations haven't run
+  let predecessors: Awaited<ReturnType<typeof findPredecessors>> = [];
+  let successors: Awaited<ReturnType<typeof findSuccessors>> = [];
+  let conditions: Awaited<ReturnType<typeof findConditionsByJobId>> = [];
+
+  try {
+    [predecessors, successors, conditions] = await Promise.all([
+      findPredecessors(id),
+      findSuccessors(id),
+      findConditionsByJobId(id)
+    ]);
+  } catch (error) {
+    // Log but don't fail - these are optional relations
+    console.warn(`Failed to fetch job relations for ${id}:`, error);
+  }
 
   // Fetch linked script if linkedScriptId exists
+  // Wrapped in try-catch to prevent failure if shared DB is unavailable
   let linkedScript = undefined;
   if (job.linkedScriptId) {
-    const script = await scriptsRepository.getById(job.linkedScriptId);
-    if (script) {
-      linkedScript = script;
+    try {
+      const script = await scriptsRepository.getById(job.linkedScriptId);
+      if (script) {
+        linkedScript = script;
+      }
+    } catch (error) {
+      // Log but don't fail - linked script is optional
+      console.warn(`Failed to fetch linked script ${job.linkedScriptId}:`, error);
     }
   }
 

@@ -1,4 +1,4 @@
-import { Loader2, FileText, AlertCircle, CheckCircle } from 'lucide-react';
+import { Loader2, FileText, AlertCircle, CheckCircle, Search } from 'lucide-react';
 
 import type { ScriptFilters } from '../types';
 import type { BatchScript } from '@workspace/shared';
@@ -69,15 +69,18 @@ export const ScriptsListPanel = ({
   };
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Filters */}
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 mb-4">
-        <Input
-          placeholder="Search scripts..."
-          value={filters.searchQuery || ''}
-          onChange={handleSearchChange}
-          className="col-span-1 sm:col-span-3"
-        />
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Filters - Fixed at top */}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 mb-4 shrink-0">
+        <div className="relative col-span-1 sm:col-span-3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search scripts..."
+            value={filters.searchQuery || ''}
+            onChange={handleSearchChange}
+            className="pl-9"
+          />
+        </div>
         <Select value={filters.type || 'all'} onValueChange={handleTypeChange}>
           <SelectTrigger>
             <SelectValue placeholder="Script Type" />
@@ -105,8 +108,8 @@ export const ScriptsListPanel = ({
         </Select>
       </div>
 
-      {/* Script List - Scrollable */}
-      <div className="flex-1 min-h-0 overflow-y-auto mb-4">
+      {/* Script List - Scrollable content */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {loading && items.length === 0 ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" /> Loading scripts...
@@ -172,9 +175,9 @@ export const ScriptsListPanel = ({
         )}
       </div>
 
-      {/* Pagination - Sticky at bottom */}
+      {/* Pagination - Fixed at bottom */}
       {total !== null ? (
-        <div className="flex items-center justify-between border-t border-border bg-card pt-3 text-sm text-muted-foreground">
+        <div className="flex items-center justify-between border-t border-border bg-card pt-3 text-sm text-muted-foreground shrink-0">
           <div>
             {items.length} of {total} scripts
           </div>
