@@ -7,7 +7,8 @@ import {
   getSharedPool,
   isSharedDbConnected
 } from '../db/shared-client.js';
-import { runSharedMigrations, getAllMigrationIds, getExecutedMigrations } from '../db/shared-migrations/index.js';
+import { SCHEMA_VERSION, MIN_SCHEMA_VERSION } from '../db/shared-schema.js';
+import { schemaCompatibilityService } from './schema-compatibility.service.js';
 import { settingsRepository } from '../repositories/settings.repository.js';
 import { dbLogger } from '../utils/logger.js';
 
@@ -21,11 +22,14 @@ import type {
 
 /**
  * Installation Service
- * 
+ *
  * Manages the configuration of the shared PostgreSQL database connection.
- * 
- * IMPORTANT: This service does NOT create users - authentication is always local (SQLite).
- * It only configures the PostgreSQL connection for shared team DATA (scripts, jobs, etc.).
+ *
+ * IMPORTANT CHANGES (Schema-Versioned System):
+ * - Users CANNOT run migrations - only DBAs can modify schema
+ * - App validates schema compatibility before allowing connection
+ * - If schema is incompatible, user must ask DBA to run provided SQL scripts
+ * - This ensures enterprise-grade control over database changes
  */
 
 export const installationService = {
@@ -38,15 +42,17 @@ export const installationService = {
   },
 
   /**
-   * Get current installation status
+   * Get current installation status with schema compatibility info
    */
   async getStatus(): Promise<InstallationStatus> {
     const isConfigured = await this.isConfigured();
 
     let sharedDbConnected = false;
-    let adminUserCreated = false; // No longer relevant - auth is local
+    let adminUserCreated = false;
     let migrationsRun = false;
     let pendingMigrations: string[] = [];
+    let schemaCompatible = false;
+    let schemaVersion: number | null = null;
 
     // Check if shared DB is connected
     if (isSharedDbConnected()) {
@@ -54,11 +60,16 @@ export const installationService = {
 
       try {
         const pool = getSharedPool();
-        const allMigrations = getAllMigrationIds();
-        const executedMigrations = await getExecutedMigrations(pool);
+        const compatibility = await schemaCompatibilityService.checkCompatibility(pool);
 
-        migrationsRun = executedMigrations.length > 0;
-        pendingMigrations = allMigrations.filter((id) => !executedMigrations.includes(id));
+        schemaCompatible = compatibility.compatible;
+        schemaVersion = compatibility.currentVersion;
+        migrationsRun = compatibility.schemaExists;
+
+        // For backward compatibility, report as no pending migrations if compatible
+        if (!compatibility.compatible && compatibility.action !== 'none') {
+          pendingMigrations = ['schema-upgrade-required'];
+        }
       } catch {
         // Database might not be fully set up yet
       }
@@ -73,7 +84,11 @@ export const installationService = {
       sharedDbConnected,
       adminUserCreated,
       migrationsRun,
-      pendingMigrations
+      pendingMigrations,
+      schemaVersion: schemaVersion ?? undefined,
+      schemaCompatible,
+      requiredSchemaVersion: SCHEMA_VERSION,
+      minSchemaVersion: MIN_SCHEMA_VERSION
     };
   },
 
@@ -123,17 +138,17 @@ export const installationService = {
 
   /**
    * Configure the installation
-   * - Store connection string
-   * - Initialize shared database
-   * - Run migrations
-   * 
-   * NOTE: This no longer creates users - authentication is local only.
-   * The adminUser field in the request is ignored.
+   * - Test connection
+   * - Validate schema compatibility
+   * - Store connection string (only if schema is compatible)
+   *
+   * NOTE: This no longer runs migrations - users cannot modify schema.
+   * If schema is incompatible, configuration will fail with instructions.
    */
   async configure(request: ConfigureInstallationRequest): Promise<ConfigureInstallationResponse> {
     const { database } = request;
 
-    // Build and store connection string
+    // Build connection string
     const connectionString = buildConnectionString({
       host: database.host,
       port: database.port,
@@ -149,51 +164,78 @@ export const installationService = {
       throw new Error(testResult.message);
     }
 
-    // Store connection string in local settings
-    await settingsRepository.set('shared_db_connection', connectionString);
+    // Create temporary pool for schema validation
+    const tempPool = new Pool({
+      connectionString,
+      max: 1,
+      connectionTimeoutMillis: 5000
+    });
 
-    // Initialize the shared database connection
-    await initializeSharedDb(connectionString);
+    try {
+      // Validate schema compatibility BEFORE storing connection
+      const compatibility = await schemaCompatibilityService.checkCompatibility(tempPool);
 
-    // Run migrations
-    const pool = getSharedPool();
-    const migrationsRun = await runSharedMigrations(pool);
+      if (!compatibility.compatible) {
+        // Do NOT store connection - schema is not ready
+        throw new Error(
+          `Schema validation failed: ${compatibility.message}. ` +
+            `Please ask your DBA to run the schema creation script.`
+        );
+      }
 
-    // Enable shared mode
-    const { modeService } = await import('./mode.service.js');
-    await modeService.enableSharedMode();
+      // Schema is compatible - now store connection string
+      await settingsRepository.set('shared_db_connection', connectionString);
 
-    // Mark installation as complete
-    await settingsRepository.set('installation_completed', true);
+      // Initialize the shared database connection
+      await initializeSharedDb(connectionString);
 
-    return {
-      success: true,
-      message: 'Shared database configured successfully',
-      migrationsRun,
-      adminUserId: undefined // No longer created - auth is local
-    };
+      // Enable shared mode
+      const { modeService } = await import('./mode.service.js');
+      await modeService.enableSharedMode();
+
+      // Mark installation as complete
+      await settingsRepository.set('installation_completed', true);
+
+      return {
+        success: true,
+        message: 'Shared database configured successfully',
+        migrationsRun: [], // No migrations run - schema was pre-configured
+        adminUserId: undefined,
+        schemaVersion: compatibility.currentVersion ?? undefined
+      };
+    } finally {
+      await tempPool.end();
+    }
   },
 
   /**
    * Initialize shared database connection on app startup
-   * Connects if connection string is configured (regardless of installation status)
+   * Validates schema compatibility - does NOT run migrations
    */
   async initializeOnStartup(): Promise<boolean> {
     // Check if connection string exists
     const { getSharedDbConnectionString } = await import('../db/shared-client.js');
     const connString = await getSharedDbConnectionString();
-    
+
     if (!connString) {
       return false;
     }
 
     try {
       await initializeSharedDb(connString);
-      
-      // Run pending migrations on startup
+
+      // Validate schema compatibility (no migrations)
       const pool = getSharedPool();
-      await runSharedMigrations(pool);
-      
+      const compatibility = await schemaCompatibilityService.checkCompatibility(pool);
+
+      if (!compatibility.compatible) {
+        dbLogger.warn(
+          { compatibility },
+          'Shared database schema is incompatible - features may be limited'
+        );
+        // Still allow connection but log warning
+      }
+
       const { modeService } = await import('./mode.service.js');
       await modeService.enableSharedMode();
       return true;
