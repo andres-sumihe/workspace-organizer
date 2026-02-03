@@ -28,8 +28,8 @@ interface AppPageProps {
 export const AppPage = ({ title, description, actions, children, className }: AppPageProps) => {
   return (
     <div className={cn('absolute inset-0 flex flex-col bg-background', className)}>
-      {/* Header */}
-      <div className="border-b border-border bg-card px-6 py-4">
+      {/* Header - Fixed at top */}
+      <div className="border-b border-border bg-card px-6 py-4 shrink-0">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
@@ -43,8 +43,8 @@ export const AppPage = ({ title, description, actions, children, className }: Ap
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 flex flex-col min-h-0">
+      {/* Content - Fills remaining space with hidden overflow */}
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {children}
       </div>
     </div>
@@ -63,6 +63,9 @@ interface AppPageTabsProps {
 /**
  * AppPageTabs provides consistent styling for tab navigation within AppPage.
  * Wraps Tabs component with proper spacing and background.
+ * 
+ * The content area uses overflow-hidden so child components (like PanelGroup)
+ * can manage their own scrolling with fixed heights.
  */
 export const AppPageTabs = ({ tabs, children, className }: AppPageTabsProps) => {
   return (
@@ -70,7 +73,7 @@ export const AppPageTabs = ({ tabs, children, className }: AppPageTabsProps) => 
       <div className="border-b border-border bg-muted px-6 shrink-0">
         {tabs}
       </div>
-      <div className="flex-1 overflow-auto min-h-0">
+      <div className="flex-1 overflow-hidden min-h-0">
         {children}
       </div>
     </div>

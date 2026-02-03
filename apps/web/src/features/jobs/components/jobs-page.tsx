@@ -1,17 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { RefreshCw, Trash2 } from 'lucide-react';
+import { PanelRightClose, PanelRightOpen, RefreshCw, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { JobDetailPanel } from './job-detail-panel';
 import { JobImportDialog } from './job-import-dialog';
 import { JobList } from './job-list';
 
-import type { ControlMJob, ControlMJobDetail } from '@workspace/shared';
-
-import {
-  fetchJobDetail,
-  clearAllJobs
-} from '@/api/controlm-jobs';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,7 +18,7 @@ import {
   AlertDialogTrigger
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { useJobStats } from '@/hooks/use-jobs';
+import { useJobStats, useJobDetail, useClearAllJobs } from '@/hooks/use-jobs';
 import { queryKeys } from '@/lib/query-client';
 
 
@@ -34,27 +28,27 @@ interface JobsTabProps {
 
 export const JobsTab = ({ initialJobId }: JobsTabProps) => {
   const queryClient = useQueryClient();
-  const [selectedJob, setSelectedJob] = useState<ControlMJob | null>(null);
-  const [jobDetail, setJobDetail] = useState<ControlMJobDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(initialJobId ?? null);
+  const [detailPanelOpen, setDetailPanelOpen] = useState(true);
 
-  // Use cached stats
+  // Use cached stats - reactive to data changes
   const { data: statsResponse } = useJobStats();
   const stats = statsResponse?.stats ?? null;
 
-  // Load job detail when selected
-  useEffect(() => {
-    if (!selectedJob) {
-      setJobDetail(null);
-      return;
-    }
+  // Use React Query for job detail - reactive caching
+  const { data: detailResponse, isLoading: detailLoading } = useJobDetail(selectedJobId);
+  const jobDetail = detailResponse?.job ?? null;
 
-    setDetailLoading(true);
-    fetchJobDetail(selectedJob.id)
-      .then((response) => setJobDetail(response.job))
-      .catch(console.error)
-      .finally(() => setDetailLoading(false));
-  }, [selectedJob]);
+  // Use mutation hook for clearing all jobs
+  const clearAllJobsMutation = useClearAllJobs();
+
+  // Update selection when initialJobId changes (from URL navigation)
+  useEffect(() => {
+    if (initialJobId) {
+      setSelectedJobId(initialJobId);
+      setDetailPanelOpen(true);
+    }
+  }, [initialJobId]);
 
   const handleImportComplete = () => {
     // Invalidate all job-related queries
@@ -67,49 +61,22 @@ export const JobsTab = ({ initialJobId }: JobsTabProps) => {
 
   const handleClearAll = async () => {
     try {
-      await clearAllJobs();
-      setSelectedJob(null);
-      setJobDetail(null);
-      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+      await clearAllJobsMutation.mutateAsync();
+      setSelectedJobId(null);
     } catch (err) {
       console.error('Failed to clear jobs:', err);
     }
   };
 
-  // Load initial job if provided via props (from URL navigation)
-  useEffect(() => {
-    if (initialJobId && !selectedJob) {
-      fetchJobDetail(initialJobId)
-        .then((response) => {
-          const job = response.job;
-          setSelectedJob({
-            id: job.id,
-            jobId: job.jobId,
-            jobName: job.jobName,
-            application: job.application,
-            groupName: job.groupName,
-            memName: job.memName,
-            description: job.description,
-            nodeId: job.nodeId,
-            owner: job.owner,
-            taskType: job.taskType,
-            isCyclic: job.isCyclic,
-            priority: job.priority,
-            isCritical: job.isCritical,
-            isActive: job.isActive,
-            createdAt: job.createdAt,
-            updatedAt: job.updatedAt
-          });
-          setJobDetail(job);
-        })
-        .catch(console.error);
-    }
-  }, [initialJobId, selectedJob]);
+  const handleJobSelect = (jobId: string) => {
+    setSelectedJobId(jobId);
+    setDetailPanelOpen(true); // Open panel when selecting a job
+  };
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b">
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Header - Fixed at top */}
+      <div className="flex items-center justify-between p-4 border-b shrink-0">
         <div className="flex items-center gap-4">
           {/* Stats inline */}
           {stats && stats.totalJobs > 0 && (
@@ -155,18 +122,53 @@ export const JobsTab = ({ initialJobId }: JobsTabProps) => {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-hidden flex">
-        {/* Job List */}
-        <div className="flex-1 border-r overflow-hidden">
+      {/* Main Content - Grid layout with fixed detail panel width */}
+      <div className="flex-1 min-h-0 overflow-hidden flex">
+        {/* Job List - Takes remaining space, scrolls horizontally if needed */}
+        <div className="flex-1 min-w-0 border-r border-border bg-card overflow-hidden flex flex-col">
           <JobList
-            onJobSelect={setSelectedJob}
-            selectedJobId={selectedJob?.id}
+            onJobSelect={handleJobSelect}
+            selectedJobId={selectedJobId}
           />
         </div>
-        {/* Detail Panel */}
-        <div className="w-96 overflow-hidden">
-          <JobDetailPanel job={jobDetail} loading={detailLoading} />
+
+        {/* Detail Panel - Fixed width, collapsible */}
+        <div 
+          className={`shrink-0 bg-muted/20 overflow-hidden flex flex-col transition-all duration-200 ${
+            detailPanelOpen ? 'w-96' : 'w-10'
+          }`}
+        >
+          {detailPanelOpen ? (
+            <>
+              {/* Collapse button */}
+              <div className="flex justify-end p-2 shrink-0 border-b">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => setDetailPanelOpen(false)}
+                  title="Collapse panel"
+                >
+                  <PanelRightClose className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <JobDetailPanel job={jobDetail} loading={detailLoading} />
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center pt-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => setDetailPanelOpen(true)}
+                title="Expand panel"
+              >
+                <PanelRightOpen className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>
