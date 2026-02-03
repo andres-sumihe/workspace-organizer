@@ -23,40 +23,34 @@ import type { TaskUpdateFlag } from '@workspace/shared';
 interface FlagConfig {
   label: string;
   icon: React.ElementType;
-  color: string;
-  bgColor: string;
+  variant: "default" | "secondary" | "destructive" | "outline" | "success" | "warning";
 }
 
 const FLAG_CONFIG: Record<TaskUpdateFlag, FlagConfig> = {
   blocked: {
     label: 'Blocked',
     icon: Ban,
-    color: 'text-red-600',
-    bgColor: 'bg-red-100 dark:bg-red-900/30'
+    variant: 'destructive'
   },
   needs_confirmation: {
     label: 'Needs Confirmation',
     icon: HelpCircle,
-    color: 'text-orange-600',
-    bgColor: 'bg-orange-100 dark:bg-orange-900/30'
+    variant: 'warning'
   },
   urgent: {
     label: 'Urgent',
     icon: AlertTriangle,
-    color: 'text-pink-600',
-    bgColor: 'bg-pink-100 dark:bg-pink-900/30'
+    variant: 'destructive'
   },
   on_hold: {
     label: 'On Hold',
     icon: Clock,
-    color: 'text-slate-600',
-    bgColor: 'bg-slate-100 dark:bg-slate-800'
+    variant: 'secondary'
   },
   waiting_feedback: {
     label: 'Waiting Feedback',
     icon: MessageSquare,
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-100 dark:bg-blue-900/30'
+    variant: 'default'
   }
 };
 
@@ -107,8 +101,8 @@ export function TaskFlagsSection({
           return (
             <Badge
               key={flag}
-              variant="secondary"
-              className={`${config.bgColor} ${config.color} gap-1 pr-1`}
+              variant={config.variant}
+              className="gap-1 pr-1"
             >
               <Icon className="h-3 w-3" />
               {config.label}
@@ -142,7 +136,7 @@ export function TaskFlagsSection({
                   <DropdownMenuItem
                     key={flag}
                     onClick={() => handleAddFlag(flag)}
-                    className={`gap-2 ${config.color}`}
+                    className="gap-2"
                   >
                     <Icon className="h-4 w-4" />
                     {config.label}

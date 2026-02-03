@@ -46,19 +46,19 @@ const actionLabels: Partial<Record<AuditAction, string>> = {
   PASSWORD_CHANGED: 'Password Changed',
 };
 
-const actionColors: Partial<Record<AuditAction, string>> = {
-  CREATE: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  UPDATE: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  DELETE: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  READ: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
-  LOGIN: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
-  LOGOUT: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
-  SCRIPT_CREATE: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  SCRIPT_UPDATE: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  SCRIPT_DELETE: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  JOB_LINK: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  JOB_UNLINK: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-  ROLE_CHANGE: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+const actionVariants: Partial<Record<AuditAction, "default" | "secondary" | "destructive" | "outline" | "success" | "warning">> = {
+  CREATE: 'success',
+  UPDATE: 'default',
+  DELETE: 'destructive',
+  READ: 'secondary',
+  LOGIN: 'secondary',
+  LOGOUT: 'secondary',
+  SCRIPT_CREATE: 'success',
+  SCRIPT_UPDATE: 'default',
+  SCRIPT_DELETE: 'destructive',
+  JOB_LINK: 'default',
+  JOB_UNLINK: 'warning',
+  ROLE_CHANGE: 'warning',
 };
 
 const formatChanges = (entry: AuditLogEntry): string[] => {
@@ -134,7 +134,7 @@ export const ScriptActivityLog = ({ scriptId }: ScriptActivityLogProps) => {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Badge className={actionColors[entry.action] || ''} variant="secondary">
+                  <Badge variant={actionVariants[entry.action] || 'secondary'}>
                     {actionLabels[entry.action] || entry.action}
                   </Badge>
                   <span className="text-sm text-muted-foreground">by</span>
