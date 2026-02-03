@@ -6,6 +6,7 @@ import { App } from '@/App';
 import { ApiConnectionGuard } from '@/components/api-connection-guard';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { ThemeProvider } from '@/components/theme-provider';
+import { Toaster } from '@/components/ui/sonner';
 import { AuthProvider } from '@/contexts/auth-context';
 import { InstallationProvider } from '@/contexts/installation-context';
 import { ModeProvider } from '@/contexts/mode-context';
@@ -24,6 +25,7 @@ ReactDOM.createRoot(rootElement).render(
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider defaultTheme="light" storageKey="workspace-organizer-theme">
+          <Toaster position="top-right" richColors closeButton />
           <ApiConnectionGuard>
             <InstallationProvider>
               <ModeProvider>

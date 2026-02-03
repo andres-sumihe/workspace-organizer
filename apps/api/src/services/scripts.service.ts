@@ -73,7 +73,7 @@ export const getScriptDetailById = async (scriptId: string): Promise<BatchScript
 };
 
 export const createScript = async (request: ScriptCreateRequest, userContext?: UserContext): Promise<BatchScriptDetail> => {
-  const { name, description, filePath, content, type = 'batch', isActive = true, tagIds } = request;
+  const { name, description, content, type = 'batch', isActive = true, tagIds } = request;
 
   // Parse the script content
   const parsed = scriptParserService.parseScriptContent(content);
@@ -82,7 +82,6 @@ export const createScript = async (request: ScriptCreateRequest, userContext?: U
   const script = await scriptsRepository.create({
     name,
     description,
-    filePath,
     content,
     type,
     isActive,
@@ -95,7 +94,6 @@ export const createScript = async (request: ScriptCreateRequest, userContext?: U
       driveLetter: driveAnalyzerService.normalizeDriveLetter(mapping.driveLetter),
       networkPath: mapping.networkPath,
       serverName: mapping.serverName,
-      shareName: mapping.shareName,
       hasCredentials: mapping.hasCredentials,
       username: mapping.username
     });
@@ -112,7 +110,7 @@ export const createScript = async (request: ScriptCreateRequest, userContext?: U
     userContext?.memberEmail,
     'script',
     detail.id,
-    { name: detail.name, filePath: detail.filePath, type: detail.type, isActive: detail.isActive },
+    { name: detail.name, type: detail.type, isActive: detail.isActive },
     { 
       ipAddress: userContext?.ipAddress, 
       userAgent: userContext?.userAgent,
@@ -150,7 +148,6 @@ export const updateScript = async (scriptId: string, request: ScriptUpdateReques
         driveLetter: driveAnalyzerService.normalizeDriveLetter(mapping.driveLetter),
         networkPath: mapping.networkPath,
         serverName: mapping.serverName,
-        shareName: mapping.shareName,
         hasCredentials: mapping.hasCredentials,
         username: mapping.username
       });
@@ -208,7 +205,6 @@ export const deleteScript = async (scriptId: string, userContext?: UserContext):
   // Capture old values for audit before deletion
   const oldValues = {
     name: existing.name,
-    filePath: existing.filePath,
     type: existing.type,
     isActive: existing.isActive
   };
@@ -235,7 +231,6 @@ export const getStats = async (): Promise<ScriptStats> => {
   const totalScripts = allScripts.length;
   const activeScripts = allScripts.filter((s) => s.isActive).length;
   const scriptsWithCredentials = allScripts.filter((s) => s.hasCredentials).length;
-  const totalExecutions = allScripts.reduce((sum, s) => sum + s.executionCount, 0);
 
   const scriptsByType: Record<string, number> = {
     batch: 0,
@@ -255,7 +250,6 @@ export const getStats = async (): Promise<ScriptStats> => {
     totalScripts,
     activeScripts,
     scriptsWithCredentials,
-    totalExecutions,
     scriptsByType: scriptsByType as Record<'batch' | 'powershell' | 'shell' | 'other', number>,
     recentlyUpdated
   };
@@ -346,18 +340,18 @@ export const scanDirectory = async (
                 tagIds = [credTag.id];
               }
 
-              // Check if script with same file path exists
+              // Check if script with same name exists (name-based matching)
+              const scriptName = entry.name.replace(path.extname(entry.name), '');
               let existingScript: BatchScript | null = null;
               if (replaceExisting) {
-                const allScripts = await scriptsRepository.list({ limit: 10000, offset: 0 });
-                existingScript = allScripts.find((s) => s.filePath === fullPath) || null;
+                existingScript = await scriptsRepository.findByName(scriptName);
               }
 
               let resultScript: BatchScriptDetail;
               if (existingScript && replaceExisting) {
                 // Update existing script
                 resultScript = await updateScript(existingScript.id, {
-                  name: entry.name.replace(path.extname(entry.name), ''),
+                  name: scriptName,
                   type: scriptType,
                   description: `Updated from directory scan on ${new Date().toISOString()}`,
                   isActive: true,
@@ -367,8 +361,7 @@ export const scanDirectory = async (
               } else {
                 // Create new script
                 resultScript = await createScript({
-                  name: entry.name.replace(path.extname(entry.name), ''),
-                  filePath: fullPath,
+                  name: scriptName,
                   type: scriptType,
                   description: `Imported from directory scan on ${new Date().toISOString()}`,
                   isActive: true,

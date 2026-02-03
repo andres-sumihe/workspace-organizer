@@ -154,10 +154,8 @@ export const ScriptsPage = () => {
             </TabsList>
           }
         >
-          <TabsContent value="scripts" className="flex-1 m-0 h-full" key={`scripts-${refreshKey}`}>
-            <div className="h-full flex flex-col">
-              <ScriptsTab initialScriptId={scriptId} />
-            </div>
+          <TabsContent value="scripts" className="flex-1 m-0 min-h-0" key={`scripts-${refreshKey}`}>
+            <ScriptsTab initialScriptId={scriptId} />
           </TabsContent>
 
           <TabsContent value="jobs" className="flex-1 m-0 h-full" key={`jobs-${refreshKey}`}>

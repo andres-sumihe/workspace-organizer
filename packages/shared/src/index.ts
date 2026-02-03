@@ -251,13 +251,12 @@ export interface BatchScript {
   id: string;
   name: string;
   description?: string;
-  filePath: string;
   content: string;
   type: ScriptType;
   isActive: boolean;
   hasCredentials: boolean;
-  executionCount: number;
-  lastExecutedAt?: string;
+  createdBy?: string;
+  updatedBy?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -268,7 +267,6 @@ export interface DriveMapping {
   driveLetter: string;
   networkPath: string;
   serverName?: string;
-  shareName?: string;
   hasCredentials: boolean;
   username?: string;
   createdAt: string;
@@ -292,7 +290,6 @@ export interface ScriptDependency {
 export interface ScriptCreateRequest {
   name: string;
   description?: string;
-  filePath: string;
   content: string;
   type?: ScriptType;
   isActive?: boolean;
@@ -338,7 +335,6 @@ export interface ScriptStats {
   totalScripts: number;
   activeScripts: number;
   scriptsWithCredentials: number;
-  totalExecutions: number;
   scriptsByType: Record<ScriptType, number>;
   recentlyUpdated: BatchScript[];
 }
