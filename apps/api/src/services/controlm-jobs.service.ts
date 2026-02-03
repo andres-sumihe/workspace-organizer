@@ -510,14 +510,14 @@ export const autoLinkJobsToScripts = async (): Promise<AutoLinkResult> => {
  */
 export const getScriptSuggestionsForJob = async (
   jobId: string
-): Promise<Array<{ script: { id: string; name: string; filePath: string }; matchType: string; confidence: number }>> => {
+): Promise<Array<{ script: { id: string; name: string }; matchType: string; confidence: number }>> => {
   const job = await findJobById(jobId);
   if (!job || !job.memName) {
     return [];
   }
 
   const suggestions: Array<{
-    script: { id: string; name: string; filePath: string };
+    script: { id: string; name: string };
     matchType: string;
     confidence: number;
   }> = [];
@@ -530,27 +530,23 @@ export const getScriptSuggestionsForJob = async (
     let confidence = 0.5;
 
     const memNameUpper = job.memName.toUpperCase();
-    const memNameWithoutExt = memNameUpper.replace(/\.[^.]+$/, '');
+    const memNameWithoutExt = memNameUpper.replace(/\\.[^.]+$/, '');
     const scriptNameUpper = script.name.toUpperCase();
-    const filePathUpper = script.filePath.toUpperCase();
 
-    // Calculate confidence based on match type
+    // Calculate confidence based on match type (name-based matching)
     if (scriptNameUpper === memNameUpper) {
       matchType = 'exact_name';
       confidence = 1.0;
     } else if (scriptNameUpper === memNameWithoutExt) {
       matchType = 'name_without_extension';
       confidence = 0.9;
-    } else if (filePathUpper.endsWith(memNameUpper)) {
-      matchType = 'filepath_match';
-      confidence = 0.85;
-    } else if (filePathUpper.includes(memNameWithoutExt)) {
-      matchType = 'filepath_contains';
+    } else if (scriptNameUpper.includes(memNameWithoutExt)) {
+      matchType = 'name_contains';
       confidence = 0.7;
     }
 
     suggestions.push({
-      script: { id: script.id, name: script.name, filePath: script.filePath },
+      script: { id: script.id, name: script.name },
       matchType,
       confidence
     });

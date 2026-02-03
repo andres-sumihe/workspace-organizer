@@ -6,13 +6,13 @@ interface ScriptRow {
   id: string;
   name: string;
   description: string | null;
-  file_path: string;
   content: string;
   type: ScriptType;
   is_active: number;
   has_credentials: number;
-  execution_count: number;
-  last_executed_at: string | null;
+  tags: string | null;
+  created_by: string | null;
+  updated_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -23,7 +23,6 @@ interface DriveMappingRow {
   drive_letter: string;
   network_path: string;
   server_name: string | null;
-  share_name: string | null;
   has_credentials: number;
   username: string | null;
   created_at: string;
@@ -48,12 +47,10 @@ const isScriptRow = (value: unknown): value is ScriptRow => {
   return (
     typeof candidate.id === 'string' &&
     typeof candidate.name === 'string' &&
-    typeof candidate.file_path === 'string' &&
     typeof candidate.content === 'string' &&
     typeof candidate.type === 'string' &&
     typeof candidate.is_active === 'number' &&
     typeof candidate.has_credentials === 'number' &&
-    typeof candidate.execution_count === 'number' &&
     typeof candidate.created_at === 'string' &&
     typeof candidate.updated_at === 'string'
   );
@@ -97,13 +94,12 @@ const mapRowToScript = (row: ScriptRow): BatchScript => {
     id: row.id,
     name: row.name,
     description: row.description ?? undefined,
-    filePath: row.file_path,
     content: row.content,
     type: row.type,
     isActive: row.is_active === 1,
     hasCredentials: row.has_credentials === 1,
-    executionCount: row.execution_count,
-    lastExecutedAt: row.last_executed_at ?? undefined,
+    createdBy: row.created_by ?? undefined,
+    updatedBy: row.updated_by ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -116,7 +112,6 @@ const mapRowToDriveMapping = (row: DriveMappingRow): DriveMapping => {
     driveLetter: row.drive_letter,
     networkPath: row.network_path,
     serverName: row.server_name ?? undefined,
-    shareName: row.share_name ?? undefined,
     hasCredentials: row.has_credentials === 1,
     username: row.username ?? undefined,
     createdAt: row.created_at,
@@ -172,9 +167,9 @@ export const listScripts = async (params: ListScriptsParams): Promise<BatchScrip
   }
 
   if (searchQuery !== undefined && searchQuery.trim() !== '') {
-    conditions.push('(s.name LIKE ? OR s.file_path LIKE ? OR s.description LIKE ?)');
+    conditions.push('(s.name LIKE ? OR s.description LIKE ?)');
     const searchPattern = `%${searchQuery}%`;
-    values.push(searchPattern, searchPattern, searchPattern);
+    values.push(searchPattern, searchPattern);
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -226,9 +221,9 @@ export const countScripts = async (params: Omit<ListScriptsParams, 'limit' | 'of
   }
 
   if (searchQuery !== undefined && searchQuery.trim() !== '') {
-    conditions.push('(s.name LIKE ? OR s.file_path LIKE ? OR s.description LIKE ?)');
+    conditions.push('(s.name LIKE ? OR s.description LIKE ?)');
     const searchPattern = `%${searchQuery}%`;
-    values.push(searchPattern, searchPattern, searchPattern);
+    values.push(searchPattern, searchPattern);
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -244,7 +239,7 @@ export const countScripts = async (params: Omit<ListScriptsParams, 'limit' | 'of
 
 /**
  * Find scripts by matching filename pattern.
- * Matches against script name or filename extracted from file_path.
+ * Matches against script name only (name-based matching).
  * Used for linking Control-M jobs to scripts via memName field.
  *
  * @param filename - The filename to search for (e.g., "SMART_INC.bat")
@@ -259,14 +254,12 @@ export const findScriptsByFilename = async (filename: string): Promise<BatchScri
   // Search by:
   // 1. Exact match on name (case-insensitive)
   // 2. Name matches filename without extension (case-insensitive)
-  // 3. file_path ends with the filename (case-insensitive)
   const rowsRaw: unknown = db.prepare(
     `SELECT * FROM scripts
      WHERE UPPER(name) = ?
         OR UPPER(name) = ?
-        OR UPPER(file_path) LIKE ?
      ORDER BY name`
-  ).all(filename.toUpperCase(), normalizedFilename, `%${filename.toUpperCase()}`);
+  ).all(filename.toUpperCase(), normalizedFilename);
 
   const scripts: BatchScript[] = [];
 
@@ -382,11 +375,11 @@ export interface CreateScriptInput {
   id: string;
   name: string;
   description?: string;
-  filePath: string;
   content: string;
   type: ScriptType;
   isActive?: boolean;
   hasCredentials?: boolean;
+  createdBy?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -398,21 +391,21 @@ export const createScript = async (input: CreateScriptInput): Promise<BatchScrip
     id,
     name,
     description,
-    filePath,
     content,
     type,
     isActive = true,
     hasCredentials = false,
+    createdBy,
     createdAt,
     updatedAt
   } = input;
 
   db.prepare(
     `INSERT INTO scripts (
-      id, name, description, file_path, content, type, is_active, has_credentials,
-      execution_count, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`
-  ).run(id, name, description ?? null, filePath, content, type, isActive ? 1 : 0, hasCredentials ? 1 : 0, createdAt, updatedAt);
+      id, name, description, content, type, is_active, has_credentials,
+      created_by, updated_by, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(id, name, description ?? null, content, type, isActive ? 1 : 0, hasCredentials ? 1 : 0, createdBy ?? null, createdBy ?? null, createdAt, updatedAt);
 
   const created = await findScriptById(id);
 
@@ -430,7 +423,7 @@ export interface UpdateScriptInput {
   type?: ScriptType;
   isActive?: boolean;
   hasCredentials?: boolean;
-  lastExecutedAt?: string;
+  updatedBy?: string;
 }
 
 export const updateScript = async (id: string, updates: UpdateScriptInput): Promise<BatchScript | null> => {
@@ -468,9 +461,9 @@ export const updateScript = async (id: string, updates: UpdateScriptInput): Prom
     values.push(updates.hasCredentials ? 1 : 0);
   }
 
-  if (updates.lastExecutedAt !== undefined) {
-    assignments.push('last_executed_at = ?');
-    values.push(updates.lastExecutedAt);
+  if (updates.updatedBy !== undefined) {
+    assignments.push('updated_by = ?');
+    values.push(updates.updatedBy);
   }
 
   if (assignments.length === 0) {
@@ -493,13 +486,6 @@ export const deleteScript = async (id: string): Promise<void> => {
   db.prepare('DELETE FROM scripts WHERE id = ?').run(id);
 };
 
-export const incrementExecutionCount = async (id: string): Promise<void> => {
-  const db = await getDb();
-  db.prepare(
-    'UPDATE scripts SET execution_count = execution_count + 1, last_executed_at = ? WHERE id = ?'
-  ).run(new Date().toISOString(), id);
-};
-
 // Drive Mappings
 export interface CreateDriveMappingInput {
   id: string;
@@ -507,7 +493,6 @@ export interface CreateDriveMappingInput {
   driveLetter: string;
   networkPath: string;
   serverName?: string;
-  shareName?: string;
   hasCredentials?: boolean;
   username?: string;
   createdAt: string;
@@ -523,7 +508,6 @@ export const createDriveMapping = async (input: CreateDriveMappingInput): Promis
     driveLetter,
     networkPath,
     serverName,
-    shareName,
     hasCredentials = false,
     username,
     createdAt,
@@ -532,16 +516,15 @@ export const createDriveMapping = async (input: CreateDriveMappingInput): Promis
 
   db.prepare(
     `INSERT INTO drive_mappings (
-      id, script_id, drive_letter, network_path, server_name, share_name,
+      id, script_id, drive_letter, network_path, server_name,
       has_credentials, username, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     scriptId,
     driveLetter,
     networkPath,
     serverName ?? null,
-    shareName ?? null,
     hasCredentials ? 1 : 0,
     username ?? null,
     createdAt,

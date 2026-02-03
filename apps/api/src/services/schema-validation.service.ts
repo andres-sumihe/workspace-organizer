@@ -61,10 +61,10 @@ const EXPECTED_SCHEMAS: Record<string, string[]> = {
     'team_id',
     'name',
     'description',
-    'file_path',
     'content',
     'type',
     'is_active',
+    'has_credentials',
     'tags',
     'created_by',
     'updated_by',
@@ -73,18 +73,14 @@ const EXPECTED_SCHEMAS: Record<string, string[]> = {
   ],
   drive_mappings: [
     'id',
-    'team_id',
+    'script_id',
     'drive_letter',
-    'unc_path',
-    'description',
-    'is_active',
-    'created_by_email',
+    'network_path',
+    'server_name',
+    'has_credentials',
+    'username',
     'created_at',
     'updated_at'
-  ],
-  script_drive_mappings: [
-    'script_id',
-    'drive_mapping_id'
   ],
   controlm_jobs: [
     'id',

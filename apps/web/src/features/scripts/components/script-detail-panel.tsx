@@ -60,7 +60,9 @@ export const ScriptDetailPanel = ({ script, loading, onEdit, onDelete, conflicts
       <div className="mb-6 flex items-start justify-between">
         <div className="flex-1">
           <h2 className="text-2xl font-bold text-foreground">{script.name}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{script.filePath}</p>
+          {script.createdBy && (
+            <p className="mt-1 text-sm text-muted-foreground">Created by {script.createdBy}</p>
+          )}
         </div>
         <div className="ml-4 flex gap-2">
           <Button variant="outline" size="sm" onClick={onEdit}>
@@ -88,9 +90,6 @@ export const ScriptDetailPanel = ({ script, loading, onEdit, onDelete, conflicts
             Has Credentials
           </Badge>
         )}
-        <Badge variant="outline">
-          Executed {script.executionCount} times
-        </Badge>
       </div>
 
       {/* Drive Conflicts for this script */}
@@ -201,7 +200,7 @@ export const ScriptDetailPanel = ({ script, loading, onEdit, onDelete, conflicts
                 {script.dependencies.map((dep) => (
                   <div key={dep.id} className="rounded border border-border p-2">
                     <p className="text-sm font-medium text-foreground">{dep.name}</p>
-                    <p className="text-xs text-muted-foreground">{dep.filePath}</p>
+                    <p className="text-xs text-muted-foreground">{dep.type}</p>
                   </div>
                 ))}
               </div>
@@ -219,7 +218,7 @@ export const ScriptDetailPanel = ({ script, loading, onEdit, onDelete, conflicts
                 {script.dependents.map((dep) => (
                   <div key={dep.id} className="rounded border border-border p-2">
                     <p className="text-sm font-medium text-foreground">{dep.name}</p>
-                    <p className="text-xs text-muted-foreground">{dep.filePath}</p>
+                    <p className="text-xs text-muted-foreground">{dep.type}</p>
                   </div>
                 ))}
               </div>
@@ -291,7 +290,6 @@ export const ScriptDetailPanel = ({ script, loading, onEdit, onDelete, conflicts
           <div className="text-xs text-muted-foreground">
             <p>Created: {new Date(script.createdAt).toLocaleString()}</p>
             <p>Updated: {new Date(script.updatedAt).toLocaleString()}</p>
-            {script.lastExecutedAt && <p>Last Executed: {new Date(script.lastExecutedAt).toLocaleString()}</p>}
           </div>
         </TabsContent>
 

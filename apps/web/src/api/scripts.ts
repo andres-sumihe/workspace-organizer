@@ -84,6 +84,13 @@ export const fetchTags = () => {
   return apiRequest<{ tags: ScriptTag[] }>('/api/v1/scripts/tags');
 };
 
+export const createTag = (name: string, color?: string) => {
+  return apiRequest<{ tag: ScriptTag }>('/api/v1/scripts/tags', {
+    method: 'POST',
+    body: JSON.stringify({ name, color })
+  });
+};
+
 export const fetchScriptActivity = (scriptId: string, page = 1, pageSize = 50) => {
   return apiRequest<PaginatedData<AuditLogEntry>>(`/api/v1/scripts/${scriptId}/activity`, {
     query: { page, pageSize }
