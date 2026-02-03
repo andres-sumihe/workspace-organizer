@@ -1,11 +1,19 @@
 /**
  * Static SQL exports for DBA execution.
- * 
+ *
  * These SQL scripts are extracted from the TypeScript migrations
  * and can be copied directly by DBAs for manual execution.
- * 
+ *
  * SCHEMA: workspace_organizer
+ *
+ * WORKFLOW:
+ * - DBAs run the unified schema script to create/upgrade the schema
+ * - Users connect to the pre-configured database
+ * - App validates schema version before allowing connection
+ * - Users CANNOT modify schema - only DBAs can
  */
+
+import { SCHEMA_VERSION, SHARED_SCHEMA } from '../shared-schema.js';
 
 export interface MigrationSQL {
   id: string;
@@ -13,21 +21,50 @@ export interface MigrationSQL {
   sql: string;
 }
 
-// Schema setup (run once before all migrations)
+// Schema setup with version tracking (run once before all migrations)
 export const SCHEMA_SETUP_SQL = `
+-- ============================================================
+-- Workspace Organizer Schema Setup
+-- ============================================================
+
 -- Create schema if not exists
 CREATE SCHEMA IF NOT EXISTS workspace_organizer;
 
 -- Set search path for this session
 SET search_path TO workspace_organizer, public;
 
--- Create migrations tracking table
+-- Create schema_info table for version tracking
+CREATE TABLE IF NOT EXISTS workspace_organizer.schema_info (
+  id SERIAL PRIMARY KEY,
+  version INTEGER NOT NULL,
+  app_version VARCHAR(50),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_by VARCHAR(255)
+);
+
+-- Create migrations tracking table (for audit purposes)
 CREATE TABLE IF NOT EXISTS workspace_organizer.migrations (
   id VARCHAR(255) PRIMARY KEY,
   executed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   executed_by VARCHAR(255),
   hostname VARCHAR(255)
 );
+`;
+
+// Schema version insert/update (appended to unified script)
+export const getSchemaVersionSQL = (version: number): string => `
+-- ============================================================
+-- Schema Version: ${version}
+-- ============================================================
+
+-- Update or insert schema version
+INSERT INTO workspace_organizer.schema_info (version, app_version, updated_by)
+VALUES (${version}, 'manual', current_user)
+ON CONFLICT (id) DO UPDATE SET
+  version = ${version},
+  updated_at = NOW(),
+  updated_by = current_user;
 `;
 
 export const MIGRATION_SQLS: MigrationSQL[] = [
@@ -503,25 +540,55 @@ INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0010-fix-n
  * Get SQL for pending migrations only
  */
 export const getPendingMigrationSQLs = (executedIds: Set<string>): MigrationSQL[] => {
-  return MIGRATION_SQLS.filter(m => !executedIds.has(m.id));
+  return MIGRATION_SQLS.filter((m) => !executedIds.has(m.id));
 };
 
 /**
- * Get all migrations as a single combined SQL script
+ * Get unified schema creation SQL script for DBAs
+ * This creates the complete schema from scratch with version tracking
  */
-export const getAllMigrationSQL = (): string => {
-  const header = `-- Workspace Organizer Database Migrations
--- Schema: workspace_organizer
+export const getUnifiedSchemaSQL = (): string => {
+  const header = `-- ============================================================
+-- Workspace Organizer - Unified Schema Script
+-- ============================================================
+-- Schema: ${SHARED_SCHEMA}
+-- Version: ${SCHEMA_VERSION}
 -- Generated: ${new Date().toISOString()}
 --
--- INSTRUCTIONS:
--- 1. Connect to your PostgreSQL database
--- 2. Run this script in order
--- 3. Each migration is idempotent and records itself in workspace_organizer.migrations
+-- INSTRUCTIONS FOR DBAs:
+-- 1. Connect to your PostgreSQL database as a user with CREATE SCHEMA privileges
+-- 2. Run this entire script
+-- 3. Grant appropriate permissions to application users
+-- 4. Provide connection details to application users
+--
+-- This script is idempotent - safe to run multiple times
+-- ============================================================
 
 ${SCHEMA_SETUP_SQL}
 `;
 
-  const migrations = MIGRATION_SQLS.map(m => m.sql).join('\n\n');
-  return header + migrations;
+  const migrations = MIGRATION_SQLS.map((m) => m.sql).join('\n\n');
+  const versionMarker = getSchemaVersionSQL(SCHEMA_VERSION);
+
+  return header + migrations + '\n\n' + versionMarker;
+};
+
+/**
+ * Get all migrations as a single combined SQL script
+ * @deprecated Use getUnifiedSchemaSQL() instead for new installations
+ */
+export const getAllMigrationSQL = (): string => {
+  return getUnifiedSchemaSQL();
+};
+
+/**
+ * Get upgrade SQL from one version to another
+ * For now, returns full schema (future: incremental upgrades)
+ */
+export const getUpgradeSQL = (fromVersion: number, toVersion: number): string => {
+  // For v1, there's only one version - return full schema
+  if (fromVersion === 0 || fromVersion < toVersion) {
+    return getUnifiedSchemaSQL();
+  }
+  return `-- No upgrade needed (current: ${fromVersion}, target: ${toVersion})`;
 };

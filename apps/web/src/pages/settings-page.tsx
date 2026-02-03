@@ -1,9 +1,9 @@
-import { Database, Loader2, Save, Settings as SettingsIcon, Server, Link2, Unlink, RefreshCw, CheckCircle2, XCircle, AlertCircle, AlertTriangle, Wrench, Copy, ChevronDown, ChevronRight, Shield, FileKey, Trash2, KeyRound, Lock, Eye, EyeOff } from 'lucide-react';
+import { Database, Download, Loader2, Save, Settings as SettingsIcon, Server, Link2, Unlink, RefreshCw, CheckCircle2, XCircle, AlertCircle, AlertTriangle, Wrench, Copy, Shield, FileKey, Trash2, KeyRound, Lock, Eye, EyeOff } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
-import { schemaValidationApi, type ValidationResponse, type ExportScriptsResponse } from '@/api/schema-validation';
+import { schemaValidationApi, type ValidationResponse } from '@/api/schema-validation';
 import { settingsApi } from '@/api/settings';
 import { toolsApi } from '@/api/tools';
 import { AppPage, AppPageContent, AppPageTabs } from '@/components/layout/app-page';
@@ -102,9 +102,16 @@ export const SettingsPage = () => {
   const [isValidating, setIsValidating] = useState(false);
   const [showValidationDetails, setShowValidationDetails] = useState(false);
   const [showMigrationInfo, setShowMigrationInfo] = useState(false);
-  const [migrationData, setMigrationData] = useState<ExportScriptsResponse | null>(null);
-  const [isLoadingMigrationInfo, setIsLoadingMigrationInfo] = useState(false);
-  const [expandedMigration, setExpandedMigration] = useState<string | null>(null);
+  const [isDownloadingSchema, setIsDownloadingSchema] = useState(false);
+  const [schemaCompatibility, setSchemaCompatibility] = useState<{
+    compatible: boolean;
+    schemaExists: boolean;
+    currentVersion: number | null;
+    requiredVersion: number;
+    message: string;
+    action: string;
+  } | null>(null);
+  const [isValidatingSchema, setIsValidatingSchema] = useState(false);
 
   // Tools settings state
   const [baseSalary, setBaseSalary] = useState<string>('');
@@ -514,31 +521,6 @@ export const SettingsPage = () => {
     }
   };
 
-  const handleViewMigrationInfo = async () => {
-    setIsLoadingMigrationInfo(true);
-    setShowMigrationInfo(true);
-
-    try {
-      const data = await schemaValidationApi.exportScripts();
-      if (data.success) {
-        setMigrationData(data);
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to load migration info');
-    } finally {
-      setIsLoadingMigrationInfo(false);
-    }
-  };
-
-  const handleCopySQL = async (sql: string, migrationId?: string) => {
-    try {
-      await navigator.clipboard.writeText(sql);
-      toast.success(migrationId ? `Copied ${migrationId} SQL to clipboard` : 'Copied SQL to clipboard');
-    } catch {
-      toast.error('Failed to copy to clipboard');
-    }
-  };
-
   const handleValidateSchema = async () => {
     setIsValidating(true);
 
@@ -558,6 +540,42 @@ export const SettingsPage = () => {
     }
   };
 
+  const handleDownloadSchemaSQL = async () => {
+    setIsDownloadingSchema(true);
+    try {
+      await schemaValidationApi.downloadSchemaSQL();
+      toast.success('Schema SQL downloaded');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to download schema SQL');
+    } finally {
+      setIsDownloadingSchema(false);
+    }
+  };
+
+  const handleValidateConnectionSchema = async () => {
+    if (!connectionString) {
+      toast.error('Please enter connection details first');
+      return;
+    }
+
+    setIsValidatingSchema(true);
+    setSchemaCompatibility(null);
+
+    try {
+      const result = await schemaValidationApi.validateSchemaCompatibility(connectionString);
+      setSchemaCompatibility(result);
+
+      if (result.compatible) {
+        toast.success('Schema is compatible! You can enable shared mode.');
+      } else {
+        toast.warning(result.message);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to validate schema');
+    } finally {
+      setIsValidatingSchema(false);
+    }
+  };
 
 
   if (contextLoading) {
@@ -1314,9 +1332,45 @@ export const SettingsPage = () => {
                           <p className="text-xs text-muted-foreground">
                             Enter the connection details for your shared PostgreSQL database. Credentials are only used to configure the connection.
                           </p>
+
+                          {/* Schema Compatibility Alert */}
+                          {schemaCompatibility && (
+                            <Alert variant={schemaCompatibility.compatible ? 'success' : 'warning'} className="animate-in fade-in-0 duration-300">
+                              <AlertCircle className="size-4" />
+                              <AlertDescription>
+                                <p className="font-medium mb-1">
+                                  {schemaCompatibility.compatible ? 'Schema Compatible' : 'Schema Action Required'}
+                                </p>
+                                <p>{schemaCompatibility.message}</p>
+                                {schemaCompatibility.currentVersion !== null && (
+                                  <p className="text-xs mt-1">
+                                    Current version: <strong>v{schemaCompatibility.currentVersion}</strong> | Required: <strong>v{schemaCompatibility.requiredVersion}</strong>
+                                  </p>
+                                )}
+                                {!schemaCompatibility.compatible && schemaCompatibility.action === 'create_schema' && (
+                                  <div className="mt-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={handleDownloadSchemaSQL}
+                                      disabled={isDownloadingSchema}
+                                      className="flex items-center gap-2"
+                                    >
+                                      {isDownloadingSchema ? (
+                                        <Loader2 className="size-3 animate-spin" />
+                                      ) : (
+                                        <Download className="size-3" />
+                                      )}
+                                      Download Schema SQL for DBA
+                                    </Button>
+                                  </div>
+                                )}
+                              </AlertDescription>
+                            </Alert>
+                          )}
                         </div>
 
-                        <div className="flex gap-3">
+                        <div className="flex flex-wrap gap-3">
                           <Button 
                             variant="outline" 
                             onClick={handleTestConnection}
@@ -1330,9 +1384,26 @@ export const SettingsPage = () => {
                             )}
                             Test Connection
                           </Button>
+
+                          {connectionTestResult?.success && (
+                            <Button
+                              variant="outline"
+                              onClick={handleValidateConnectionSchema}
+                              disabled={isValidatingSchema || !connectionTestResult?.success}
+                              className="flex items-center gap-2"
+                            >
+                              {isValidatingSchema ? (
+                                <Loader2 className="size-4 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="size-4" />
+                              )}
+                              Validate Schema
+                            </Button>
+                          )}
+
                           <Button 
                             onClick={handleConfigureTeam}
-                            disabled={isConfiguringTeam || !isConnectionFormValid || !connectionTestResult?.success}
+                            disabled={isConfiguringTeam || !isConnectionFormValid || !schemaCompatibility?.compatible}
                             className="flex items-center gap-2"
                           >
                             {isConfiguringTeam ? (
@@ -1341,6 +1412,20 @@ export const SettingsPage = () => {
                               <Server className="size-4" />
                             )}
                             Enable Shared Mode
+                          </Button>
+
+                          <Button
+                            variant="ghost"
+                            onClick={handleDownloadSchemaSQL}
+                            disabled={isDownloadingSchema}
+                            className="flex items-center gap-2"
+                          >
+                            {isDownloadingSchema ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : (
+                              <Download className="size-4" />
+                            )}
+                            Get Schema SQL
                           </Button>
                         </div>
                       </div>
@@ -1365,17 +1450,25 @@ export const SettingsPage = () => {
                             )}
                           </div>
                           <div className="flex items-center gap-3">
-                            <span className="text-sm font-medium">Migrations:</span>
-                            {installationStatus?.migrationsRun ? (
-                              installationStatus.pendingMigrations.length > 0 ? (
-                                <Badge variant="secondary">{installationStatus.pendingMigrations.length} pending</Badge>
-                              ) : (
-                                <Badge variant="success">Up to date</Badge>
-                              )
+                            <span className="text-sm font-medium">Schema Version:</span>
+                            {installationStatus?.schemaVersion !== undefined && installationStatus?.schemaVersion !== null ? (
+                              <Badge variant={installationStatus?.schemaCompatible ? 'success' : 'warning'}>
+                                v{installationStatus.schemaVersion}
+                                {installationStatus?.schemaCompatible ? ' (Compatible)' : ' (Incompatible)'}
+                              </Badge>
+                            ) : installationStatus?.sharedDbConnected && validationResult?.summary?.valid ? (
+                              <Badge variant="success">Legacy (v1 - Compatible)</Badge>
                             ) : (
-                              <Badge variant="secondary">Not run</Badge>
+                              <Badge variant="secondary">Not Detected</Badge>
                             )}
                           </div>
+                          {installationStatus?.requiredSchemaVersion && (
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                              <span>Required: v{installationStatus.requiredSchemaVersion}</span>
+                              <span>•</span>
+                              <span>Minimum: v{installationStatus.minSchemaVersion}</span>
+                            </div>
+                          )}
                         </div>
 
                         <div className="flex flex-wrap gap-3">
@@ -1413,16 +1506,16 @@ export const SettingsPage = () => {
 
                               <Button 
                                 variant="outline"
-                                onClick={handleViewMigrationInfo}
-                                disabled={isLoadingMigrationInfo}
+                                onClick={handleDownloadSchemaSQL}
+                                disabled={isDownloadingSchema}
                                 className="flex items-center gap-2"
                               >
-                                {isLoadingMigrationInfo ? (
+                                {isDownloadingSchema ? (
                                   <Loader2 className="size-4 animate-spin" />
                                 ) : (
-                                  <Database className="size-4" />
+                                  <Download className="size-4" />
                                 )}
-                                Migration Status
+                                Get Schema SQL
                               </Button>
                             </>
                           )}
@@ -1530,7 +1623,7 @@ export const SettingsPage = () => {
                         {showMigrationInfo && (
                           <div className="space-y-3 pt-4 border-t animate-in fade-in-0 duration-300">
                             <div className="flex items-center justify-between">
-                              <h4 className="text-sm font-medium">Database Migration Scripts</h4>
+                              <h4 className="text-sm font-medium">Schema Information</h4>
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -1543,104 +1636,44 @@ export const SettingsPage = () => {
                             <Alert variant="info" className="text-sm">
                               <AlertCircle className="size-4" />
                               <AlertDescription>
-                                <strong>DBA Required:</strong> Copy the SQL scripts below and execute them on your PostgreSQL database.
-                                Each script must be run in order. Click on a migration to expand and copy its SQL.
+                                <strong>DBA Required:</strong> Use the "Get Schema SQL" button to download the unified schema script.
+                                Have your DBA execute this script on the PostgreSQL database before connecting.
                               </AlertDescription>
                             </Alert>
 
-                            {isLoadingMigrationInfo ? (
-                              <div className="flex items-center gap-2 py-4">
-                                <Loader2 className="size-4 animate-spin" />
-                                <span className="text-sm text-muted-foreground">Loading migration scripts...</span>
-                              </div>
-                            ) : migrationData ? (
-                              <div className="space-y-3">
-                                {/* Schema Setup */}
-                                <div className="border rounded-md">
-                                  <button
-                                    type="button"
-                                    className="w-full p-3 flex items-center justify-between hover:bg-muted/50"
-                                    onClick={() => setExpandedMigration(expandedMigration === 'setup' ? null : 'setup')}
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      {expandedMigration === 'setup' ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-                                      <Database className="size-4 text-primary" />
-                                      <span className="font-mono text-sm font-medium">Schema Setup</span>
-                                    </div>
-                                    <Badge variant="secondary">Run First</Badge>
-                                  </button>
-                                  {expandedMigration === 'setup' && (
-                                    <div className="border-t p-3 space-y-2 animate-in fade-in-0 duration-300">
-                                      <div className="flex justify-end">
-                                        <Button size="sm" variant="outline" onClick={() => handleCopySQL(migrationData.schemaSetup, 'Schema Setup')}>
-                                          <Copy className="size-3 mr-1" /> Copy SQL
-                                        </Button>
-                                      </div>
-                                      <pre className="text-xs bg-muted p-3 rounded-md whitespace-pre-wrap wrap-break-words max-h-48 overflow-y-auto w-full">
-                                        {migrationData.schemaSetup}
-                                      </pre>
-                                    </div>
-                                  )}
+                            <div className="space-y-3">
+                              <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div className="p-3 border rounded-md">
+                                  <div className="text-xs text-muted-foreground mb-1">App Schema Version</div>
+                                  <div className="font-semibold">v{installationStatus?.requiredSchemaVersion ?? 1}</div>
                                 </div>
-
-                                {/* Migration Scripts */}
-                                <div className="space-y-2 max-h-96 overflow-y-auto">
-                                  {migrationData.migrations.map((migration) => (
-                                    <div
-                                      key={migration.id}
-                                      className={`border rounded-md ${
-                                        migration.status === 'pending'
-                                          ? 'border-warning/50'
-                                          : 'border-success/50'
-                                      }`}
-                                    >
-                                      <button
-                                        type="button"
-                                        className={`w-full p-3 flex items-center justify-between hover:bg-muted/50 ${
-                                          migration.status === 'pending' ? 'bg-warning-muted/50' : 'bg-success-muted/50'
-                                        }`}
-                                        onClick={() => setExpandedMigration(expandedMigration === migration.id ? null : migration.id)}
-                                      >
-                                        <div className="flex items-center gap-2">
-                                          {expandedMigration === migration.id ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-                                          {migration.status === 'pending' ? (
-                                            <AlertCircle className="size-4 text-warning" />
-                                          ) : (
-                                            <CheckCircle2 className="size-4 text-success" />
-                                          )}
-                                          <span className="font-mono text-sm">{migration.id}</span>
-                                          <span className="text-xs text-muted-foreground hidden sm:inline">- {migration.description}</span>
-                                        </div>
-                                        <Badge variant={migration.status === 'pending' ? 'warning' : 'success'}>
-                                          {migration.status === 'pending' ? 'Pending' : 'Executed'}
-                                        </Badge>
-                                      </button>
-                                      {expandedMigration === migration.id && (
-                                        <div className="border-t p-3 space-y-2 animate-in fade-in-0 duration-300">
-                                          <div className="flex justify-between items-center">
-                                            <span className="text-xs text-muted-foreground">{migration.description}</span>
-                                            <Button size="sm" variant="outline" onClick={() => handleCopySQL(migration.sql, migration.id)}>
-                                              <Copy className="size-3 mr-1" /> Copy SQL
-                                            </Button>
-                                          </div>
-                                          <pre className="text-xs bg-muted p-3 rounded-md whitespace-pre-wrap wrap-break-words max-h-64 overflow-y-auto w-full">
-                                            {migration.sql}
-                                          </pre>
-                                        </div>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-
-                                {/* Summary */}
-                                <div className="flex items-center justify-between text-sm text-muted-foreground pt-2 border-t">
-                                  <span>{migrationData.pendingCount} pending of {migrationData.totalCount} total migrations</span>
-                                  {!migrationData.dbConnected && (
-                                    <Badge variant="warning">Database not connected</Badge>
-                                  )}
+                                <div className="p-3 border rounded-md">
+                                  <div className="text-xs text-muted-foreground mb-1">Database Schema Version</div>
+                                  <div className="font-semibold">
+                                    {installationStatus?.schemaVersion !== undefined 
+                                      ? `v${installationStatus.schemaVersion}` 
+                                      : 'Not detected'}
+                                  </div>
                                 </div>
                               </div>
-                            ) : null}
+
+                              <div className="flex gap-2 pt-2">
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  onClick={handleDownloadSchemaSQL}
+                                  disabled={isDownloadingSchema}
+                                  className="flex items-center gap-2"
+                                >
+                                  {isDownloadingSchema ? (
+                                    <Loader2 className="size-3 animate-spin" />
+                                  ) : (
+                                    <Download className="size-3" />
+                                  )}
+                                  Download Full Schema SQL
+                                </Button>
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
