@@ -132,10 +132,10 @@ const STATUS_CONFIG: Record<
   }
 };
 
-const PRIORITY_CONFIG: Record<WorkLogPriority, { label: string; color: string }> = {
-  low: { label: 'Low', color: 'bg-gray-500' },
-  medium: { label: 'Medium', color: 'bg-yellow-500' },
-  high: { label: 'High', color: 'bg-red-500' }
+const PRIORITY_CONFIG: Record<WorkLogPriority, { label: string; variant: "destructive" | "warning" | "secondary" }> = {
+  low: { label: 'Low', variant: 'secondary' },
+  medium: { label: 'Medium', variant: 'warning' },
+  high: { label: 'High', variant: 'destructive' }
 };
 
 // Kanban columns in order
@@ -193,8 +193,8 @@ function KanbanCard({ entry, index, isSelected, onSelect }: KanbanCardProps) {
       <div className="mt-2 flex flex-wrap items-center gap-1.5 ml-1">
         {entry.priority && (
           <Badge
-            variant="outline"
-            className={`text-[10px] h-4 px-1 border-none ${PRIORITY_CONFIG[entry.priority].color} text-white font-bold rounded-[2px] uppercase tracking-tighter`}
+            variant={PRIORITY_CONFIG[entry.priority].variant}
+            className="text-[10px] h-4 px-1 font-bold rounded-[2px] uppercase tracking-tighter"
           >
             {PRIORITY_CONFIG[entry.priority].label}
           </Badge>
@@ -381,7 +381,7 @@ function TaskDetailModal({
                 <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground uppercase">Priority</Label>
                   <Badge
-                    className={`${PRIORITY_CONFIG[entry.priority].color} text-white border-0`}
+                    variant={PRIORITY_CONFIG[entry.priority].variant}
                   >
                     {PRIORITY_CONFIG[entry.priority].label}
                   </Badge>
