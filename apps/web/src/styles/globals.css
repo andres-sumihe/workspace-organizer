@@ -192,17 +192,24 @@
 
   html {
     /*
-      Fluid type scaling to handle Windows per-monitor DPI/scaling differences.
-      Keeps text slightly smaller on narrow viewports (laptops) and caps at 16px.
+      High Density Typography Settings
+      - Base size reduced to ~13px for desktop (was 16px)
+      - Creates a "dense" UI similar to IDEs or data tools
+      - Scales down all rem-based spacing (padding, height, margin)
     */
-    font-size: clamp(14px, 0.3vw + 12px, 16px);
+    font-size: clamp(12px, 0.3vw + 11px, 13.5px);
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
+    
+    /* Slightly increase letter-spacing for legibility at small sizes */
+    letter-spacing: 0.01em; 
   }
 
   body {
     @apply bg-background text-foreground;
-    text-rendering: geometricPrecision;
+    /* Use 'Inter' or system font features for better small-text rendering */
+    font-feature-settings: "rlig" 1, "calt" 1;
+    text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
