@@ -882,6 +882,14 @@ export interface InstallationStatus {
   adminUserCreated: boolean;
   migrationsRun: boolean;
   pendingMigrations: string[];
+  /** Current schema version in the database (undefined if not available) */
+  schemaVersion?: number;
+  /** Whether the schema is compatible with this app version */
+  schemaCompatible?: boolean;
+  /** Schema version required by this app */
+  requiredSchemaVersion?: number;
+  /** Minimum schema version this app can work with */
+  minSchemaVersion?: number;
 }
 
 export interface TestConnectionRequest {
@@ -915,6 +923,21 @@ export interface ConfigureInstallationResponse {
   migrationsRun: string[];
   /** @deprecated Auth is now local-only. This field may be undefined. */
   adminUserId?: string;
+  /** Schema version after configuration */
+  schemaVersion?: number;
+}
+
+/**
+ * Schema compatibility check result
+ */
+export interface SchemaCompatibilityResult {
+  compatible: boolean;
+  schemaExists: boolean;
+  currentVersion: number | null;
+  requiredVersion: number;
+  minVersion: number;
+  message: string;
+  action: 'none' | 'create_schema' | 'upgrade_schema' | 'downgrade_app';
 }
 
 // ============================================================================

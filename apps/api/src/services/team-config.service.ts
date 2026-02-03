@@ -3,13 +3,14 @@ import { v4 as uuidv4 } from 'uuid';
 import { attestationService } from './attestation.service.js';
 import { migrationService } from './migration.service.js';
 import { modeService } from './mode.service.js';
+import { schemaCompatibilityService } from './schema-compatibility.service.js';
 import {
   getSharedPool,
   initializeSharedDb,
   isSharedDbConnected,
   SHARED_SCHEMA
 } from '../db/shared-client.js';
-import { ensureSharedSchema, schemaExists, runSharedMigrations } from '../db/shared-migrations/index.js';
+import { schemaExists } from '../db/shared-migrations/index.js';
 import { settingsRepository } from '../repositories/settings.repository.js';
 
 import type { TeamConfigStatus, TestConnectionRequest } from '@workspace/shared';
@@ -181,14 +182,20 @@ export const teamConfigService = {
   },
 
   /**
-   * Ensure the shared schema exists (creates it if missing)
+   * Ensure the shared schema exists (validates compatibility only - cannot create/modify)
    */
   async ensureSchema(): Promise<void> {
     if (!isSharedDbConnected()) {
       throw new Error('Shared database not connected');
     }
     const pool = getSharedPool();
-    await ensureSharedSchema(pool);
+    const compatibility = await schemaCompatibilityService.checkCompatibility(pool);
+    if (!compatibility.compatible) {
+      throw new Error(
+        `Schema validation failed: ${compatibility.message}. ` +
+          `Please ask your DBA to run the schema creation/upgrade script.`
+      );
+    }
   },
 
   /**
@@ -428,29 +435,36 @@ export const teamConfigService = {
 
   /**
    * Connect to an existing shared database by connection string.
-   * Stores the connection, initializes the pool, ensures schema/migrations,
-   * stores team binding if available, and enables shared mode.
+   * Validates schema compatibility (does NOT modify schema).
+   * Stores the connection only if schema is compatible.
    */
   async connectExistingTeam(connectionString: string): Promise<{
     schemaName: string;
     bindingStored: boolean;
     needsTeamSetup: boolean;
+    schemaVersion?: number;
   }> {
     if (!connectionString?.trim()) {
       throw new Error('Connection string is required');
     }
 
-    // Persist the connection string locally
-    await settingsRepository.set('shared_db_connection', connectionString.trim());
-
-    // Initialize pool (creates schema + sets search_path)
+    // Initialize pool first to validate connection
     await initializeSharedDb(connectionString.trim());
 
     const pool = getSharedPool();
 
-    // Ensure schema exists and migrations are up to date
-    await ensureSharedSchema(pool);
-    await runSharedMigrations(pool);
+    // Validate schema compatibility BEFORE storing connection
+    const compatibility = await schemaCompatibilityService.checkCompatibility(pool);
+
+    if (!compatibility.compatible) {
+      throw new Error(
+        `Schema validation failed: ${compatibility.message}. ` +
+          `Please ask your DBA to run the schema creation script.`
+      );
+    }
+
+    // Schema is compatible - persist the connection string locally
+    await settingsRepository.set('shared_db_connection', connectionString.trim());
 
     // Attempt to fetch app info for binding (if team already initialized)
     const appInfo = await attestationService.getAppInfo();
@@ -464,7 +478,8 @@ export const teamConfigService = {
     return {
       schemaName: SHARED_SCHEMA,
       bindingStored: Boolean(appInfo),
-      needsTeamSetup: !appInfo
+      needsTeamSetup: !appInfo,
+      schemaVersion: compatibility.currentVersion ?? undefined
     };
   },
 
