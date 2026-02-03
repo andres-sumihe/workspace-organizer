@@ -249,13 +249,12 @@ function TaskRow({ task, onStatusChange, onDelete, onViewInJournal }: TaskRowPro
       <TableCell>
         {task.priority && (
           <Badge
-            variant="outline"
-            className={
-              task.priority === 'high'
-                ? 'bg-red-100 text-red-700 dark:bg-red-900/30'
-                : task.priority === 'medium'
-                  ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30'
-                  : 'bg-gray-100 text-gray-700 dark:bg-gray-900/30'
+            variant={
+              task.priority === 'high' 
+                ? 'destructive' 
+                : task.priority === 'medium' 
+                  ? 'warning' 
+                  : 'secondary'
             }
           >
             {task.priority}
