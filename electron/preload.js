@@ -58,6 +58,8 @@ contextBridge.exposeInMainWorld('api', {
   getProcessVersions: () => ipcRenderer.invoke('get-process-versions'),
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   toggleDevTools: () => ipcRenderer.invoke('toggle-devtools'),
+  // Open a popout window (Electron BrowserWindow instead of external browser)
+  openPopoutWindow: (url, options) => ipcRenderer.invoke('open-popout-window', url, options),
   // subscribe to menu events from main
   onMenuCommand: (cb) => {
     const handler = (event, payload) => cb(payload);

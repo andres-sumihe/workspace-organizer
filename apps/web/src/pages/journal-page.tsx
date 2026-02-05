@@ -39,7 +39,7 @@ import {
 } from '@/hooks/use-work-logs';
 import { useTagsList } from '@/hooks/use-tags';
 import { usePersonalProjectsList } from '@/hooks/use-personal-projects';
-import { TaskFlagsSection, TaskUpdatesSection } from '@/components/journal';
+import { TaskFlagsSection, TaskUpdatesSection, TASK_STATUS_CONFIG, TASK_PRIORITY_CONFIG } from '@/components/journal';
 import { AppPage, AppPageContent } from '@/components/layout/app-page';
 import {
   AlertDialog,
@@ -98,45 +98,9 @@ import {
 // Types & Constants
 // ============================================================================
 
-const STATUS_CONFIG: Record<
-  WorkLogStatus,
-  { label: string; icon: typeof Circle; color: string; bgColor: string; accent: string }
-> = {
-  todo: {
-    label: 'To Do',
-    icon: Circle,
-    color: 'text-muted-foreground',
-    bgColor: 'bg-[#F4F5F7] dark:bg-[#1D2125]',
-    accent: 'before:bg-zinc-400 dark:before:bg-zinc-600'
-  },
-  in_progress: {
-    label: 'In Progress',
-    icon: Clock,
-    color: 'text-[#0052CC] dark:text-[#4C9AFF]',
-    bgColor: 'bg-[#F4F5F7] dark:bg-[#1D2125]',
-    accent: 'before:bg-[#0052CC] dark:before:bg-[#4C9AFF]'
-  },
-  done: {
-    label: 'Done',
-    icon: Check,
-    color: 'text-[#36B37E] dark:text-[#E3FCEF]',
-    bgColor: 'bg-[#F4F5F7] dark:bg-[#1D2125]',
-    accent: 'before:bg-[#36B37E]'
-  },
-  blocked: {
-    label: 'Blocked',
-    icon: X,
-    color: 'text-[#FF5630]',
-    bgColor: 'bg-[#F4F5F7] dark:bg-[#1D2125]',
-    accent: 'before:bg-[#FF5630]'
-  }
-};
-
-const PRIORITY_CONFIG: Record<WorkLogPriority, { label: string; variant: "destructive" | "warning" | "secondary" }> = {
-  low: { label: 'Low', variant: 'secondary' },
-  medium: { label: 'Medium', variant: 'warning' },
-  high: { label: 'High', variant: 'destructive' }
-};
+// Use shared config but keep local aliases for compatibility
+const STATUS_CONFIG = TASK_STATUS_CONFIG;
+const PRIORITY_CONFIG = TASK_PRIORITY_CONFIG;
 
 // Kanban columns in order
 const KANBAN_COLUMNS: WorkLogStatus[] = ['todo', 'in_progress', 'done'];

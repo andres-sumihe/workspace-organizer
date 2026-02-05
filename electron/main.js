@@ -654,6 +654,56 @@ ipcMain.handle('toggle-devtools', () => {
   }
 });
 
+// Handle popout window requests from renderer
+// This creates a new Electron BrowserWindow instead of opening in external browser
+ipcMain.handle('open-popout-window', (event, urlPath, options = {}) => {
+  try {
+    const isDev = !app.isPackaged || process.env.ELECTRON_DEV === 'true' || process.env.NODE_ENV === 'development';
+    const { width = 800, height = 900, title = 'Workspace Organizer' } = options;
+    
+    // Calculate center position
+    const primaryDisplay = require('electron').screen.getPrimaryDisplay();
+    const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+    const left = Math.round((screenWidth - width) / 2);
+    const top = Math.round((screenHeight - height) / 2);
+    
+    const popoutWindow = new BrowserWindow({
+      width,
+      height,
+      x: left,
+      y: top,
+      title,
+      show: false,
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.js'),
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    });
+    
+    popoutWindow.once('ready-to-show', () => {
+      popoutWindow.show();
+    });
+    
+    // Build the full URL
+    let fullUrl;
+    if (isDev) {
+      fullUrl = `http://127.0.0.1:5173${urlPath}`;
+    } else {
+      // Use app:// protocol for production
+      fullUrl = `app://bundle${urlPath}`;
+    }
+    
+    log(`[Popout] Opening window: ${fullUrl}`);
+    popoutWindow.loadURL(fullUrl);
+    
+    return { ok: true };
+  } catch (err) {
+    log('[Popout] Failed to open window:', err.message);
+    return { ok: false, error: String(err) };
+  }
+});
+
 // Forward specific updater events to renderer
 autoUpdater.on('update-available', (info) => {
   if (mainWindow) mainWindow.webContents.send('update-available', info);
