@@ -5,20 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.3]
+## [0.3.0]
 
 ### Added
 - Add PiP and search bar on viewing and edit notes 
 - Add Task Updates and Flags for tracking task progress
 - Add Dashboard for productivity stats
+- Add auto link Job and Script
 
 ### Changed
 - Markdown header now works with slugifying header
+- Task on Project detail can be edited now
+- User are no longer permitted to modify database schema directly from app settings
 
 ### Fixed
 - Fix session lock setting which is not working on Shared Mode
 - Fix auto-updater fetch failed
 - Fix Project Folder path not saved when creating project
+
 
 ## [0.2.2] 
 
