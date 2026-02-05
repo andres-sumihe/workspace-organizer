@@ -25,6 +25,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type {
   PersonalProjectDetail,
   PersonalProjectStatus,
+  TaskUpdateFlag,
   WorkLogEntry,
   WorkLogStatus
 } from '@workspace/shared';
@@ -32,8 +33,10 @@ import type {
 import {
   personalProjectsApi,
   workLogsApi,
-  type CreateWorkLogRequest
+  type CreateWorkLogRequest,
+  type UpdateWorkLogRequest
 } from '@/api/journal';
+import { TaskDetailModal, TASK_STATUS_CONFIG } from '@/components/journal';
 import { ProjectNotesPanel } from '@/components/notes/project-notes-panel';
 import { WorkspaceFilesTab } from '@/features/workspaces/components/workspace-project-tab';
 import { AppPage, AppPageContent, AppPageTabs } from '@/components/layout/app-page';
@@ -122,36 +125,6 @@ const PROJECT_STATUS_CONFIG: Record<
   }
 };
 
-const TASK_STATUS_CONFIG: Record<
-  WorkLogStatus,
-  { label: string; icon: typeof Circle; color: string; bgColor: string }
-> = {
-  todo: {
-    label: 'To Do',
-    icon: Circle,
-    color: 'text-gray-500',
-    bgColor: 'bg-gray-100 dark:bg-gray-900/30'
-  },
-  in_progress: {
-    label: 'In Progress',
-    icon: Clock,
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-100 dark:bg-blue-900/30'
-  },
-  done: {
-    label: 'Done',
-    icon: Check,
-    color: 'text-green-500',
-    bgColor: 'bg-green-100 dark:bg-green-900/30'
-  },
-  blocked: {
-    label: 'Blocked',
-    icon: Pause,
-    color: 'text-red-500',
-    bgColor: 'bg-red-100 dark:bg-red-900/30'
-  }
-};
-
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -205,11 +178,12 @@ function getTodayDate(): string {
 interface TaskRowProps {
   task: WorkLogEntry;
   onStatusChange: (id: string, status: WorkLogStatus) => void;
+  onEdit: (task: WorkLogEntry) => void;
   onDelete: (id: string) => void;
   onViewInJournal: (date: string) => void;
 }
 
-function TaskRow({ task, onStatusChange, onDelete, onViewInJournal }: TaskRowProps) {
+function TaskRow({ task, onStatusChange, onEdit, onDelete, onViewInJournal }: TaskRowProps) {
   const statusConfig = TASK_STATUS_CONFIG[task.status];
   const StatusIcon = statusConfig.icon;
   const dueInfo = getDaysUntilDue(task.dueDate);
@@ -217,7 +191,11 @@ function TaskRow({ task, onStatusChange, onDelete, onViewInJournal }: TaskRowPro
   return (
     <TableRow className="group">
       <TableCell>
-        <div className="flex flex-col gap-1">
+        <div 
+          className="flex flex-col gap-1 cursor-pointer hover:text-primary transition-colors"
+          onClick={() => onEdit(task)}
+          title="Click to edit task"
+        >
           <span className={`font-medium ${task.status === 'done' ? 'line-through text-muted-foreground' : ''}`}>
             {task.content.length > 80 ? `${task.content.substring(0, 80)}...` : task.content}
           </span>
@@ -288,6 +266,10 @@ function TaskRow({ task, onStatusChange, onDelete, onViewInJournal }: TaskRowPro
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => onEdit(task)}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Edit Task
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onViewInJournal(task.date)}>
               <Calendar className="h-4 w-4 mr-2" />
               View in Journal
@@ -428,6 +410,8 @@ export function ProjectDetailPage() {
   // Dialog states
   const [quickTaskOpen, setQuickTaskOpen] = useState(false);
   const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
+  const [selectedTask, setSelectedTask] = useState<WorkLogEntry | null>(null);
+  const [editTaskDialogOpen, setEditTaskDialogOpen] = useState(false);
 
   // Fetch project data
   const fetchProject = useCallback(async () => {
@@ -462,9 +446,26 @@ export function ProjectDetailPage() {
   const handleTaskStatusChange = async (taskId: string, newStatus: WorkLogStatus) => {
     try {
       await workLogsApi.update(taskId, { status: newStatus });
+      // Update local state to reflect change immediately
+      if (selectedTask?.id === taskId) {
+        setSelectedTask((prev) => (prev ? { ...prev, status: newStatus } : prev));
+      }
       fetchProject();
     } catch (err) {
       console.error('Failed to update task status:', err);
+    }
+  };
+
+  const handleFlagsChange = async (taskId: string, flags: TaskUpdateFlag[]) => {
+    try {
+      await workLogsApi.update(taskId, { flags });
+      // Update local state to reflect change immediately
+      if (selectedTask?.id === taskId) {
+        setSelectedTask((prev) => (prev ? { ...prev, flags } : prev));
+      }
+      fetchProject();
+    } catch (err) {
+      console.error('Failed to update task flags:', err);
     }
   };
 
@@ -473,10 +474,21 @@ export function ProjectDetailPage() {
 
     try {
       await workLogsApi.delete(deleteTaskId);
+      // Close task detail modal if the deleted task was selected
+      if (selectedTask?.id === deleteTaskId) {
+        setSelectedTask(null);
+      }
       fetchProject();
     } finally {
       setDeleteTaskId(null);
     }
+  };
+
+  const handleOpenEditDialog = (task: WorkLogEntry) => {
+    setSelectedTask(null); // Close detail modal
+    setEditTaskDialogOpen(true);
+    // Pass task to edit dialog via state set in next tick
+    setTimeout(() => setSelectedTask(task), 0);
   };
 
   const handleViewInJournal = (date: string) => {
@@ -853,6 +865,7 @@ export function ProjectDetailPage() {
                           key={task.id}
                           task={task}
                           onStatusChange={handleTaskStatusChange}
+                          onEdit={setSelectedTask}
                           onDelete={setDeleteTaskId}
                           onViewInJournal={handleViewInJournal}
                         />
@@ -901,6 +914,25 @@ export function ProjectDetailPage() {
         onOpenChange={setQuickTaskOpen}
         projectId={project.id}
         onCreated={fetchProject}
+      />
+
+      {/* Task Detail Modal */}
+      <TaskDetailModal
+        entry={selectedTask}
+        open={!!selectedTask}
+        onOpenChange={(open) => !open && setSelectedTask(null)}
+        onEdit={() => {
+          // For now, just navigate to journal with the date
+          if (selectedTask) {
+            navigate(`/journal?date=${selectedTask.date}&task=${selectedTask.id}`);
+          }
+        }}
+        onDelete={(id) => {
+          setDeleteTaskId(id);
+          setSelectedTask(null);
+        }}
+        onStatusChange={handleTaskStatusChange}
+        onFlagsChange={handleFlagsChange}
       />
 
       {/* Delete Task Confirmation */}
