@@ -784,14 +784,21 @@ export function NotesPage() {
     
     const width = 800;
     const height = 900;
-    const left = (window.screen.width - width) / 2;
-    const top = (window.screen.height - height) / 2;
+    const popoutUrl = `/popout/notes/${selectedNote.id}`;
     
-    window.open(
-      `/popout/notes/${selectedNote.id}`,
-      `note_${selectedNote.id}`,
-      `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no`
-    );
+    // In Electron, use the native window API for proper desktop app behavior
+    if (window.api?.openPopoutWindow) {
+      window.api.openPopoutWindow(popoutUrl, { width, height, title: 'Note - Workspace Organizer' });
+    } else {
+      // Fallback for web browser mode
+      const left = (window.screen.width - width) / 2;
+      const top = (window.screen.height - height) / 2;
+      window.open(
+        popoutUrl,
+        `note_${selectedNote.id}`,
+        `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no`
+      );
+    }
   }, [selectedNote, pipOpenNotes]);
 
   // Attempt to select a note; if editor is open with unsaved changes, prompt

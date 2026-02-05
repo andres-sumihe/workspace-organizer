@@ -211,6 +211,9 @@ export interface TypedElectronAPI {
   // Developer tools
   toggleDevTools: () => Promise<void>;
   
+  // Popout window (for notes, etc.)
+  openPopoutWindow: (url: string, options?: { width?: number; height?: number; title?: string }) => Promise<{ ok: boolean; error?: string }>;
+  
   // Menu integration
   onMenuCommand: (cb: (payload: { id: string }) => void) => () => void;
   invokeMainAction: (actionId: string, args?: unknown) => Promise<unknown>;
