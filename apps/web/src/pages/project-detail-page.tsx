@@ -4,7 +4,6 @@ import {
   Calendar,
   Check,
   Circle,
-  Clock,
   ExternalLink,
   FileText,
   FolderOpen,
@@ -33,8 +32,7 @@ import type {
 import {
   personalProjectsApi,
   workLogsApi,
-  type CreateWorkLogRequest,
-  type UpdateWorkLogRequest
+  type CreateWorkLogRequest
 } from '@/api/journal';
 import { TaskDetailModal, TASK_STATUS_CONFIG } from '@/components/journal';
 import { ProjectNotesPanel } from '@/components/notes/project-notes-panel';
@@ -411,7 +409,6 @@ export function ProjectDetailPage() {
   const [quickTaskOpen, setQuickTaskOpen] = useState(false);
   const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<WorkLogEntry | null>(null);
-  const [editTaskDialogOpen, setEditTaskDialogOpen] = useState(false);
 
   // Fetch project data
   const fetchProject = useCallback(async () => {
@@ -482,13 +479,6 @@ export function ProjectDetailPage() {
     } finally {
       setDeleteTaskId(null);
     }
-  };
-
-  const handleOpenEditDialog = (task: WorkLogEntry) => {
-    setSelectedTask(null); // Close detail modal
-    setEditTaskDialogOpen(true);
-    // Pass task to edit dialog via state set in next tick
-    setTimeout(() => setSelectedTask(task), 0);
   };
 
   const handleViewInJournal = (date: string) => {
