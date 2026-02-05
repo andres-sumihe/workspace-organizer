@@ -219,7 +219,7 @@ export const PayloadDialog = ({ open, onOpenChange, selectedFiles = [], onReadFi
                   </p>
                   <ul className="text-xs text-foreground list-disc list-inside max-h-24 overflow-auto">
                     {selectedFiles.map(({ name, path }) => (
-                      <li key={path} title={path}>{name}</li>
+                      <li key={path} title={path} className="break-all">{name}</li>
                     ))}
                   </ul>
                   <Button
