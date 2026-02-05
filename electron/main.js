@@ -536,7 +536,18 @@ function createWindow() {
   });
 
   // Handle external links (target="_blank") to open in default browser
+  // BUT allow local app URLs to create new Electron windows
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    // Allow local dev server and app:// protocol URLs to open in Electron
+    const isLocalDevUrl = url.startsWith('http://127.0.0.1') || url.startsWith('http://localhost');
+    const isAppProtocol = url.startsWith('app://');
+    
+    if (isLocalDevUrl || isAppProtocol) {
+      // Return 'allow' to create a new Electron window
+      return { action: 'allow' };
+    }
+    
+    // External URLs open in default browser
     if (url.startsWith('https:') || url.startsWith('http:') || url.startsWith('mailto:')) {
       shell.openExternal(url);
       return { action: 'deny' };
