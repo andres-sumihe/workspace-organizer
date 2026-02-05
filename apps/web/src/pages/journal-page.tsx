@@ -6,8 +6,6 @@ import {
   Calendar,
   Check,
   ChevronDown,
-  Circle,
-  Clock,
   Copy,
   Filter,
   FolderOpen,
@@ -16,8 +14,7 @@ import {
   Pencil,
   Plus,
   RotateCcw,
-  Trash2,
-  X
+  Trash2
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
