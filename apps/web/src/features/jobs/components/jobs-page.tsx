@@ -1,8 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { PanelRightClose, PanelRightOpen, RefreshCw, Trash2 } from 'lucide-react';
+import { PanelRightClose, PanelRightOpen, RefreshCw, Trash2, Link2, Plus, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { JobDetailPanel } from './job-detail-panel';
+import { JobDialog } from './job-dialog';
 import { JobImportDialog } from './job-import-dialog';
 import { JobList } from './job-list';
 
@@ -17,8 +18,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useJobStats, useJobDetail, useClearAllJobs } from '@/hooks/use-jobs';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog';
+import { useJobStats, useJobDetail, useClearAllJobs, useLinkingStatus, useAutoLinkJobs } from '@/hooks/use-jobs';
 import { queryKeys } from '@/lib/query-client';
 
 
@@ -30,6 +40,9 @@ export const JobsTab = ({ initialJobId }: JobsTabProps) => {
   const queryClient = useQueryClient();
   const [selectedJobId, setSelectedJobId] = useState<string | null>(initialJobId ?? null);
   const [detailPanelOpen, setDetailPanelOpen] = useState(true);
+  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
+  const [jobDialogOpen, setJobDialogOpen] = useState(false);
+  const [editingJobId, setEditingJobId] = useState<string | null>(null);
 
   // Use cached stats - reactive to data changes
   const { data: statsResponse } = useJobStats();
@@ -41,6 +54,10 @@ export const JobsTab = ({ initialJobId }: JobsTabProps) => {
 
   // Use mutation hook for clearing all jobs
   const clearAllJobsMutation = useClearAllJobs();
+
+  // Linking status and auto-link
+  const { data: linkingStatus, refetch: refetchLinkingStatus } = useLinkingStatus();
+  const autoLinkMutation = useAutoLinkJobs();
 
   // Update selection when initialJobId changes (from URL navigation)
   useEffect(() => {
@@ -73,6 +90,32 @@ export const JobsTab = ({ initialJobId }: JobsTabProps) => {
     setDetailPanelOpen(true); // Open panel when selecting a job
   };
 
+  const handleSyncScripts = async () => {
+    try {
+      await autoLinkMutation.mutateAsync();
+      refetchLinkingStatus();
+    } catch (err) {
+      console.error('Failed to sync scripts:', err);
+    }
+  };
+
+  const handleNewJob = () => {
+    setEditingJobId(null);
+    setJobDialogOpen(true);
+  };
+
+  const handleEditJob = () => {
+    if (selectedJobId) {
+      setEditingJobId(selectedJobId);
+      setJobDialogOpen(true);
+    }
+  };
+
+  const handleJobDialogClose = () => {
+    setJobDialogOpen(false);
+    setEditingJobId(null);
+  };
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header - Fixed at top */}
@@ -96,6 +139,20 @@ export const JobsTab = ({ initialJobId }: JobsTabProps) => {
           >
             <RefreshCw className="h-4 w-4" />
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSyncDialogOpen(true)}
+            title="Sync Scripts"
+          >
+            <Link2 className="h-4 w-4 mr-1" />
+            Sync Scripts
+            {linkingStatus && linkingStatus.unlinkedJobs > 0 && (
+              <Badge variant="secondary" className="ml-1 h-5">
+                {linkingStatus.unlinkedJobs}
+              </Badge>
+            )}
+          </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="outline" size="sm" title="Clear All Jobs">
@@ -118,6 +175,15 @@ export const JobsTab = ({ initialJobId }: JobsTabProps) => {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleNewJob}
+            title="New Job"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            New Job
+          </Button>
           <JobImportDialog onImportComplete={handleImportComplete} />
         </div>
       </div>
@@ -153,7 +219,7 @@ export const JobsTab = ({ initialJobId }: JobsTabProps) => {
                 </Button>
               </div>
               <div className="flex-1 overflow-hidden">
-                <JobDetailPanel job={jobDetail} loading={detailLoading} />
+                <JobDetailPanel job={jobDetail} loading={detailLoading} onEdit={handleEditJob} />
               </div>
             </>
           ) : (
@@ -171,6 +237,99 @@ export const JobsTab = ({ initialJobId }: JobsTabProps) => {
           )}
         </div>
       </div>
+
+      {/* Sync Scripts Dialog */}
+      <Dialog open={syncDialogOpen} onOpenChange={setSyncDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link2 className="h-5 w-5" />
+              Sync Scripts
+            </DialogTitle>
+            <DialogDescription>
+              Automatically link Control-M jobs to scripts based on the script filename (memName).
+            </DialogDescription>
+          </DialogHeader>
+
+          {linkingStatus && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="p-3 bg-muted rounded-lg">
+                  <div className="text-2xl font-bold">{linkingStatus.totalJobs}</div>
+                  <div className="text-muted-foreground">Total Jobs</div>
+                </div>
+                <div className="p-3 bg-muted rounded-lg">
+                  <div className="text-2xl font-bold">{linkingStatus.jobsWithMemName}</div>
+                  <div className="text-muted-foreground">Jobs with Scripts</div>
+                </div>
+                <div className="p-3 bg-success-muted border border-success/30 rounded-lg">
+                  <div className="text-2xl font-bold text-success">{linkingStatus.linkedJobs}</div>
+                  <div className="text-muted-foreground">Linked</div>
+                </div>
+                <div className="p-3 bg-warning-muted border border-warning/30 rounded-lg">
+                  <div className="text-2xl font-bold text-warning">{linkingStatus.unlinkedJobs}</div>
+                  <div className="text-muted-foreground">Unlinked</div>
+                </div>
+              </div>
+
+              {linkingStatus.jobsWithMemName > 0 && (
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-success transition-all"
+                      style={{ width: `${linkingStatus.linkingPercentage}%` }}
+                    />
+                  </div>
+                  <span className="text-sm font-medium">{linkingStatus.linkingPercentage}%</span>
+                </div>
+              )}
+
+              {autoLinkMutation.data && (
+                <div className="p-3 bg-muted rounded-lg text-sm">
+                  <div className="font-medium mb-1">Last sync result:</div>
+                  <div className="text-muted-foreground">
+                    {autoLinkMutation.data.newlyLinked} newly linked,{' '}
+                    {autoLinkMutation.data.noMatchFound} no match found
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSyncDialogOpen(false)}>
+              Close
+            </Button>
+            <Button
+              onClick={handleSyncScripts}
+              disabled={autoLinkMutation.isPending || (linkingStatus?.unlinkedJobs ?? 0) === 0}
+            >
+              {autoLinkMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Syncing...
+                </>
+              ) : (
+                <>
+                  <Link2 className="h-4 w-4 mr-2" />
+                  Sync Now
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Job Create/Edit Dialog */}
+      <JobDialog
+        open={jobDialogOpen}
+        onOpenChange={handleJobDialogClose}
+        jobId={editingJobId}
+        onSuccess={() => {
+          handleJobDialogClose();
+          queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+        }}
+      />
     </div>
   );
 };

@@ -10,8 +10,16 @@ import {
   deleteJob,
   clearAllJobs,
   linkJobToScript,
+  unlinkJobFromScript,
+  fetchScriptSuggestions,
+  fetchLinkingStatus,
+  autoLinkJobs,
+  createJob,
+  updateJob,
 } from '@/api/controlm-jobs';
 import { queryKeys } from '@/lib/query-client';
+
+import type { CreateJobRequest, UpdateJobRequest } from '@/api/controlm-jobs';
 
 /** Filters for job list query */
 export interface JobListFilters {
@@ -131,6 +139,90 @@ export function useLinkJobToScript() {
   return useMutation({
     mutationFn: ({ jobId, scriptId }: { jobId: string; scriptId: string }) =>
       linkJobToScript(jobId, scriptId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.detail(variables.jobId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.lists() });
+      queryClient.invalidateQueries({ queryKey: [...queryKeys.jobs.all, 'linking-status'] });
+    },
+  });
+}
+
+/**
+ * Mutation hook for unlinking a job from a script
+ */
+export function useUnlinkJobFromScript() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (jobId: string) => unlinkJobFromScript(jobId),
+    onSuccess: (_, jobId) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.detail(jobId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.lists() });
+      queryClient.invalidateQueries({ queryKey: [...queryKeys.jobs.all, 'linking-status'] });
+    },
+  });
+}
+
+/**
+ * Hook to fetch script suggestions for a job
+ */
+export function useScriptSuggestions(jobId: string | null) {
+  return useQuery({
+    queryKey: [...queryKeys.jobs.all, 'script-suggestions', jobId] as const,
+    queryFn: () => fetchScriptSuggestions(jobId!),
+    enabled: !!jobId,
+    staleTime: 30 * 1000, // Suggestions are fairly stable
+  });
+}
+
+/**
+ * Hook to fetch job-script linking status
+ */
+export function useLinkingStatus() {
+  return useQuery({
+    queryKey: [...queryKeys.jobs.all, 'linking-status'] as const,
+    queryFn: fetchLinkingStatus,
+    staleTime: 60 * 1000,
+  });
+}
+
+/**
+ * Mutation hook for auto-linking all jobs to scripts
+ */
+export function useAutoLinkJobs() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: () => autoLinkJobs(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+    },
+  });
+}
+
+/**
+ * Mutation hook for creating a new job
+ */
+export function useCreateJob() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (payload: CreateJobRequest) => createJob(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+    },
+  });
+}
+
+/**
+ * Mutation hook for updating an existing job
+ */
+export function useUpdateJob() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ jobId, payload }: { jobId: string; payload: UpdateJobRequest }) =>
+      updateJob(jobId, payload),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.jobs.detail(variables.jobId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.jobs.lists() });

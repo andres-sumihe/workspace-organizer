@@ -326,6 +326,54 @@ export const updateJob = async (id: string, updates: Partial<CreateJobInput>): P
     setClauses.push(`description = $${paramIndex++}`);
     values.push(updates.description ?? null);
   }
+  if (updates.memName !== undefined) {
+    setClauses.push(`mem_name = $${paramIndex++}`);
+    values.push(updates.memName ?? null);
+  }
+  if (updates.memLib !== undefined) {
+    setClauses.push(`mem_lib = $${paramIndex++}`);
+    values.push(updates.memLib ?? null);
+  }
+  if (updates.owner !== undefined) {
+    setClauses.push(`owner = $${paramIndex++}`);
+    values.push(updates.owner ?? null);
+  }
+  if (updates.taskType !== undefined) {
+    setClauses.push(`task_type = $${paramIndex++}`);
+    values.push(updates.taskType);
+  }
+  if (updates.isCyclic !== undefined) {
+    setClauses.push(`is_cyclic = $${paramIndex++}`);
+    values.push(updates.isCyclic);
+  }
+  if (updates.priority !== undefined) {
+    setClauses.push(`priority = $${paramIndex++}`);
+    values.push(updates.priority ?? null);
+  }
+  if (updates.isCritical !== undefined) {
+    setClauses.push(`is_critical = $${paramIndex++}`);
+    values.push(updates.isCritical);
+  }
+  if (updates.daysCalendar !== undefined) {
+    setClauses.push(`days_calendar = $${paramIndex++}`);
+    values.push(updates.daysCalendar ?? null);
+  }
+  if (updates.weeksCalendar !== undefined) {
+    setClauses.push(`weeks_calendar = $${paramIndex++}`);
+    values.push(updates.weeksCalendar ?? null);
+  }
+  if (updates.fromTime !== undefined) {
+    setClauses.push(`from_time = $${paramIndex++}`);
+    values.push(updates.fromTime ?? null);
+  }
+  if (updates.toTime !== undefined) {
+    setClauses.push(`to_time = $${paramIndex++}`);
+    values.push(updates.toTime ?? null);
+  }
+  if (updates.interval !== undefined) {
+    setClauses.push(`interval_value = $${paramIndex++}`);
+    values.push(updates.interval ?? null);
+  }
   if (updates.isActive !== undefined) {
     setClauses.push(`is_active = $${paramIndex++}`);
     values.push(updates.isActive);
