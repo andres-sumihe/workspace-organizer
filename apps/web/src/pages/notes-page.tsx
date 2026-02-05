@@ -787,10 +787,12 @@ export function NotesPage() {
     const popoutUrl = `/popout/notes/${selectedNote.id}`;
     
     // In Electron, use the native window API for proper desktop app behavior
-    if (window.api?.openPopoutWindow) {
-      window.api.openPopoutWindow(popoutUrl, { width, height, title: 'Note - Workspace Organizer' });
+    // Check if we're in Electron by checking for window.api
+    const electronApi = (window as Window & { api?: { openPopoutWindow?: (url: string, options: { width: number; height: number; title: string }) => Promise<{ ok: boolean }> } }).api;
+    
+    if (electronApi?.openPopoutWindow) {
+      electronApi.openPopoutWindow(popoutUrl, { width, height, title: 'Note - Workspace Organizer' });
     } else {
-      // Fallback for web browser mode
       const left = (window.screen.width - width) / 2;
       const top = (window.screen.height - height) / 2;
       window.open(
