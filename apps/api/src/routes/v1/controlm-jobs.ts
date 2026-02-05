@@ -4,6 +4,8 @@ import {
   listJobsHandler,
   getJobHandler,
   importJobsHandler,
+  createJobHandler,
+  updateJobHandler,
   getStatsHandler,
   getFiltersHandler,
   getDependencyGraphHandler,
@@ -20,6 +22,9 @@ export const controlmJobsRouter = Router();
 
 // GET /api/v1/controlm-jobs - List jobs with pagination and filters
 controlmJobsRouter.get('/', listJobsHandler);
+
+// POST /api/v1/controlm-jobs - Create a new job manually
+controlmJobsRouter.post('/', createJobHandler);
 
 // GET /api/v1/controlm-jobs/stats - Get job statistics
 controlmJobsRouter.get('/stats', getStatsHandler);
@@ -44,6 +49,9 @@ controlmJobsRouter.delete('/', clearAllJobsHandler);
 
 // GET /api/v1/controlm-jobs/:jobId - Get job detail
 controlmJobsRouter.get('/:jobId', getJobHandler);
+
+// PATCH /api/v1/controlm-jobs/:jobId - Update a job
+controlmJobsRouter.patch('/:jobId', updateJobHandler);
 
 // GET /api/v1/controlm-jobs/:jobId/script-suggestions - Get script suggestions for a job
 controlmJobsRouter.get('/:jobId/script-suggestions', getScriptSuggestionsHandler);
