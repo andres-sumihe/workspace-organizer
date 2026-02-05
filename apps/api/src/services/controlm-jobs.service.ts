@@ -428,6 +428,125 @@ export const clearAllJobs = async (): Promise<number> => {
   return await deleteAllJobs();
 };
 
+// ---- Create and Update Job ----
+
+export interface CreateJobRequest {
+  jobName: string;
+  application: string;
+  groupName: string;
+  nodeId: string;
+  description?: string;
+  memName?: string;
+  memLib?: string;
+  owner?: string;
+  taskType?: ControlMTaskType;
+  isCyclic?: boolean;
+  priority?: string;
+  isCritical?: boolean;
+  daysCalendar?: string;
+  weeksCalendar?: string;
+  fromTime?: string;
+  toTime?: string;
+  interval?: string;
+  isActive?: boolean;
+  linkedScriptId?: string;
+}
+
+export interface UpdateJobRequest {
+  jobName?: string;
+  description?: string;
+  memName?: string;
+  memLib?: string;
+  owner?: string;
+  taskType?: ControlMTaskType;
+  isCyclic?: boolean;
+  priority?: string;
+  isCritical?: boolean;
+  daysCalendar?: string;
+  weeksCalendar?: string;
+  fromTime?: string;
+  toTime?: string;
+  interval?: string;
+  isActive?: boolean;
+  linkedScriptId?: string | null;
+}
+
+/**
+ * Create a new Control-M job manually.
+ */
+export const createJobManually = async (input: CreateJobRequest): Promise<ControlMJob> => {
+  const id = randomUUID();
+  const now = new Date().toISOString();
+
+  // Generate a unique jobId (numeric) - use timestamp-based for manual entries
+  const jobId = Date.now() % 1000000000;
+
+  const job = await createJob({
+    id,
+    jobId,
+    application: input.application,
+    groupName: input.groupName,
+    memName: input.memName,
+    jobName: input.jobName,
+    description: input.description,
+    nodeId: input.nodeId,
+    owner: input.owner,
+    taskType: input.taskType ?? 'Job',
+    isCyclic: input.isCyclic ?? false,
+    priority: input.priority,
+    isCritical: input.isCritical ?? false,
+    daysCalendar: input.daysCalendar,
+    weeksCalendar: input.weeksCalendar,
+    fromTime: input.fromTime,
+    toTime: input.toTime,
+    interval: input.interval,
+    memLib: input.memLib,
+    isActive: input.isActive !== false,
+    linkedScriptId: input.linkedScriptId,
+    createdAt: now,
+    updatedAt: now
+  });
+
+  return job;
+};
+
+/**
+ * Update an existing Control-M job.
+ */
+export const updateJobDetails = async (
+  id: string,
+  updates: UpdateJobRequest
+): Promise<ControlMJob | null> => {
+  const existing = await findJobById(id);
+  if (!existing) {
+    return null;
+  }
+
+  // Build update object - only include provided fields
+  const updateData: Parameters<typeof updateJob>[1] = {};
+
+  if (updates.jobName !== undefined) updateData.jobName = updates.jobName;
+  if (updates.description !== undefined) updateData.description = updates.description;
+  if (updates.memName !== undefined) updateData.memName = updates.memName;
+  if (updates.memLib !== undefined) updateData.memLib = updates.memLib;
+  if (updates.owner !== undefined) updateData.owner = updates.owner;
+  if (updates.taskType !== undefined) updateData.taskType = updates.taskType;
+  if (updates.isCyclic !== undefined) updateData.isCyclic = updates.isCyclic;
+  if (updates.priority !== undefined) updateData.priority = updates.priority;
+  if (updates.isCritical !== undefined) updateData.isCritical = updates.isCritical;
+  if (updates.daysCalendar !== undefined) updateData.daysCalendar = updates.daysCalendar;
+  if (updates.weeksCalendar !== undefined) updateData.weeksCalendar = updates.weeksCalendar;
+  if (updates.fromTime !== undefined) updateData.fromTime = updates.fromTime;
+  if (updates.toTime !== undefined) updateData.toTime = updates.toTime;
+  if (updates.interval !== undefined) updateData.interval = updates.interval;
+  if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
+  if (updates.linkedScriptId !== undefined) {
+    updateData.linkedScriptId = updates.linkedScriptId ?? undefined;
+  }
+
+  return await updateJob(id, updateData);
+};
+
 export const linkJobToScript = async (jobId: string, scriptId: string): Promise<ControlMJob | null> => {
   // Verify script exists
   const script = await scriptsRepository.getById(scriptId);

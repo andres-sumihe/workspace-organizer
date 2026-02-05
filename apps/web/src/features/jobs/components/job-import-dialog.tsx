@@ -1,9 +1,10 @@
-import { Upload, AlertCircle, CheckCircle, Loader2, FileText } from 'lucide-react';
+import { Upload, AlertCircle, CheckCircle, Loader2, FileText, Link2 } from 'lucide-react';
 import React, { useRef, useState } from 'react';
 
 import type { ControlMImportResult } from '@workspace/shared';
 
-import { importJobs } from '@/api/controlm-jobs';
+import { importJobs, autoLinkJobs } from '@/api/controlm-jobs';
+import type { AutoLinkResult } from '@/api/controlm-jobs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -26,8 +27,10 @@ export const JobImportDialog = ({ onImportComplete }: JobImportDialogProps) => {
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [replaceExisting, setReplaceExisting] = useState(false);
+  const [autoLinkAfterImport, setAutoLinkAfterImport] = useState(true);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ControlMImportResult | null>(null);
+  const [linkResult, setLinkResult] = useState<AutoLinkResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -56,6 +59,7 @@ export const JobImportDialog = ({ onImportComplete }: JobImportDialogProps) => {
     setImporting(true);
     setError(null);
     setResult(null);
+    setLinkResult(null);
 
     try {
       // Read file content
@@ -65,6 +69,17 @@ export const JobImportDialog = ({ onImportComplete }: JobImportDialogProps) => {
       const importResult = await importJobs(csvContent, replaceExisting);
 
       setResult(importResult);
+
+      // Auto-link scripts if enabled and import was successful
+      if (autoLinkAfterImport && importResult.importedCount > 0) {
+        try {
+          const autoLinkResult = await autoLinkJobs();
+          setLinkResult(autoLinkResult);
+        } catch (linkErr) {
+          console.warn('Auto-link failed:', linkErr);
+          // Don't fail the whole import if auto-link fails
+        }
+      }
 
       if (importResult.importedCount > 0) {
         onImportComplete?.();
@@ -80,6 +95,7 @@ export const JobImportDialog = ({ onImportComplete }: JobImportDialogProps) => {
     setOpen(false);
     setFile(null);
     setResult(null);
+    setLinkResult(null);
     setError(null);
   };
 
@@ -144,6 +160,17 @@ export const JobImportDialog = ({ onImportComplete }: JobImportDialogProps) => {
                 Replace existing jobs (clear all before import)
               </Label>
             </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="auto-link"
+                checked={autoLinkAfterImport}
+                onCheckedChange={(checked) => setAutoLinkAfterImport(checked === true)}
+              />
+              <Label htmlFor="auto-link" className="text-sm flex items-center gap-1">
+                <Link2 className="h-3 w-3" />
+                Auto-link jobs to scripts after import
+              </Label>
+            </div>
           </div>
 
           {/* Error */}
@@ -169,6 +196,22 @@ export const JobImportDialog = ({ onImportComplete }: JobImportDialogProps) => {
                   </div>
                 </AlertDescription>
               </Alert>
+
+              {/* Auto-link results */}
+              {linkResult && (
+                <Alert>
+                  <Link2 className="h-4 w-4" />
+                  <AlertDescription>
+                    <div className="space-y-1">
+                      <div className="font-medium">
+                        Script Linking: {linkResult.newlyLinked} linked
+                        {linkResult.alreadyLinked > 0 && `, ${linkResult.alreadyLinked} already linked`}
+                        {linkResult.noMatchFound > 0 && `, ${linkResult.noMatchFound} no match found`}
+                      </div>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
 
               {/* Error details */}
               {result.errors.length > 0 && (

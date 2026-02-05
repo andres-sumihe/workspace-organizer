@@ -197,7 +197,7 @@
       - Creates a "dense" UI similar to IDEs or data tools
       - Scales down all rem-based spacing (padding, height, margin)
     */
-    font-size: clamp(12px, 0.3vw + 11px, 13.5px);
+    font-size: clamp(13.2px, 0.33vw + 12.1px, 14.85px);
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
     
