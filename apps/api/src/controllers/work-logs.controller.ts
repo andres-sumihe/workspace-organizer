@@ -9,7 +9,7 @@ import type {
 import type { NextFunction, Request, Response } from 'express';
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
-const VALID_STATUSES: WorkLogStatus[] = ['todo', 'in_progress', 'done', 'blocked'];
+const VALID_STATUSES: WorkLogStatus[] = ['todo', 'in_progress', 'done'];
 
 export const workLogsController = {
   /**

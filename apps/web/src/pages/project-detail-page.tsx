@@ -624,10 +624,6 @@ export function ProjectDetailPage() {
                         <div className="text-2xl font-bold text-green-500">{project.taskStats.done}</div>
                         <div className="text-xs text-muted-foreground">Done</div>
                       </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-red-500">{project.taskStats.blocked}</div>
-                        <div className="text-xs text-muted-foreground">Blocked</div>
-                      </div>
                     </div>
                   </CardContent>
                 </Card>

@@ -3,6 +3,7 @@ import { useSortable } from '@dnd-kit/react/sortable';
 import {
   ArrowLeft,
   ArrowRight,
+  ArrowUpDown,
   Calendar,
   Check,
   ChevronDown,
@@ -201,10 +202,37 @@ interface KanbanColumnProps {
   onSelectEntry: (entry: WorkLogEntry) => void;
 }
 
+// Priority weight for sorting (higher = more important)
+const PRIORITY_WEIGHT: Record<WorkLogPriority | 'none', number> = {
+  high: 3,
+  medium: 2,
+  low: 1,
+  none: 0
+};
+
 function KanbanColumn({ status, index, entries, selectedEntry, onSelectEntry }: KanbanColumnProps) {
   const config = STATUS_CONFIG[status];
   const StatusIcon = config.icon;
-  const columnEntries = entries.filter((e) => e.status === status);
+  const [sortOrder, setSortOrder] = useState<'none' | 'high-low' | 'low-high'>('none');
+  
+  const columnEntries = useMemo(() => {
+    const filtered = entries.filter((e) => e.status === status);
+    if (sortOrder === 'none') return filtered;
+    
+    return [...filtered].sort((a, b) => {
+      const weightA = PRIORITY_WEIGHT[a.priority ?? 'none'];
+      const weightB = PRIORITY_WEIGHT[b.priority ?? 'none'];
+      return sortOrder === 'high-low' ? weightB - weightA : weightA - weightB;
+    });
+  }, [entries, status, sortOrder]);
+
+  const handleSortToggle = () => {
+    setSortOrder((prev) => {
+      if (prev === 'none') return 'high-low';
+      if (prev === 'high-low') return 'low-high';
+      return 'none';
+    });
+  };
 
   const { ref } = useSortable({
     id: status,
@@ -223,9 +251,20 @@ function KanbanColumn({ status, index, entries, selectedEntry, onSelectEntry }: 
       <div className="flex items-center gap-2 px-3 py-4 select-none">
         <StatusIcon className={`h-4 w-4 ${config.color}`} />
         <span className="font-bold text-[11px] uppercase tracking-wider text-muted-foreground/80">{config.label}</span>
-        <Badge className="text-[11px] font-bold text-muted-foreground bg-zinc-200/50 dark:bg-white/5 px-2 py-0.5 rounded-[2px] ml-auto">
-          {columnEntries.length}
-        </Badge>
+        <div className="ml-auto flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`h-6 w-6 ${sortOrder !== 'none' ? 'text-primary' : 'text-muted-foreground/60'}`}
+            onClick={handleSortToggle}
+            title={sortOrder === 'none' ? 'Sort by priority' : sortOrder === 'high-low' ? 'High → Low' : 'Low → High'}
+          >
+            <ArrowUpDown className="h-3.5 w-3.5" />
+          </Button>
+          <Badge className="text-[11px] font-bold text-muted-foreground bg-zinc-200/50 dark:bg-white/5 px-2 py-0.5 rounded-[2px]">
+            {columnEntries.length}
+          </Badge>
+        </div>
       </div>
 
       {/* Cards */}

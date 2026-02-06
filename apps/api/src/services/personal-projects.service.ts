@@ -122,8 +122,7 @@ export const personalProjectsService = {
       total: linkedTasks.length,
       todo: linkedTasks.filter((t) => t.status === 'todo').length,
       inProgress: linkedTasks.filter((t) => t.status === 'in_progress').length,
-      done: linkedTasks.filter((t) => t.status === 'done').length,
-      blocked: linkedTasks.filter((t) => t.status === 'blocked').length
+      done: linkedTasks.filter((t) => t.status === 'done').length
     };
 
     // Get linked workspace info if exists
