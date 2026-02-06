@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -232,7 +231,6 @@ export function TaskUpdatesSection({ entityType, entityId }: TaskUpdatesSectionP
           No updates yet. Add one to track your progress.
         </div>
       ) : (
-        <ScrollArea className="max-h-[300px]">
           <div className="space-y-3">
             {updates.map((update) => (
               <div key={update.id} className="space-y-2">
@@ -411,7 +409,6 @@ export function TaskUpdatesSection({ entityType, entityId }: TaskUpdatesSectionP
               </div>
             ))}
           </div>
-        </ScrollArea>
       )}
     </div>
   );
