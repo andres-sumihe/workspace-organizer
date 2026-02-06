@@ -86,15 +86,33 @@ export function decrypt(
 class CryptoService {
   private derivedKey: Buffer | null = null;
   private unlockTimeout: ReturnType<typeof setTimeout> | null = null;
+  private autoLockEnabled: boolean = true;
   private readonly SESSION_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
   /**
    * Derives and stores the encryption key from the master password.
-   * Starts an auto-lock timeout.
+   * Starts an auto-lock timeout if auto-lock is enabled.
    */
   unlock(masterPassword: string, salt: Buffer): void {
     this.derivedKey = deriveKey(masterPassword, salt);
-    this.resetTimeout();
+    if (this.autoLockEnabled) {
+      this.resetTimeout();
+    }
+  }
+
+  /**
+   * Sets whether auto-lock is enabled.
+   * When disabled, the vault will only lock on manual lock or server restart.
+   */
+  setAutoLockEnabled(enabled: boolean): void {
+    this.autoLockEnabled = enabled;
+    if (!enabled && this.unlockTimeout) {
+      clearTimeout(this.unlockTimeout);
+      this.unlockTimeout = null;
+    } else if (enabled && this.derivedKey) {
+      // Re-enable auto-lock if vault is currently unlocked
+      this.resetTimeout();
+    }
   }
 
   /**
