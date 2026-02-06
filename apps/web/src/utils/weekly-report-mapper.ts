@@ -86,6 +86,7 @@ export function toReportItem(entry: WorkLogEntry): WeeklyReportItem {
     tags: entry.tags.map((t) => ({ id: t.id, name: t.name, color: t.color })),
     dueDate: entry.dueDate ?? null,
     date: entry.date,
+    createdAt: entry.createdAt,
     updates: [], // Lazy-loaded on expand
   };
 }
