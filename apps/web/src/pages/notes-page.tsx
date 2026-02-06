@@ -992,25 +992,25 @@ export function NotesPage() {
                       {sidebarCollapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
                     </Button>
                   </div>
-                  <ScrollArea className="flex-1">
-                    <div className="flex flex-col gap-1">
+                  <ScrollArea className="flex-1 w-full min-w-0">
+                    <div className="flex flex-col gap-1 ">
                       {filteredNotes.map((note) => (
                         <button
                           key={note.id}
                           onClick={() => attemptSelectNote(note)}
-                          className={`flex w-full items-center gap-2 p-2 text-left text-sm transition-all duration-200 ease-linear hover:bg-muted/80 min-h-[2.8125rem] ${
+                          className={`flex items-center gap-2 p-2 text-left text-sm transition-all duration-200 ease-linear hover:bg-muted/80 min-h-11.25 ${
                             selectedNote?.id === note.id ? 'bg-muted' : ''
                           }`}
                           title={note.title}
                         >
-                          <div className="shrink-0 flex items-center ml-2">
+                          <div className="shrink-0 flex items-center">
                             {note.isPinned ? (
                               <Pin className="h-4 w-4 text-primary" />
                             ) : (
                               <FileText className="h-4 w-4 text-muted-foreground" />
                             )}
                           </div>
-                          <div className="flex-1 min-w-0 overflow-hidden transition-all duration-200 ease-linear opacity-100 max-h-20 group-data-[state=collapsed]/notes-sidebar:w-0 group-data-[state=collapsed]/notes-sidebar:opacity-0 group-data-[state=collapsed]/notes-sidebar:max-h-0">
+                          <div className="flex-1 min-w-0 overflow-hidden transition-all duration-200 ease-linear opacity-100 w-full group-data-[state=collapsed]/notes-sidebar:w-0 group-data-[state=collapsed]/notes-sidebar:opacity-0 group-data-[state=collapsed]/notes-sidebar:max-h-0">
                             <p className="font-medium truncate">{note.title}</p>
                             <p className="text-xs text-muted-foreground truncate opacity-80">
                               {note.content?.slice(0, 50) || 'No content'}
