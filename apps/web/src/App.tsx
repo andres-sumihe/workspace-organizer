@@ -30,6 +30,7 @@ import { ScriptsPage } from '@/pages/scripts-page';
 import { SettingsPage } from '@/pages/settings-page';
 import { SetupPage } from '@/pages/setup-page';
 import { TeamPage } from '@/pages/team-page';
+import { WeeklyReportPage } from '@/pages/weekly-report-page';
 import { WorkspaceDetailPage } from '@/pages/workspace-detail-page';
 import { WorkspacesPage } from '@/pages/workspaces-page';
 
@@ -251,6 +252,7 @@ function AppContent() {
           <Route path="/scripts/:scriptId" element={<ScriptsPage />} />
           <Route path="/teams" element={<TeamPage />} />
           <Route path="/journal" element={<JournalPage />} />
+          <Route path="/journal/report" element={<WeeklyReportPage />} />
           <Route path="/notes" element={<NotesPage />} />
           <Route path="/tools/overtime" element={<OvertimePage />} />
           <Route path="/settings" element={<SettingsPage />} />
