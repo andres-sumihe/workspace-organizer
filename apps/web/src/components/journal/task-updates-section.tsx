@@ -65,7 +65,8 @@ export function TaskUpdatesSection({ entityType, entityId }: TaskUpdatesSectionP
     enabled: !!entityId
   });
 
-  const updates = updatesRes?.items ?? [];
+  // Reverse to show newest updates first
+  const updates = [...(updatesRes?.items ?? [])].reverse();
 
   // Create mutation
   const createMutation = useMutation({

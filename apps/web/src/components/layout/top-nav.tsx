@@ -46,7 +46,7 @@ export const TopNav = () => {
       </div>
       <div className="ml-auto flex items-center gap-2">
         <ModeToggle />
-        <Tooltip>
+        {/* <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="ghost" size="icon">
               <Bell className="size-4" />
@@ -63,7 +63,7 @@ export const TopNav = () => {
             </Button>
           </TooltipTrigger>
           <TooltipContent>Preferences</TooltipContent>
-        </Tooltip>
+        </Tooltip> */}
         
         {/* User Menu */}
         <DropdownMenu>

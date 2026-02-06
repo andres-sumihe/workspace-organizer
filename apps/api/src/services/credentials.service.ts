@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { cryptoService, hashPassword, generateSalt } from './crypto.service.js';
+import { sessionService } from './session.service.js';
 import {
   credentialsRepository,
   vaultSettingsRepository,
@@ -49,6 +50,10 @@ export const credentialsService = {
 
     await vaultSettingsRepository.setup(passwordHash, salt.toString('base64'));
 
+    // Configure auto-lock based on session lock setting
+    const sessionConfig = await sessionService.getConfig();
+    cryptoService.setAutoLockEnabled(sessionConfig.enableSessionLock !== false);
+
     // Auto-unlock after setup
     cryptoService.unlock(masterPassword, salt);
   },
@@ -69,6 +74,11 @@ export const credentialsService = {
     if (passwordHash !== settings.passwordHash) {
       throw new Error('Incorrect master password');
     }
+
+    // Configure auto-lock based on session lock setting
+    // If session lock is disabled, vault auto-lock is also disabled
+    const sessionConfig = await sessionService.getConfig();
+    cryptoService.setAutoLockEnabled(sessionConfig.enableSessionLock !== false);
 
     cryptoService.unlock(masterPassword, salt);
   },

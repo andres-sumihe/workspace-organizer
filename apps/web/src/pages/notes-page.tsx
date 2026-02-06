@@ -705,6 +705,20 @@ export function NotesPage() {
     );
   }, [notes, searchQuery]);
 
+  // Filtered credentials (for vault tab search)
+  const filteredCredentials = useMemo(() => {
+    if (!searchQuery) return credentials;
+    const query = searchQuery.toLowerCase();
+    return credentials.filter((c) => {
+      const config = CREDENTIAL_TYPE_CONFIG[c.type];
+      return (
+        c.title.toLowerCase().includes(query) ||
+        config.label.toLowerCase().includes(query) ||
+        c.project?.title.toLowerCase().includes(query)
+      );
+    });
+  }, [credentials, searchQuery]);
+
   // Note handlers
   const handleSaveNote = useCallback(
     async (id: string | null, data: { title: string; content: string; isPinned: boolean; projectId?: string }) => {
@@ -959,7 +973,7 @@ export function NotesPage() {
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search..."
+                placeholder={activeTab === 'notes' ? 'Search notes...' : 'Search credentials...'}
                 className="pl-8 w-64"
               />
             </div>
@@ -1121,17 +1135,17 @@ export function NotesPage() {
             ) : (
               <ScrollArea className="h-full">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-1">
-                  {credentials.map((cred) => {
+                  {filteredCredentials.map((cred) => {
                     const config = CREDENTIAL_TYPE_CONFIG[cred.type];
                     return (
                       <Card key={cred.id} className="hover:shadow-md transition-shadow">
                         <CardHeader className="pb-2">
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-2">
-                              <config.icon className="h-4 w-4 text-muted-foreground" />
-                              <CardTitle className="text-base">{cred.title}</CardTitle>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <config.icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                              <CardTitle className="text-base truncate">{cred.title}</CardTitle>
                             </div>
-                            <Badge variant="outline" className="text-xs">
+                            <Badge variant="outline" className="text-xs shrink-0">
                               {config.label}
                             </Badge>
                           </div>
@@ -1172,7 +1186,7 @@ export function NotesPage() {
                       </Card>
                     );
                   })}
-                  {credentials.length === 0 && (
+                  {filteredCredentials.length === 0 && credentials.length === 0 && (
                     <div className="col-span-full text-center py-12 text-muted-foreground">
                       <Key className="h-12 w-12 mx-auto mb-2 opacity-50" />
                       <p>No credentials stored yet</p>
@@ -1185,6 +1199,12 @@ export function NotesPage() {
                       >
                         Add your first credential
                       </Button>
+                    </div>
+                  )}
+                  {filteredCredentials.length === 0 && credentials.length > 0 && (
+                    <div className="col-span-full text-center py-12 text-muted-foreground">
+                      <Search className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                      <p>No credentials match your search</p>
                     </div>
                   )}
                 </div>
