@@ -1,4 +1,4 @@
-import { Bell, LogOut, Menu, Search, Settings2, User } from 'lucide-react';
+import { LogOut, Menu, Search, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 import { ModeToggle } from '@/components/mode-toggle';
@@ -14,7 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+
 import { useAuth } from '@/contexts/auth-context';
 
 export const TopNav = () => {

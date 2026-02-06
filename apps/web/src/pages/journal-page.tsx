@@ -8,6 +8,7 @@ import {
   Check,
   ChevronDown,
   Copy,
+  FileText,
   Filter,
   FolderOpen,
   Loader2,
@@ -18,6 +19,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { queryKeys } from '@/lib/query-client';
@@ -1010,6 +1012,7 @@ function RolloverDialog({ open, onOpenChange, onRollover, unfinishedCount }: Rol
 
 export function JournalPage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   
   // Navigation state
   const [currentDate, setCurrentDate] = useState(() => new Date());
@@ -1352,6 +1355,17 @@ export function JournalPage() {
               </Tooltip>
             </TooltipProvider>
           )}
+
+          {/* Weekly Report Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/journal/report')}
+            className="gap-2"
+          >
+            <FileText className="h-4 w-4" />
+            Report
+          </Button>
 
           {/* Add Entry Button */}
           <Button size="sm" onClick={handleAddEntry} className="gap-2">

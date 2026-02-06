@@ -1359,6 +1359,90 @@ export interface WorkLogResponse {
 }
 
 // ============================================================================
+// Weekly Report Types
+// ============================================================================
+
+/**
+ * View grouping modes for the weekly report.
+ */
+export type WeeklyReportViewMode = 'byProject' | 'byStatus' | 'byPriority';
+
+/**
+ * Mapped status for weekly report items (UI-friendly casing).
+ */
+export type WeeklyReportStatus = 'todo' | 'inProgress' | 'done';
+
+/**
+ * Priority levels for weekly report items.
+ */
+export type WeeklyReportPriority = 'high' | 'medium' | 'low' | 'none';
+
+/**
+ * Settings for weekly report page preferences (stored in local SQLite).
+ */
+export interface WeeklyReportSettings {
+  defaultWeekStartDay: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  defaultDurationDays: number;
+  defaultViewMode?: WeeklyReportViewMode;
+}
+
+/**
+ * Summary statistics for a weekly report.
+ */
+export interface WeeklyReportSummary {
+  totalTasks: number;
+  byStatus: Record<WeeklyReportStatus, number>;
+  byPriority: Record<WeeklyReportPriority, number>;
+  completionRate: number;
+  flaggedCount: number;
+}
+
+/**
+ * An update/note attached to a weekly report item.
+ */
+export interface WeeklyReportItemUpdate {
+  id: string;
+  createdAt: string;
+  note: string;
+}
+
+/**
+ * A single item in the weekly report view.
+ * Abstracted from WorkLogEntry so the UI doesn't couple to the persistence model.
+ * Phase 1 derives these from WorkLogs; Phase 2 can back them by persisted tasks.
+ */
+export interface WeeklyReportItem {
+  id: string;
+  sourceId: string; // Original WorkLogEntry.id
+  projectId: string | null;
+  projectTitle: string | null;
+  title: string; // Mapped from WorkLogEntry.content
+  status: WeeklyReportStatus;
+  priority: WeeklyReportPriority;
+  flags: string[];
+  tags: Array<{ id: string; name: string; color?: string }>;
+  dueDate: string | null;
+  date: string; // Original entry date
+  updates: WeeklyReportItemUpdate[];
+}
+
+/**
+ * A project group in the weekly report.
+ */
+export interface WeeklyReportProjectGroup {
+  projectId: string | null;
+  projectTitle: string;
+  items: WeeklyReportItem[];
+  stats: {
+    total: number;
+    done: number;
+    inProgress: number;
+    todo: number;
+    completionRate: number;
+  };
+}
+
+// ============================================================================
 // Task Updates Types
 // ============================================================================
 
