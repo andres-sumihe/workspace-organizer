@@ -491,11 +491,30 @@ function setupProtocolHandler() {
       }
       
       // Otherwise, serve static files from the web dist folder
-      const webDistPath = path.join(__dirname, '..', 'apps', 'web', 'dist');
+      // In production, __dirname is inside app.asar/electron, so we need to handle this
+      let webDistPath;
+      if (app.isPackaged) {
+        // In production: go from electron/ to apps/web/dist inside asar
+        webDistPath = path.join(__dirname, '..', 'apps', 'web', 'dist');
+      } else {
+        webDistPath = path.join(__dirname, '..', 'apps', 'web', 'dist');
+      }
+      
       let filePath = pathname === '/' ? '/index.html' : pathname;
       
-      // For SPA routing: if file doesn't have extension, serve index.html
-      if (!path.extname(filePath)) {
+      // Handle asset requests from SPA routes
+      // When index.html is served for /popout/notes/<id>, relative asset paths like ./assets/...
+      // resolve to /popout/notes/assets/... but the actual files are at /assets/...
+      // So we need to extract the asset path and serve from the correct location
+      const assetsMatch = pathname.match(/\/assets\/(.+)$/);
+      if (assetsMatch) {
+        // Rewrite to root-level assets path
+        filePath = `/assets/${assetsMatch[1]}`;
+        log(`[Protocol] Asset request rewritten: ${pathname} -> ${filePath}`);
+      } else if (!path.extname(filePath)) {
+        // For SPA routing: if file doesn't have extension, serve index.html
+        // This handles routes like /popout/notes/<id>
+        log(`[Protocol] SPA route detected: ${pathname} -> serving index.html`);
         filePath = '/index.html';
       }
       
@@ -508,7 +527,24 @@ function setupProtocolHandler() {
         return new Response('Forbidden', { status: 403 });
       }
       
-      console.log(`[Protocol] Serving file: ${normalizedPath}`);
+      log(`[Protocol] Serving file: ${normalizedPath}`);
+      
+      // Check if the file exists before attempting to serve it
+      try {
+        if (!fs.existsSync(normalizedPath)) {
+          log(`[Protocol] File not found: ${normalizedPath}`);
+          // For missing files, try index.html as fallback (SPA)
+          const fallbackPath = path.join(webDistPath, 'index.html');
+          if (fs.existsSync(fallbackPath)) {
+            log(`[Protocol] Falling back to index.html: ${fallbackPath}`);
+            return net.fetch(url.pathToFileURL(fallbackPath).toString());
+          }
+          return new Response('Not Found', { status: 404 });
+        }
+      } catch (fsError) {
+        log(`[Protocol] FS check error: ${fsError.message}`);
+      }
+      
       return net.fetch(url.pathToFileURL(normalizedPath).toString());
     } catch (error) {
       console.error('[Protocol] Handler error:', error);
@@ -706,7 +742,26 @@ ipcMain.handle('open-popout-window', (event, urlPath, options = {}) => {
     }
     
     log(`[Popout] Opening window: ${fullUrl}`);
-    popoutWindow.loadURL(fullUrl);
+    
+    // Add error handling for webContents
+    popoutWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+      log(`[Popout] Failed to load: ${errorCode} - ${errorDescription}`);
+      log(`[Popout] Failed URL: ${validatedURL}`);
+    });
+    
+    popoutWindow.webContents.on('did-finish-load', () => {
+      log(`[Popout] Successfully loaded: ${fullUrl}`);
+    });
+    
+    popoutWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+      if (level >= 2) { // Warning or error
+        log(`[Popout Console] ${message}`);
+      }
+    });
+    
+    popoutWindow.loadURL(fullUrl).catch((err) => {
+      log(`[Popout] loadURL error: ${err.message}`);
+    });
     
     return { ok: true };
   } catch (err) {
