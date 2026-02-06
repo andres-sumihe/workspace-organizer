@@ -1,4 +1,4 @@
-import { Check, Circle, Clock, X } from 'lucide-react';
+import { Check, Circle, Clock } from 'lucide-react';
 
 import type { WorkLogStatus, WorkLogPriority } from '@workspace/shared';
 
@@ -30,13 +30,6 @@ export const TASK_STATUS_CONFIG: Record<
     color: 'text-[#36B37E] dark:text-[#E3FCEF]',
     bgColor: 'bg-[#F4F5F7] dark:bg-[#1D2125]',
     accent: 'before:bg-[#36B37E]'
-  },
-  blocked: {
-    label: 'Blocked',
-    icon: X,
-    color: 'text-[#FF5630]',
-    bgColor: 'bg-[#F4F5F7] dark:bg-[#1D2125]',
-    accent: 'before:bg-[#FF5630]'
   }
 };
 

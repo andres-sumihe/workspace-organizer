@@ -310,7 +310,7 @@ export const workLogsRepository = {
       .prepare(
         `SELECT * FROM work_logs 
          WHERE date = ? 
-         AND status NOT IN ('done', 'blocked', 'completed', 'Completed', 'Done')
+         AND status NOT IN ('done', 'completed', 'Completed', 'Done')
          ORDER BY created_at ASC`
       )
       .all(date) as unknown[];

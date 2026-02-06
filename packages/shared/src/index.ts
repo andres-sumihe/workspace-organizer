@@ -1237,7 +1237,7 @@ export interface OvertimeEntryResponse {
 /**
  * Status of a work log entry.
  */
-export type WorkLogStatus = 'todo' | 'in_progress' | 'done' | 'blocked';
+export type WorkLogStatus = 'todo' | 'in_progress' | 'done';
 
 /**
  * Priority level for work log entries.
@@ -1565,7 +1565,6 @@ export interface PersonalProjectTaskStats {
   todo: number;
   inProgress: number;
   done: number;
-  blocked: number;
 }
 
 /**
