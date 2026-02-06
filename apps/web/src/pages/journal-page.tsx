@@ -523,6 +523,11 @@ function EntryFormDialog({
   const [lastAppliedDueDate, setLastAppliedDueDate] = useState<string | undefined>(undefined);
   const [lastAppliedPriority, setLastAppliedPriority] = useState<string | undefined>(undefined);
   const [lastAppliedProject, setLastAppliedProject] = useState<string | undefined>(undefined);
+  // Track if user has manually overridden a field (to prevent re-auto-apply)
+  const [userOverrideDate, setUserOverrideDate] = useState(false);
+  const [userOverrideDueDate, setUserOverrideDueDate] = useState(false);
+  const [userOverridePriority, setUserOverridePriority] = useState(false);
+  const [userOverrideProject, setUserOverrideProject] = useState(false);
 
   // Reset form when dialog opens/closes or entry changes
   useEffect(() => {
@@ -538,6 +543,10 @@ function EntryFormDialog({
         setLastAppliedDueDate(undefined);
         setLastAppliedPriority(undefined);
         setLastAppliedProject(undefined);
+        setUserOverrideDate(false);
+        setUserOverrideDueDate(false);
+        setUserOverridePriority(false);
+        setUserOverrideProject(false);
       } else {
         setContent('');
         setDate(defaultDate ?? getTodayDate());
@@ -549,6 +558,10 @@ function EntryFormDialog({
         setLastAppliedDueDate(undefined);
         setLastAppliedPriority(undefined);
         setLastAppliedProject(undefined);
+        setUserOverrideDate(false);
+        setUserOverrideDueDate(false);
+        setUserOverridePriority(false);
+        setUserOverrideProject(false);
       }
       setSuggestions({ hashtags: [] });
     }
@@ -567,42 +580,83 @@ function EntryFormDialog({
           project: parsed.suggestedProject
         });
 
-        // Auto-apply date if detected and changed
-        if (parsed.suggestedDate && parsed.suggestedDate !== lastAppliedDate) {
-          setDate(parsed.suggestedDate);
-          setLastAppliedDate(parsed.suggestedDate);
+        // Auto-apply date if detected and changed, and user hasn't manually overridden
+        if (parsed.suggestedDate) {
+          if (!userOverrideDate && parsed.suggestedDate !== lastAppliedDate) {
+            setDate(parsed.suggestedDate);
+            setLastAppliedDate(parsed.suggestedDate);
+          }
+        } else {
+          // NLP pattern removed - clear tracking and allow re-detection
+          if (lastAppliedDate) {
+            setLastAppliedDate(undefined);
+            setUserOverrideDate(false);
+          }
         }
 
-        // Auto-apply due date if detected and changed
-        if (parsed.suggestedDueDate && parsed.suggestedDueDate !== lastAppliedDueDate) {
-          setDueDate(parsed.suggestedDueDate);
-          setLastAppliedDueDate(parsed.suggestedDueDate);
+        // Auto-apply due date if detected and changed, and user hasn't manually overridden
+        if (parsed.suggestedDueDate) {
+          if (!userOverrideDueDate && parsed.suggestedDueDate !== lastAppliedDueDate) {
+            setDueDate(parsed.suggestedDueDate);
+            setLastAppliedDueDate(parsed.suggestedDueDate);
+          }
+        } else {
+          // NLP pattern removed - clear tracking and allow re-detection
+          if (lastAppliedDueDate) {
+            setLastAppliedDueDate(undefined);
+            setUserOverrideDueDate(false);
+          }
         }
 
-        // Auto-apply priority if detected and changed
-        if (parsed.suggestedPriority && parsed.suggestedPriority !== lastAppliedPriority) {
-          setPriority(parsed.suggestedPriority);
-          setLastAppliedPriority(parsed.suggestedPriority);
+        // Auto-apply priority if detected and changed, and user hasn't manually overridden
+        if (parsed.suggestedPriority) {
+          if (!userOverridePriority && parsed.suggestedPriority !== lastAppliedPriority) {
+            setPriority(parsed.suggestedPriority);
+            setLastAppliedPriority(parsed.suggestedPriority);
+          }
+        } else {
+          // NLP pattern removed - clear tracking and allow re-detection
+          if (lastAppliedPriority) {
+            setLastAppliedPriority(undefined);
+            setUserOverridePriority(false);
+          }
         }
 
-        // Auto-apply project if detected and changed
-        if (parsed.suggestedProject && parsed.suggestedProject !== lastAppliedProject) {
-          // Find matching project by title (case-insensitive)
-          const matchingProject = projects.find(
-            (p) => p.title.toLowerCase() === parsed.suggestedProject?.toLowerCase()
-          );
-          if (matchingProject) {
-            setProjectId(matchingProject.id);
-            setLastAppliedProject(parsed.suggestedProject);
+        // Auto-apply project if detected and changed, and user hasn't manually overridden
+        if (parsed.suggestedProject) {
+          if (!userOverrideProject && parsed.suggestedProject !== lastAppliedProject) {
+            // Find matching project by title (case-insensitive)
+            const matchingProject = projects.find(
+              (p) => p.title.toLowerCase() === parsed.suggestedProject?.toLowerCase()
+            );
+            if (matchingProject) {
+              setProjectId(matchingProject.id);
+              setLastAppliedProject(parsed.suggestedProject);
+            }
+          }
+        } else {
+          // NLP pattern removed - clear tracking and allow re-detection
+          if (lastAppliedProject) {
+            setLastAppliedProject(undefined);
+            setUserOverrideProject(false);
           }
         }
       } else {
+        // Content cleared - reset all suggestions and tracking
         setSuggestions({ hashtags: [] });
+        setLastAppliedDate(undefined);
+        setLastAppliedDueDate(undefined);
+        setLastAppliedPriority(undefined);
+        setLastAppliedProject(undefined);
+        setUserOverrideDate(false);
+        setUserOverrideDueDate(false);
+        setUserOverridePriority(false);
+        setUserOverrideProject(false);
       }
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [content, lastAppliedDate, lastAppliedDueDate, lastAppliedPriority, lastAppliedProject, projects]);
+  }, [content, lastAppliedDate, lastAppliedDueDate, lastAppliedPriority, lastAppliedProject, userOverrideDate, userOverrideDueDate, userOverridePriority, userOverrideProject, projects]);
 
   const handleSave = async () => {
     if (!content.trim()) return;
@@ -655,6 +709,27 @@ function EntryFormDialog({
 
   const getTagStatus = (tagName: string): 'new' | 'existing' => {
     return tags.find((t) => t.name.toLowerCase() === tagName.toLowerCase()) ? 'existing' : 'new';
+  };
+
+  // Handlers for manual field changes - set override flag to prevent re-auto-apply
+  const handleDateChange = (newDate: string) => {
+    setDate(newDate);
+    setUserOverrideDate(true);
+  };
+
+  const handleDueDateChange = (newDueDate: string) => {
+    setDueDate(newDueDate);
+    setUserOverrideDueDate(true);
+  };
+
+  const handlePriorityChange = (newPriority: WorkLogPriority | 'none') => {
+    setPriority(newPriority);
+    setUserOverridePriority(true);
+  };
+
+  const handleProjectChange = (newProjectId: string) => {
+    setProjectId(newProjectId);
+    setUserOverrideProject(true);
   };
 
   return (
@@ -712,7 +787,7 @@ function EntryFormDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="date">Date</Label>
-              <DatePicker value={date} onChange={setDate} placeholder="Pick a date" />
+              <DatePicker value={date} onChange={handleDateChange} placeholder="Pick a date" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
@@ -735,7 +810,7 @@ function EntryFormDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="priority">Priority</Label>
-              <Select value={priority} onValueChange={(v) => setPriority(v as WorkLogPriority | 'none')}>
+              <Select value={priority} onValueChange={(v) => handlePriorityChange(v as WorkLogPriority | 'none')}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -753,7 +828,7 @@ function EntryFormDialog({
               <Label htmlFor="dueDate">Due Date</Label>
               <DatePicker
                 value={dueDate}
-                onChange={setDueDate}
+                onChange={handleDueDateChange}
                 placeholder="Pick due date"
               />
             </div>
@@ -762,7 +837,7 @@ function EntryFormDialog({
           {/* Project */}
           <div className="space-y-2">
             <Label htmlFor="project">Project</Label>
-            <Select value={projectId} onValueChange={(v) => setProjectId(v)}>
+            <Select value={projectId} onValueChange={handleProjectChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a project" />
               </SelectTrigger>
