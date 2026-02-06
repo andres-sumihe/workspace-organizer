@@ -80,12 +80,12 @@ export function TaskDetailModal({
         </DialogHeader>
 
         {/* Content - Scrollable */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Left Column - Main Info */}
-            <div className="space-y-6">
-              {/* Status */}
-              <div className="space-y-2">
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+          {/* ── Top Section: Task Info ── */}
+          <div className="space-y-5">
+            {/* Status + Priority row */}
+            <div className="flex items-start gap-4">
+              <div className="flex-1 space-y-1.5">
                 <Label className="text-xs text-muted-foreground uppercase">Status</Label>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -112,31 +112,35 @@ export function TaskDetailModal({
                 </DropdownMenu>
               </div>
 
-              {/* Description */}
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground uppercase">Description</Label>
-                <p className="text-sm whitespace-pre-wrap">{entry.content}</p>
-              </div>
+              {entry.priority && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground uppercase">Priority</Label>
+                  <div className="h-9 flex items-center">
+                    <Badge variant={TASK_PRIORITY_CONFIG[entry.priority].variant}>
+                      {TASK_PRIORITY_CONFIG[entry.priority].label}
+                    </Badge>
+                  </div>
+                </div>
+              )}
+            </div>
 
+            {/* Description */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground uppercase">Description</Label>
+              <p className="text-sm whitespace-pre-wrap">{entry.content}</p>
+            </div>
+
+            {/* Metadata grid */}
+            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
               {/* Date */}
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground uppercase">Date</Label>
                 <p className="text-sm">{formatDateDisplay(entry.date)}</p>
               </div>
 
-              {/* Priority */}
-              {entry.priority && (
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground uppercase">Priority</Label>
-                  <Badge variant={TASK_PRIORITY_CONFIG[entry.priority].variant}>
-                    {TASK_PRIORITY_CONFIG[entry.priority].label}
-                  </Badge>
-                </div>
-              )}
-
               {/* Due Date */}
               {entry.dueDate && (
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground uppercase">Due Date</Label>
                   <p className="text-sm flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
@@ -147,7 +151,7 @@ export function TaskDetailModal({
 
               {/* Project */}
               {entry.project && (
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground uppercase">Project</Label>
                   <Badge variant="secondary" className="gap-1">
                     <FolderOpen className="h-3 w-3" />
@@ -158,7 +162,7 @@ export function TaskDetailModal({
 
               {/* Tags */}
               {entry.tags.length > 0 && (
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground uppercase">Tags</Label>
                   <div className="flex flex-wrap gap-1">
                     {entry.tags.map((tag) => (
@@ -173,30 +177,24 @@ export function TaskDetailModal({
                   </div>
                 </div>
               )}
-
-              {/* Flags */}
-              <TaskFlagsSection
-                flags={entry.flags ?? []}
-                onFlagsChange={(flags) => onFlagsChange(entry.id, flags)}
-              />
-
-              {/* Timestamps */}
-              <div className="space-y-2 pt-4 border-t">
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Created</span>
-                  <span>{formatTimestampDisplay(entry.createdAt)}</span>
-                </div>
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Updated</span>
-                  <span>{formatTimestampDisplay(entry.updatedAt)}</span>
-                </div>
-              </div>
             </div>
 
-            {/* Right Column - Updates/Activity */}
-            <div className="space-y-4">
-              <TaskUpdatesSection entityType="work_log" entityId={entry.id} />
+            {/* Flags */}
+            <TaskFlagsSection
+              flags={entry.flags ?? []}
+              onFlagsChange={(flags) => onFlagsChange(entry.id, flags)}
+            />
+
+            {/* Timestamps */}
+            <div className="flex gap-6 text-xs text-muted-foreground pt-2 border-t">
+              <span>Created: {formatTimestampDisplay(entry.createdAt)}</span>
+              <span>Updated: {formatTimestampDisplay(entry.updatedAt)}</span>
             </div>
+          </div>
+
+          {/* ── Bottom Section: Updates/Activity ── */}
+          <div className="border-t pt-4">
+            <TaskUpdatesSection entityType="work_log" entityId={entry.id} />
           </div>
         </div>
 
