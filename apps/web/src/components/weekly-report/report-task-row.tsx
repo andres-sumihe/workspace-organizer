@@ -27,6 +27,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { formatDateDisplay, formatRelativeTime, formatTimestampDisplay } from '@/utils/journal-parser';
 
 // ============================================================================
 // Config
@@ -62,25 +63,6 @@ const FLAG_CONFIG: Record<string, { label: string; color: string }> = {
 const ALL_FLAGS: TaskUpdateFlag[] = ['blocked', 'needs_confirmation', 'urgent', 'on_hold', 'waiting_feedback'];
 const ALL_STATUSES: WeeklyReportStatus[] = ['todo', 'inProgress', 'done'];
 const ALL_PRIORITIES: WeeklyReportPriority[] = ['high', 'medium', 'low', 'none'];
-
-// ============================================================================
-// Helper: relative time
-// ============================================================================
-
-function formatRelativeTime(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
 
 // ============================================================================
 // Props
@@ -305,14 +287,14 @@ export function ReportTaskRow({
 
       {/* ── Expanded Details ── */}
       {isExpanded && (
-        <div className="px-4 pl-12 pb-4 space-y-3">
+        <div className="px-4 pl-12 pt-2 pb-4 space-y-3">
           {/* Task info row */}
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span>Entry: {item.date}</span>
+            <span>Created: {formatTimestampDisplay(item.createdAt)}</span>
             {item.dueDate && (
               <>
                 <span>•</span>
-                <span>Due: {new Date(item.dueDate).toLocaleDateString()}</span>
+                <span>Due: {formatDateDisplay(item.dueDate)}</span>
               </>
             )}
             {item.projectTitle && (

@@ -287,3 +287,24 @@ export function formatTimestampDisplay(timestamp: string | Date): string {
   
   return `${day} ${month} ${year}, ${time}`;
 }
+
+/**
+ * Format a timestamp for display with relative time for recent items.
+ * - Under 1 minute: "Just now"
+ * - Under 1 hour: "12m ago"
+ * - Under 24 hours: "5h ago"
+ * - 24h or older: actual date (e.g., "6 Feb 2026, 14:30")
+ */
+export function formatRelativeTime(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+
+  return formatTimestampDisplay(date);
+}

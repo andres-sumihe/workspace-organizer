@@ -1423,6 +1423,7 @@ export interface WeeklyReportItem {
   tags: Array<{ id: string; name: string; color?: string }>;
   dueDate: string | null;
   date: string; // Original entry date
+  createdAt: string; // When the work log was created
   updates: WeeklyReportItemUpdate[];
 }
 
