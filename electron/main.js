@@ -319,8 +319,34 @@ function setupProtocolHandler() {
           
           log(`[Protocol] Handling API request directly: ${request.method} ${pathname}`);
           
+          // Null body statuses per Fetch spec — Response constructor throws
+          // if body is non-null for these status codes
+          const NULL_BODY_STATUSES = new Set([101, 204, 205, 304]);
+          
           // Create a mock request/response to call Express directly
           return new Promise(async (resolve) => {
+            let timeoutId = null;
+            
+            // Helper: resolve the Promise and clear the safety timeout
+            const finishResponse = (response) => {
+              if (timeoutId) {
+                clearTimeout(timeoutId);
+                timeoutId = null;
+              }
+              resolve(response);
+            };
+            
+            // Helper: build a spec-compliant Response (null body for 204 etc.)
+            const buildResponse = (body, status, headers) => {
+              if (NULL_BODY_STATUSES.has(status)) {
+                // Remove Content-Length since there's no body
+                const cleanHeaders = { ...headers };
+                delete cleanHeaders['Content-Length'];
+                return new Response(null, { status, headers: cleanHeaders });
+              }
+              return new Response(body, { status, headers });
+            };
+            
             try {
               // Parse request body if present
               let body = null;
@@ -385,6 +411,11 @@ function setupProtocolHandler() {
                   this.statusCode = code;
                   return this;
                 },
+                sendStatus: function(code) {
+                  responseStatus = code;
+                  this.statusCode = code;
+                  return this.send(String(code));
+                },
                 set: function(name, value) {
                   if (typeof name === 'object') {
                     Object.assign(responseHeaders, name);
@@ -415,25 +446,19 @@ function setupProtocolHandler() {
                   responseHeaders['Content-Type'] = 'application/json';
                   responseBody = JSON.stringify(data);
                   log(`[Protocol] API response: ${responseStatus} ${pathname}`);
-                  resolve(new Response(responseBody, {
-                    status: responseStatus,
-                    headers: responseHeaders
-                  }));
+                  finishResponse(buildResponse(responseBody, responseStatus, responseHeaders));
                   return this;
                 },
                 send: function(data) {
                   if (headersSent) return this;
-                  if (typeof data === 'object') {
+                  if (data != null && typeof data === 'object') {
                     return this.json(data);
                   }
                   headersSent = true;
                   this.headersSent = true;
-                  responseBody = String(data);
+                  responseBody = data != null ? String(data) : '';
                   log(`[Protocol] API response (send): ${responseStatus} ${pathname}`);
-                  resolve(new Response(responseBody, {
-                    status: responseStatus,
-                    headers: responseHeaders
-                  }));
+                  finishResponse(buildResponse(responseBody, responseStatus, responseHeaders));
                   return this;
                 },
                 end: function(data) {
@@ -442,10 +467,7 @@ function setupProtocolHandler() {
                   this.headersSent = true;
                   if (data) responseBody = String(data);
                   log(`[Protocol] API response (end): ${responseStatus} ${pathname}`);
-                  resolve(new Response(responseBody, {
-                    status: responseStatus,
-                    headers: responseHeaders
-                  }));
+                  finishResponse(buildResponse(responseBody, responseStatus, responseHeaders));
                   return this;
                 },
                 write: function(chunk) {
@@ -454,7 +476,16 @@ function setupProtocolHandler() {
                 },
                 on: function() { return this; },
                 once: function() { return this; },
-                emit: function() { return this; }
+                emit: function() { return this; },
+                redirect: function(statusOrUrl, url) {
+                  if (typeof statusOrUrl === 'string') {
+                    url = statusOrUrl;
+                    statusOrUrl = 302;
+                  }
+                  responseStatus = statusOrUrl;
+                  responseHeaders['Location'] = url;
+                  return this.end();
+                }
               };
               
               // Call Express app
@@ -462,26 +493,29 @@ function setupProtocolHandler() {
                 if (err) {
                   log('[Protocol] Express error:', err.message);
                   log('[Protocol] Express error stack:', err.stack);
-                  resolve(new Response(JSON.stringify({ error: err.message }), {
+                  finishResponse(new Response(JSON.stringify({ error: err.message }), {
                     status: 500,
                     headers: { 'Content-Type': 'application/json' }
                   }));
                 }
               });
               
-              // Timeout after 30 seconds
-              setTimeout(() => {
-                log('[Protocol] Request timeout for:', pathname);
-                resolve(new Response(JSON.stringify({ error: 'Request timeout' }), {
-                  status: 504,
-                  headers: { 'Content-Type': 'application/json' }
-                }));
+              // Safety timeout after 30 seconds (cleared when response is sent)
+              timeoutId = setTimeout(() => {
+                if (!headersSent) {
+                  log('[Protocol] Request timeout for:', pathname);
+                  headersSent = true;
+                  resolve(new Response(JSON.stringify({ error: 'Request timeout' }), {
+                    status: 504,
+                    headers: { 'Content-Type': 'application/json' }
+                  }));
+                }
               }, 30000);
               
             } catch (err) {
               log('[Protocol] Error handling API request:', err.message);
               log('[Protocol] Error stack:', err.stack);
-              resolve(new Response(JSON.stringify({ error: err.message }), {
+              finishResponse(new Response(JSON.stringify({ error: err.message }), {
                 status: 500,
                 headers: { 'Content-Type': 'application/json' }
               }));
