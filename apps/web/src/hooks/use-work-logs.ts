@@ -39,6 +39,9 @@ export function useCreateWorkLog() {
     onSuccess: () => {
       // Invalidate all work log queries
       queryClient.invalidateQueries({ queryKey: queryKeys.workLogs.all });
+      
+      // Always invalidate personal projects since work logs are tasks that may be linked
+      queryClient.invalidateQueries({ queryKey: queryKeys.personalProjects.lists() });
     },
   });
 }
@@ -58,6 +61,9 @@ export function useUpdateWorkLog() {
       queryClient.invalidateQueries({ queryKey: queryKeys.workLogs.detail(variables.workLogId) });
       // Invalidate lists since work log might affect sorting/filtering
       queryClient.invalidateQueries({ queryKey: queryKeys.workLogs.lists() });
+      
+      // Always invalidate personal projects to update task stats (status changes affect progress)
+      queryClient.invalidateQueries({ queryKey: queryKeys.personalProjects.lists() });
     },
   });
 }
@@ -73,6 +79,9 @@ export function useDeleteWorkLog() {
     mutationFn: (workLogId: string) => workLogsApi.delete(workLogId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.workLogs.all });
+      
+      // Always invalidate personal projects since deleted task may have been linked
+      queryClient.invalidateQueries({ queryKey: queryKeys.personalProjects.lists() });
     },
   });
 }
@@ -88,6 +97,8 @@ export function useRolloverWorkLogs() {
     mutationFn: (data: RolloverWorkLogsRequest) => workLogsApi.rollover(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.workLogs.all });
+      // Rollover may affect project task stats if any rolled logs have projectId
+      queryClient.invalidateQueries({ queryKey: queryKeys.personalProjects.lists() });
     },
   });
 }

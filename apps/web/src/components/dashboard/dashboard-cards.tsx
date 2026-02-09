@@ -97,6 +97,7 @@ export const ProjectsWatchlistCard = () => {
 
   const activeProjects = useMemo(() => activeProjectsRes?.items.slice(0, 4) ?? [], [activeProjectsRes]);
 
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -126,7 +127,14 @@ export const ProjectsWatchlistCard = () => {
                 <div className="space-y-1">
                   <p className="text-sm font-medium leading-none">{project.title}</p>
                   <div className="flex items-center gap-2">
-                    <Progress value={33} className="h-1 w-16" />
+                    <Progress
+                      value={
+                        project.taskStats && project.taskStats.total > 0
+                          ? Math.round((project.taskStats.done / project.taskStats.total) * 100)
+                          : 0
+                      }
+                      className="h-1 w-16"
+                    />
                     <span className="text-xs text-muted-foreground">Active</span>
                   </div>
                 </div>

@@ -988,6 +988,8 @@ export function JournalPage() {
           updateData.actualEndDate = getTodayDate();
         }
         await workLogsApi.update(id, updateData);
+        // Invalidate personal projects so watchlist progress updates
+        queryClient.invalidateQueries({ queryKey: queryKeys.personalProjects.lists() });
       } catch (err) {
         console.error('Failed to update status:', err);
         // Rollback on error
@@ -999,7 +1001,7 @@ export function JournalPage() {
         }
       }
     },
-    [entries, selectedEntry, setEntries]
+    [entries, selectedEntry, setEntries, queryClient]
   );
 
   const handleFlagsChange = useCallback(
@@ -1066,6 +1068,7 @@ export function JournalPage() {
       }
       // Invalidate dashboard queries so changes appear immediately
       queryClient.invalidateQueries({ queryKey: queryKeys.workLogs.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.personalProjects.lists() });
     },
     [selectedEntry, setEntries, queryClient]
   );
@@ -1084,6 +1087,7 @@ export function JournalPage() {
       await workLogsApi.delete(deleteConfirmId);
       // Invalidate dashboard queries
       queryClient.invalidateQueries({ queryKey: queryKeys.workLogs.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.personalProjects.lists() });
     } catch (err) {
       console.error('Failed to delete entry:', err);
       // Rollback on error
@@ -1351,7 +1355,9 @@ export function JournalPage() {
                     if (targetStatus === 'done') {
                       updateData.actualEndDate = getTodayDate();
                     }
-                    workLogsApi.update(entryId, updateData).catch((err) => {
+                    workLogsApi.update(entryId, updateData).then(() => {
+                      queryClient.invalidateQueries({ queryKey: queryKeys.personalProjects.lists() });
+                    }).catch((err) => {
                       console.error('Failed to update status:', err);
                       refetch(); // Rollback on error
                     });
