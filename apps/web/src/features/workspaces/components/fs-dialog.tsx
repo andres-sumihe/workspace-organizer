@@ -24,7 +24,7 @@ interface FsDialogProps {
   onCreateFolder: (values: FolderFormValues) => void | Promise<void>;
   onCreateFile: (values: FileFormValues) => void | Promise<void>;
   desktopAvailable: boolean;
-  error: string | null;
+  error?: string | null;
 }
 
 export const FsDialog = ({

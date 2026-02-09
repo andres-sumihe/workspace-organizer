@@ -7,6 +7,7 @@ import { workLogsRepository } from '../repositories/work-logs.repository.js';
 import type {
   PersonalProject,
   PersonalProjectDetail,
+  PersonalProjectListItem,
   PersonalProjectTaskStats,
   CreatePersonalProjectRequest,
   UpdatePersonalProjectRequest,
@@ -60,12 +61,23 @@ export const personalProjectsService = {
   /**
    * List projects with optional filters
    */
-  async list(options: ListProjectsOptions = {}): Promise<PersonalProject[]> {
-    return personalProjectsRepository.list({
+  async list(options: ListProjectsOptions = {}): Promise<PersonalProjectListItem[]> {
+    const projects = await personalProjectsRepository.list({
       workspaceId: options.workspaceId,
       status: options.status,
       tagIds: options.tagIds
     });
+
+    const statsById = await workLogsRepository.getTaskStatsByProjectIds(
+      projects.map((project) => project.id)
+    );
+
+    return projects.map((project) => ({
+      ...project,
+      taskStats:
+        statsById[project.id] ??
+        ({ total: 0, todo: 0, inProgress: 0, done: 0 } satisfies PersonalProjectTaskStats)
+    }));
   },
 
   /**

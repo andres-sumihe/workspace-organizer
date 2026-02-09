@@ -13,10 +13,8 @@ import {
   FolderOpen,
   Loader2,
   MoveRight,
-  Pencil,
   Plus,
-  RotateCcw,
-  Trash2
+  RotateCcw
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -39,7 +37,7 @@ import {
 } from '@/hooks/use-work-logs';
 import { useTagsList } from '@/hooks/use-tags';
 import { usePersonalProjectsList } from '@/hooks/use-personal-projects';
-import { TaskDetailModal, TaskFlagsSection, TaskUpdatesSection, TASK_STATUS_CONFIG, TASK_PRIORITY_CONFIG } from '@/components/journal';
+import { TaskDetailModal, TASK_STATUS_CONFIG, TASK_PRIORITY_CONFIG } from '@/components/journal';
 import { AppPage, AppPageContent } from '@/components/layout/app-page';
 import {
   AlertDialog,
@@ -85,7 +83,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import {
   formatDate,
   formatDateDisplay,
-  formatTimestampDisplay,
   getWeekRangeLabel,
   getWeekStart,
   getTodayDate,

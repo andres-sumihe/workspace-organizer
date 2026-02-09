@@ -1003,6 +1003,65 @@ ipcMain.handle('workspace:delete', async (event, payload) => {
   }
 });
 
+ipcMain.handle('workspace:copy', async (event, payload) => {
+  try {
+    const result = await workspaceFs.copyEntries(payload?.rootPath, payload?.relativePaths, payload?.destinationDir);
+    return { ok: true, ...result };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
+ipcMain.handle('workspace:move', async (event, payload) => {
+  try {
+    const result = await workspaceFs.moveEntries(payload?.rootPath, payload?.relativePaths, payload?.destinationDir);
+    return { ok: true, ...result };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
+ipcMain.handle('workspace:entry-info', async (event, payload) => {
+  try {
+    const result = await workspaceFs.getEntryInfo(payload?.rootPath, payload?.relativePath);
+    return { ok: true, ...result };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
+ipcMain.handle('workspace:reveal-in-explorer', async (event, payload) => {
+  try {
+    const rootPath = payload?.rootPath;
+    const relativePath = payload?.relativePath || '';
+    const absolutePath = require('path').resolve(rootPath, relativePath);
+    shell.showItemInFolder(absolutePath);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
+ipcMain.handle('workspace:open-in-vscode', async (event, payload) => {
+  try {
+    const rootPath = payload?.rootPath;
+    const relativePath = payload?.relativePath || '';
+    const absolutePath = require('path').resolve(rootPath, relativePath);
+    // Try code-insiders first, then code
+    const { exec } = require('child_process');
+    const tryOpen = (cmd) => new Promise((resolve) => {
+      exec(`${cmd} "${absolutePath}"`, (err) => resolve(!err));
+    });
+    const opened = await tryOpen('code-insiders') || await tryOpen('code');
+    if (!opened) {
+      throw new Error('VS Code not found in PATH. Please install VS Code or add it to your PATH.');
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
 ipcMain.handle('templates:list', async () => {
   try {
     const result = await templateRegistry.listTemplates(getUserDataRoot());
@@ -1095,6 +1154,118 @@ ipcMain.handle('workspace-templates:save', async (event, payload) => {
     return { ok: true, templateIds, templates };
   } catch (err) {
     return { ok: false, error: String(err) };
+  }
+});
+
+// ─── Import external files into workspace ─────────────────────────────────────
+ipcMain.handle('workspace:import-external', async (event, payload) => {
+  try {
+    const result = await workspaceFs.importExternalFiles(
+      payload?.rootPath,
+      payload?.destinationDir || '',
+      payload?.externalPaths || [],
+      { move: Boolean(payload?.move) }
+    );
+    return { ok: true, ...result };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
+// ─── Clipboard: file path operations (CF_HDROP) ────────────────────────────
+// Electron's clipboard.readBuffer/writeBuffer uses RegisterClipboardFormatW()
+// internally — this creates CUSTOM registered formats, not standard ones.
+// CF_HDROP is standard format ID 15 so readBuffer('15')/readBuffer('CF_HDROP')
+// both fail to access it. The result: internal copies work but external apps
+// (Explorer) can't interoperate.
+//
+// Solution:
+//   has-file-paths  → clipboard.availableFormats() — Chromium maps CF_HDROP
+//                     to 'text/uri-list'. Instant, no subprocess.
+//   read-file-paths → PowerShell .NET GetFileDropList() — reliable CF_HDROP read
+//   set-file-paths  → PowerShell .NET SetFileDropList() — reliable CF_HDROP write
+//
+// This achieves full interop: app↔Explorer, app↔app, Explorer→app.
+
+const { execFile } = require('child_process');
+
+// Helper: run a short PowerShell snippet in STA mode (required for WinForms Clipboard)
+function runClipboardPs(script, timeoutMs = 5000) {
+  return new Promise((resolve, reject) => {
+    execFile(
+      'powershell.exe',
+      ['-NoProfile', '-STA', '-Command', script],
+      { encoding: 'utf8', timeout: timeoutMs },
+      (err, stdout) => {
+        if (err) return reject(err);
+        resolve((stdout || '').trim());
+      }
+    );
+  });
+}
+
+// ─── Write file paths to system clipboard (real CF_HDROP) ──────────────────
+ipcMain.handle('clipboard:set-file-paths', async (_event, paths) => {
+  try {
+    if (!paths || paths.length === 0) {
+      clipboard.clear();
+      return { ok: true };
+    }
+    // Normalize to backslash and build a PowerShell StringCollection
+    const normalized = paths.map((p) => p.replace(/\//g, '\\'));
+    const addLines = normalized
+      .map((p) => `$sc.Add('${p.replace(/'/g, "''")}')`)
+      .join('; ');
+    const script = [
+      'Add-Type -AssemblyName System.Windows.Forms;',
+      '$sc = New-Object System.Collections.Specialized.StringCollection;',
+      addLines + ';',
+      '[System.Windows.Forms.Clipboard]::SetFileDropList($sc)'
+    ].join(' ');
+
+    await runClipboardPs(script);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
+// ─── Fast check: does the system clipboard contain file paths? ──────────────
+// Chromium maps CF_HDROP (standard format 15) to 'text/uri-list' in
+// availableFormats(). This is instant — no subprocess required.
+ipcMain.handle('clipboard:has-file-paths', () => {
+  try {
+    const formats = clipboard.availableFormats();
+    const hasFiles = formats.includes('text/uri-list');
+    return { ok: true, hasFiles };
+  } catch {
+    return { ok: true, hasFiles: false };
+  }
+});
+
+// ─── Read file paths from system clipboard (real CF_HDROP) ──────────────────
+ipcMain.handle('clipboard:read-file-paths', async () => {
+  try {
+    // Quick check first — skip PowerShell if no files are on clipboard
+    const formats = clipboard.availableFormats();
+    if (!formats.includes('text/uri-list')) {
+      return { ok: true, paths: [] };
+    }
+
+    const script = [
+      'Add-Type -AssemblyName System.Windows.Forms;',
+      '$files = [System.Windows.Forms.Clipboard]::GetFileDropList();',
+      'if ($files -and $files.Count -gt 0) {',
+      '  foreach ($f in $files) { [Console]::WriteLine($f) }',
+      '}'
+    ].join(' ');
+
+    const output = await runClipboardPs(script);
+    if (!output) return { ok: true, paths: [] };
+    const paths = output.split(/\r?\n/).filter(Boolean);
+    return { ok: true, paths };
+  } catch (err) {
+    return { ok: false, error: String(err), paths: [] };
   }
 });
 

@@ -148,6 +148,63 @@ export interface DesktopApi {
     rootPath: string;
     relativePaths: string[];
   }) => Promise<{ ok: boolean; error?: string; deleted?: string[]; errors?: Array<{ path: string; error: string }> }>;
+  copyEntries: (payload: {
+    rootPath: string;
+    relativePaths: string[];
+    destinationDir: string;
+  }) => Promise<{
+    ok: boolean;
+    error?: string;
+    copied?: Array<{ source: string; destination: string }>;
+    errors?: Array<{ path: string; error: string }>;
+  }>;
+  moveEntries: (payload: {
+    rootPath: string;
+    relativePaths: string[];
+    destinationDir: string;
+  }) => Promise<{
+    ok: boolean;
+    error?: string;
+    moved?: Array<{ source: string; destination: string }>;
+    errors?: Array<{ path: string; error: string }>;
+  }>;
+  getEntryInfo: (payload: {
+    rootPath: string;
+    relativePath: string;
+  }) => Promise<{
+    ok: boolean;
+    error?: string;
+    path?: string;
+    name?: string;
+    type?: 'directory' | 'file';
+    size?: number | null;
+    modifiedAt?: string;
+    createdAt?: string;
+    childCount?: number;
+  }>;
+  revealInExplorer: (payload: {
+    rootPath: string;
+    relativePath?: string;
+  }) => Promise<{ ok: boolean; error?: string }>;
+  openInVSCode: (payload: {
+    rootPath: string;
+    relativePath?: string;
+  }) => Promise<{ ok: boolean; error?: string }>;
+  importExternalFiles: (payload: {
+    rootPath: string;
+    destinationDir: string;
+    externalPaths: string[];
+    move?: boolean;
+  }) => Promise<{
+    ok: boolean;
+    error?: string;
+    imported?: Array<{ source: string; destination: string }>;
+    errors?: Array<{ path: string; error: string }>;
+  }>;
+  readClipboardFilePaths: () => Promise<{ ok: boolean; error?: string; paths: string[] }>;
+  hasClipboardFiles: () => Promise<{ ok: boolean; hasFiles: boolean }>;
+  setClipboardFilePaths: (paths: string[]) => Promise<{ ok: boolean; error?: string }>;
+  getDroppedFilePaths: () => string[];
   createTemplateFromFolder: (payload: {
     name?: string;
     description?: string;

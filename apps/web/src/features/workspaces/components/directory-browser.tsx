@@ -1,4 +1,4 @@
-import { ChevronRight, FileText, Folder } from 'lucide-react';
+import { ChevronRight, Download, FileText, Folder } from 'lucide-react';
 import { memo, useEffect, useRef, useState, useImperativeHandle, forwardRef, useCallback } from 'react';
 
 import { FileContextMenu } from './file-context-menu';
@@ -25,6 +25,16 @@ interface DirectoryBrowserProps {
   onToggleAllSelections: (state: CheckedState) => void;
   onRenameEntry: (oldEntry: WorkspaceDirectoryEntry, newName: string) => Promise<void>;
   onDeleteEntry: (entry: WorkspaceDirectoryEntry) => void;
+  onCopy: (paths: string[]) => void;
+  onCut: (paths: string[]) => void;
+  onPaste: () => void;
+  onDuplicate: (entry: WorkspaceDirectoryEntry) => void;
+  onNewFile: () => void;
+  onNewFolder: () => void;
+  onRevealInExplorer: (path: string) => void;
+  onOpenInVSCode: (path: string) => void;
+  onImportExternalFiles: (paths: string[]) => Promise<void>;
+  hasClipboard?: boolean;
   loading: boolean;
 }
 
@@ -38,6 +48,16 @@ const DirectoryBrowserComponent = forwardRef<DirectoryBrowserHandle, DirectoryBr
   onToggleAllSelections,
   onRenameEntry,
   onDeleteEntry,
+  onCopy,
+  onCut,
+  onPaste,
+  onDuplicate,
+  onNewFile,
+  onNewFolder,
+  onRevealInExplorer,
+  onOpenInVSCode,
+  onImportExternalFiles,
+  hasClipboard,
   loading
 }, ref) => {
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
@@ -45,6 +65,8 @@ const DirectoryBrowserComponent = forwardRef<DirectoryBrowserHandle, DirectoryBr
   const [renaming, setRenaming] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const tableRef = useRef<HTMLTableSectionElement>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const dragCounterRef = useRef(0);
 
   // Imperative method to update highlight without re-rendering
   const setActiveHighlight = useCallback((path: string | null) => {
@@ -120,8 +142,67 @@ const DirectoryBrowserComponent = forwardRef<DirectoryBrowserHandle, DirectoryBr
     }
   }, [renamingPath, renameValue]);
 
+  // ─── Drag & drop from outside ────────────────────────────────────────
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
+  }, []);
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current++;
+    // Only show overlay if external files are being dragged
+    if (e.dataTransfer.types.includes('Files')) {
+      setIsDragOver(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current--;
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0;
+      setIsDragOver(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setIsDragOver(false);
+
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+
+    // Paths were captured by preload's capture-phase listener
+    if (window.api?.getDroppedFilePaths) {
+      const paths = window.api.getDroppedFilePaths();
+      if (paths.length > 0) {
+        await onImportExternalFiles(paths);
+      }
+    }
+  }, [onImportExternalFiles]);
+
   return (
-    <div className="rounded-lg border border-border">
+    <div
+      className="relative rounded-lg border border-border"
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDrop={(e) => void handleDrop(e)}
+    >
+      {/* Drop overlay */}
+      {isDragOver ? (
+        <div className="pointer-events-none absolute inset-0 z-50 flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary bg-primary/10">
+          <Download className="size-8 text-primary" />
+          <span className="text-sm font-medium text-primary">Drop files here to import</span>
+        </div>
+      ) : null}
       <div className="border-b border-border px-4 py-3">
         <div className="flex items-center gap-1 text-sm text-muted-foreground">
           {breadcrumbs.map((crumb, index) => (
@@ -170,10 +251,21 @@ const DirectoryBrowserComponent = forwardRef<DirectoryBrowserHandle, DirectoryBr
                       ) : null}
                     </td>
                     <td className="pl-2 py-2">
-                      <FileContextMenu 
+                      <FileContextMenu
+                        entryPath={entry.path}
+                        entryType={entry.type as 'file' | 'directory'}
                         onRename={() => startRename(entry)} 
                         onDelete={() => onDeleteEntry(entry)}
+                        onCopy={onCopy}
+                        onCut={onCut}
+                        onPaste={onPaste}
+                        onDuplicate={() => onDuplicate(entry)}
+                        onNewFile={onNewFile}
+                        onNewFolder={onNewFolder}
+                        onRevealInExplorer={onRevealInExplorer}
+                        onOpenInVSCode={onOpenInVSCode}
                         hasMultipleSelected={selectedFiles.size > 1}
+                        hasClipboard={hasClipboard}
                         disabled={loading || isRenaming}
                       >
                         <div className="flex items-center gap-2 text-left text-foreground min-w-0">

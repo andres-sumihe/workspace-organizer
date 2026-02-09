@@ -1,4 +1,26 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
+
+// ─── Drag-and-drop path extraction ─────────────────────────────────────────
+// With contextIsolation the renderer's File objects are structurally cloned
+// when passed through contextBridge – the internal Electron `path` metadata
+// that webUtils.getPathForFile reads is lost during the clone.
+// Fix: capture the drop event in the preload (which runs in the same V8
+// context as the isolated renderer and thus receives the *original* File
+// objects) and store the resolved paths so the renderer can read them
+// synchronously after its own drop handler fires.
+let _lastDroppedPaths = [];
+
+window.addEventListener('drop', (event) => {
+  _lastDroppedPaths = [];
+  const files = event.dataTransfer?.files;
+  if (!files || files.length === 0) return;
+  for (const file of files) {
+    try {
+      const p = webUtils.getPathForFile(file);
+      if (p) _lastDroppedPaths.push(p);
+    } catch { /* skip unresolvable entries */ }
+  }
+}, true); // capture phase – fires before the renderer's handler
 
 contextBridge.exposeInMainWorld('api', {
   listTemplates: () => ipcRenderer.invoke('list-templates'),
@@ -18,6 +40,21 @@ contextBridge.exposeInMainWorld('api', {
   writeTextFile: (payload) => ipcRenderer.invoke('workspace:write-text', payload),
   renameEntry: (payload) => ipcRenderer.invoke('workspace:rename', payload),
   deleteEntries: (payload) => ipcRenderer.invoke('workspace:delete', payload),
+  copyEntries: (payload) => ipcRenderer.invoke('workspace:copy', payload),
+  moveEntries: (payload) => ipcRenderer.invoke('workspace:move', payload),
+  getEntryInfo: (payload) => ipcRenderer.invoke('workspace:entry-info', payload),
+  revealInExplorer: (payload) => ipcRenderer.invoke('workspace:reveal-in-explorer', payload),
+  openInVSCode: (payload) => ipcRenderer.invoke('workspace:open-in-vscode', payload),
+  importExternalFiles: (payload) => ipcRenderer.invoke('workspace:import-external', payload),
+  readClipboardFilePaths: () => ipcRenderer.invoke('clipboard:read-file-paths'),
+  hasClipboardFiles: () => ipcRenderer.invoke('clipboard:has-file-paths'),
+  setClipboardFilePaths: (paths) => ipcRenderer.invoke('clipboard:set-file-paths', paths),
+  getDroppedFilePaths: () => {
+    // Return the paths captured by the preload's capture-phase drop listener
+    const paths = [..._lastDroppedPaths];
+    _lastDroppedPaths = [];
+    return paths;
+  },
   listTemplates: () => ipcRenderer.invoke('templates:list'),
   createTemplateFromFolder: (payload) => ipcRenderer.invoke('templates:create-from-folder', payload),
   getTemplateManifest: (payload) => ipcRenderer.invoke('templates:get', payload),
