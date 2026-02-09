@@ -1616,10 +1616,17 @@ export interface UpdatePersonalProjectRequest {
 }
 
 /**
+ * List item shape for personal projects (includes optional task stats).
+ */
+export interface PersonalProjectListItem extends PersonalProject {
+  taskStats?: PersonalProjectTaskStats;
+}
+
+/**
  * Response containing a list of personal projects.
  */
 export interface PersonalProjectListResponse {
-  items: PersonalProject[];
+  items: PersonalProjectListItem[];
 }
 
 /**

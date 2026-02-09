@@ -1,20 +1,23 @@
 import { AlertCircle, FolderOpen, Trash } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
 
 import { DeleteConfirmDialog } from './delete-confirm-dialog';
 import { DirectoryBrowser, type DirectoryBrowserHandle } from './directory-browser';
 import { FileOperationsToolbar } from './file-operations-toolbar';
+import { FsDialog } from './fs-dialog';
 import { PayloadDialog } from './payload-dialog';
 import { PreviewPanel } from './preview-panel';
 import { ProjectSelector } from './project-selector';
 import { SplitDialog } from './split-dialog';
+import { useCanPaste } from '../hooks/use-can-paste';
 import { useDirectoryNavigation } from '../hooks/use-directory-navigation';
 import { useFileOperations } from '../hooks/use-file-operations';
 import { useFilePreview } from '../hooks/use-file-preview';
 import { useProjectManagement, type Project } from '../hooks/use-project-management';
 
-import type { SplitFormValues } from '../types';
+import type { SplitFormValues, FileFormValues, FolderFormValues, FsDialogState } from '../types';
 import type { CheckedState } from '@radix-ui/react-checkbox';
 
 import { Button } from '@/components/ui/button';
@@ -106,7 +109,7 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath }: WorkspaceFile
     loadProjects
   } = useProjectManagement(workspaceId, {
     initialSelectedProjectId: initialPersistedState.current?.selectedProjectId,
-    onError: (msg) => setOperationError(msg)
+    onError: (msg) => toast.error(msg)
   });
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -210,15 +213,20 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath }: WorkspaceFile
   const {
     selectedFiles,
     setSelectedFiles,
-    operationMessage,
-    setOperationMessage,
-    operationError,
-    setOperationError,
     toggleSelection,
     handleToggleAllSelections,
     handleSplit,
     handleRenameEntry,
-    handleDeleteEntries
+    handleDeleteEntries,
+    handleCopy,
+    handleCut,
+    handlePaste,
+    handleCreateFolder,
+    handleCreateFile,
+    handleRevealInExplorer,
+    handleOpenInVSCode,
+    handleDuplicate,
+    handleImportExternalFiles
   } = useFileOperations({
     getEffectiveRootPath,
     currentPath,
@@ -227,6 +235,8 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath }: WorkspaceFile
     onRefreshDirectory: refreshDirectory,
     onClearPreview: clearPreview
   });
+
+  const canPaste = useCanPaste();
 
   // ─────────────────────────────────────────────────────────────────────────
   // State Restoration (runs once on mount)
@@ -339,6 +349,10 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath }: WorkspaceFile
   }, [loadDirectory, loadPreview, setSelectedFiles]);
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Keyboard shortcuts
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Dialogs state
   // ─────────────────────────────────────────────────────────────────────────
   
@@ -366,6 +380,12 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath }: WorkspaceFile
   const [projectToEdit, setProjectToEdit] = useState<Project | null>(null);
   const [projectFormData, setProjectFormData] = useState<ProjectFormData>({ name: '', relativePath: '', description: '' });
   const [projectSaving, setProjectSaving] = useState(false);
+
+  // FsDialog (create file/folder) state
+  const [fsDialogState, setFsDialogState] = useState<FsDialogState | null>(null);
+  const [fsDialogOpen, setFsDialogOpen] = useState(false);
+  const folderForm = useForm<FolderFormValues>({ defaultValues: { name: '' } });
+  const fileForm = useForm<FileFormValues>({ defaultValues: { name: '', content: '' } });
 
   // ─────────────────────────────────────────────────────────────────────────
   // Dialog handlers
@@ -426,6 +446,78 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath }: WorkspaceFile
   }, [deleteTarget, handleDeleteEntries]);
 
   // ─────────────────────────────────────────────────────────────────────────
+  // FsDialog handlers
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const openNewFileDialog = useCallback(() => {
+    fileForm.reset({ name: '', content: '' });
+    setFsDialogState({ open: true, mode: 'file', projectPath: currentPath || '.' });
+    setFsDialogOpen(true);
+  }, [fileForm, currentPath]);
+
+  const openNewFolderDialog = useCallback(() => {
+    folderForm.reset({ name: '' });
+    setFsDialogState({ open: true, mode: 'folder', projectPath: currentPath || '.' });
+    setFsDialogOpen(true);
+  }, [folderForm, currentPath]);
+
+  const onCreateFolderSubmit = useCallback(async (values: FolderFormValues) => {
+    await handleCreateFolder(values.name);
+    setFsDialogOpen(false);
+  }, [handleCreateFolder]);
+
+  const onCreateFileSubmit = useCallback(async (values: FileFormValues) => {
+    await handleCreateFile(values.name, values.content);
+    setFsDialogOpen(false);
+  }, [handleCreateFile]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Keyboard shortcuts
+  // ─────────────────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Skip if user is typing in an input/textarea
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      if (e.ctrlKey || e.metaKey) {
+        switch (e.key.toLowerCase()) {
+          case 'c':
+            if (selectedFiles.size > 0) {
+              e.preventDefault();
+              handleCopy();
+            }
+            break;
+          case 'x':
+            if (selectedFiles.size > 0) {
+              e.preventDefault();
+              handleCut();
+            }
+            break;
+          case 'v':
+            e.preventDefault();
+            void handlePaste();
+            break;
+          case 'n':
+            if (e.shiftKey) {
+              e.preventDefault();
+              openNewFileDialog();
+            }
+            break;
+        }
+      }
+      if (e.key === 'Delete' && selectedFiles.size > 0) {
+        e.preventDefault();
+        handleDeleteBulk();
+      }
+    };
+
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [selectedFiles, handleCopy, handleCut, handlePaste, handleDeleteBulk, openNewFileDialog]);
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Project dialog handlers
   // ─────────────────────────────────────────────────────────────────────────
   
@@ -464,11 +556,11 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath }: WorkspaceFile
       setProjectDialogOpen(false);
     } catch (err) {
       console.error('Failed to save project:', err);
-      setOperationError(err instanceof Error ? err.message : 'Failed to save project');
+      toast.error(err instanceof Error ? err.message : 'Failed to save project');
     } finally {
       setProjectSaving(false);
     }
-  }, [workspaceId, projectDialogMode, projectToEdit, projectFormData, loadProjects, setOperationError]);
+  }, [workspaceId, projectDialogMode, projectToEdit, projectFormData, loadProjects]);
 
   const handleProjectDelete = useCallback(async () => {
     if (!workspaceId || !projectToEdit) return;
@@ -479,16 +571,16 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath }: WorkspaceFile
       setSelectedProjectId(null);
       setProjectDialogOpen(false);
       await loadProjects();
-      setOperationMessage('Project deleted successfully');
+      toast.success('Project deleted successfully');
     } catch (err) {
       console.error('Failed to delete project:', err);
-      setOperationError(err instanceof Error ? err.message : 'Failed to delete project');
+      toast.error(err instanceof Error ? err.message : 'Failed to delete project');
     }
-  }, [workspaceId, projectToEdit, setSelectedProjectId, loadProjects, setOperationMessage, setOperationError]);
+  }, [workspaceId, projectToEdit, setSelectedProjectId, loadProjects]);
 
   const handleBrowsePath = useCallback(async () => {
     if (!window.api?.selectDirectory) {
-      setOperationError('Desktop bridge unavailable for directory selection.');
+      toast.error('Desktop bridge unavailable for directory selection.');
       return;
     }
     
@@ -499,9 +591,9 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath }: WorkspaceFile
       }
     } catch (err) {
       console.error('Failed to select directory:', err);
-      setOperationError('Failed to open directory picker.');
+      toast.error('Failed to open directory picker.');
     }
-  }, [setOperationError]);
+  }, []);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Save handler with message
@@ -510,12 +602,11 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath }: WorkspaceFile
   const handleSaveEdit = useCallback(async () => {
     try {
       await saveEdit();
-      setOperationMessage('File saved successfully');
-      setTimeout(() => setOperationMessage(null), 3000);
+      toast.success('File saved successfully');
     } catch {
       // Error already set by saveEdit
     }
-  }, [saveEdit, setOperationMessage]);
+  }, [saveEdit]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Split handler
@@ -590,8 +681,6 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath }: WorkspaceFile
     <div className="space-y-4">
       {/* Status messages */}
       {directoryError ? <div className="text-sm text-destructive">Error: {directoryError}</div> : null}
-      {operationMessage ? <div className="text-sm text-success">{operationMessage}</div> : null}
-      {operationError ? <div className="text-sm text-destructive">{operationError}</div> : null}
 
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-3">
@@ -620,6 +709,14 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath }: WorkspaceFile
           onTransfer={() => setPayloadDialogOpen(true)}
           onExtract={() => openSplitDialog(true)}
           onDelete={handleDeleteBulk}
+          onNewFile={openNewFileDialog}
+          onNewFolder={openNewFolderDialog}
+          onPaste={handlePaste}
+          onRefresh={() => {
+            setSelectedFiles(new Set());
+            void loadDirectory(currentPath);
+          }}
+          hasClipboard={canPaste}
           disabled={!desktopAvailable}
         />
       </div>
@@ -654,6 +751,16 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath }: WorkspaceFile
               onToggleAllSelections={handleToggleAllSelections as (state: CheckedState) => void}
               onRenameEntry={handleRenameEntry}
               onDeleteEntry={handleDeleteSingle}
+              onCopy={handleCopy}
+              onCut={handleCut}
+              onPaste={handlePaste}
+              onDuplicate={handleDuplicate}
+              onNewFile={openNewFileDialog}
+              onNewFolder={openNewFolderDialog}
+              onRevealInExplorer={handleRevealInExplorer}
+              onOpenInVSCode={handleOpenInVSCode}
+              onImportExternalFiles={handleImportExternalFiles}
+              hasClipboard={canPaste}
               loading={directoryLoading}
             />
           </div>
@@ -694,6 +801,17 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath }: WorkspaceFile
         itemCount={deleteTarget?.paths.length || 0}
         itemNames={deleteTarget?.names || []}
         onConfirm={handleDeleteConfirm}
+      />
+      <FsDialog
+        state={fsDialogState}
+        open={fsDialogOpen}
+        onOpenChange={setFsDialogOpen}
+        folderForm={folderForm}
+        fileForm={fileForm}
+        onCreateFolder={onCreateFolderSubmit}
+        onCreateFile={onCreateFileSubmit}
+        desktopAvailable={desktopAvailable}
+        error={null}
       />
 
       {/* Project Dialog */}
