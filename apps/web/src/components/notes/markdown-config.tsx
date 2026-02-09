@@ -40,39 +40,39 @@ const slugifyHeading = (node: React.ReactNode): string => {
 // Memoized markdown components configuration
 export const markdownComponents = {
   h1: ({ id, children, ...props }: React.ComponentProps<'h1'>) => (
-    <h1 id={id ?? slugifyHeading(children)} className="text-3xl font-bold mt-6 mb-4" {...props}>
+    <h1 id={id ?? slugifyHeading(children)} className="text-xl font-bold mt-5 mb-3" {...props}>
       {children}
     </h1>
   ),
   h2: ({ id, children, ...props }: React.ComponentProps<'h2'>) => (
-    <h2 id={id ?? slugifyHeading(children)} className="text-2xl font-bold mt-5 mb-3" {...props}>
+    <h2 id={id ?? slugifyHeading(children)} className="text-lg font-bold mt-4 mb-2" {...props}>
       {children}
     </h2>
   ),
   h3: ({ id, children, ...props }: React.ComponentProps<'h3'>) => (
-    <h3 id={id ?? slugifyHeading(children)} className="text-xl font-bold mt-4 mb-2" {...props}>
+    <h3 id={id ?? slugifyHeading(children)} className="text-base font-semibold mt-3 mb-2" {...props}>
       {children}
     </h3>
   ),
   h4: ({ id, children, ...props }: React.ComponentProps<'h4'>) => (
-    <h4 id={id ?? slugifyHeading(children)} className="text-lg font-bold mt-3 mb-2" {...props}>
+    <h4 id={id ?? slugifyHeading(children)} className="text-sm font-semibold mt-3 mb-1" {...props}>
       {children}
     </h4>
   ),
   h5: ({ id, children, ...props }: React.ComponentProps<'h5'>) => (
-    <h5 id={id ?? slugifyHeading(children)} className="text-base font-bold mt-2 mb-1" {...props}>
+    <h5 id={id ?? slugifyHeading(children)} className="text-sm font-medium mt-2 mb-1" {...props}>
       {children}
     </h5>
   ),
   h6: ({ id, children, ...props }: React.ComponentProps<'h6'>) => (
-    <h6 id={id ?? slugifyHeading(children)} className="text-sm font-bold mt-2 mb-1" {...props}>
+    <h6 id={id ?? slugifyHeading(children)} className="text-xs font-semibold mt-2 mb-1 uppercase tracking-wide" {...props}>
       {children}
     </h6>
   ),
-  p: (props: React.ComponentProps<'p'>) => <p className="mb-4 leading-7" {...props} />,
-  ul: (props: React.ComponentProps<'ul'>) => <ul className="list-disc list-inside mb-4 space-y-2" {...props} />,
-  ol: (props: React.ComponentProps<'ol'>) => <ol className="list-decimal list-inside mb-4 space-y-2" {...props} />,
-  li: (props: React.ComponentProps<'li'>) => <li className="leading-7" {...props} />,
+  p: (props: React.ComponentProps<'p'>) => <p className="mb-3 leading-relaxed" {...props} />,
+  ul: (props: React.ComponentProps<'ul'>) => <ul className="list-disc list-inside mb-3 space-y-1.5" {...props} />,
+  ol: (props: React.ComponentProps<'ol'>) => <ol className="list-decimal list-inside mb-3 space-y-1.5" {...props} />,
+  li: (props: React.ComponentProps<'li'>) => <li className="leading-relaxed" {...props} />,
   code: (props: React.ComponentProps<'code'>) => <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono" {...props} />,
   pre: (props: React.ComponentProps<'pre'>) => <pre className="bg-muted p-4 rounded-lg overflow-x-auto mb-4 font-mono text-sm" {...props} />,
   blockquote: (props: React.ComponentProps<'blockquote'>) => <blockquote className="border-l-4 border-primary pl-4 italic my-4" {...props} />,

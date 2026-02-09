@@ -186,7 +186,7 @@ export function NoteEditor({
       <div className="flex-1 overflow-hidden">
         {previewMode ? (
           <ScrollArea className="h-full">
-            <div className="p-6 prose prose-slate dark:prose-invert max-w-none note-preview">
+            <div className="p-6 prose prose-sm prose-slate dark:prose-invert max-w-none note-preview">
               <Markdown
                 remarkPlugins={remarkPlugins}
                 rehypePlugins={rehypePlugins}

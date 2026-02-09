@@ -14,7 +14,31 @@ export interface ValidationSettings {
   };
 }
 
+export interface DashboardSettings {
+  streakWorkdaysOnly: boolean;
+}
+
 export const settingsApi = {
+  // ========================================================================
+  // Dashboard Settings
+  // ========================================================================
+
+  /**
+   * Get dashboard settings (streak mode, etc.)
+   */
+  getDashboardSettings: () =>
+    apiClient.get<DashboardSettings>('/api/v1/settings/dashboard'),
+
+  /**
+   * Update dashboard settings (partial merge)
+   */
+  updateDashboardSettings: (data: Partial<DashboardSettings>) =>
+    apiClient.put<DashboardSettings>('/api/v1/settings/dashboard', data),
+
+  // ========================================================================
+  // Validation Settings
+  // ========================================================================
+
   /**
    * Get all validation settings
    */

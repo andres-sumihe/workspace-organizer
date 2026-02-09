@@ -129,6 +129,7 @@ export const queryKeys = {
   settings: {
     all: ['settings'] as const,
     toolsGeneral: () => [...queryKeys.settings.all, 'tools', 'general'] as const,
+    dashboard: () => [...queryKeys.settings.all, 'dashboard'] as const,
   },
 
   // Vault domain (Credentials)

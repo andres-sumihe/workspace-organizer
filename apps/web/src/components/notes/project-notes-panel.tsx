@@ -52,16 +52,16 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 // Reuse markdown configuration
 const markdownComponents = {
-  h1: (props: React.ComponentProps<'h1'>) => <h1 className="text-3xl font-bold mt-6 mb-4" {...props} />,
-  h2: (props: React.ComponentProps<'h2'>) => <h2 className="text-2xl font-bold mt-5 mb-3" {...props} />,
-  h3: (props: React.ComponentProps<'h3'>) => <h3 className="text-xl font-bold mt-4 mb-2" {...props} />,
-  h4: (props: React.ComponentProps<'h4'>) => <h4 className="text-lg font-bold mt-3 mb-2" {...props} />,
-  h5: (props: React.ComponentProps<'h5'>) => <h5 className="text-base font-bold mt-2 mb-1" {...props} />,
-  h6: (props: React.ComponentProps<'h6'>) => <h6 className="text-sm font-bold mt-2 mb-1" {...props} />,
-  p: (props: React.ComponentProps<'p'>) => <p className="mb-4 leading-7" {...props} />,
-  ul: (props: React.ComponentProps<'ul'>) => <ul className="list-disc list-inside mb-4 space-y-2" {...props} />,
-  ol: (props: React.ComponentProps<'ol'>) => <ol className="list-decimal list-inside mb-4 space-y-2" {...props} />,
-  li: (props: React.ComponentProps<'li'>) => <li className="leading-7" {...props} />,
+  h1: (props: React.ComponentProps<'h1'>) => <h1 className="text-xl font-bold mt-5 mb-3" {...props} />,
+  h2: (props: React.ComponentProps<'h2'>) => <h2 className="text-lg font-bold mt-4 mb-2" {...props} />,
+  h3: (props: React.ComponentProps<'h3'>) => <h3 className="text-base font-semibold mt-3 mb-2" {...props} />,
+  h4: (props: React.ComponentProps<'h4'>) => <h4 className="text-sm font-semibold mt-3 mb-1" {...props} />,
+  h5: (props: React.ComponentProps<'h5'>) => <h5 className="text-sm font-medium mt-2 mb-1" {...props} />,
+  h6: (props: React.ComponentProps<'h6'>) => <h6 className="text-xs font-semibold mt-2 mb-1 uppercase tracking-wide" {...props} />,
+  p: (props: React.ComponentProps<'p'>) => <p className="mb-3 leading-relaxed" {...props} />,
+  ul: (props: React.ComponentProps<'ul'>) => <ul className="list-disc list-inside mb-3 space-y-1.5" {...props} />,
+  ol: (props: React.ComponentProps<'ol'>) => <ol className="list-decimal list-inside mb-3 space-y-1.5" {...props} />,
+  li: (props: React.ComponentProps<'li'>) => <li className="leading-relaxed" {...props} />,
   code: (props: React.ComponentProps<'code'>) => <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono" {...props} />,
   pre: (props: React.ComponentProps<'pre'>) => <pre className="bg-muted p-4 rounded-lg overflow-x-auto mb-4 font-mono text-sm" {...props} />,
   blockquote: (props: React.ComponentProps<'blockquote'>) => <blockquote className="border-l-4 border-primary pl-4 italic my-4" {...props} />,
@@ -174,7 +174,7 @@ function NoteEditor({ note, projectId: defaultProjectId, onSave, onClose }: Note
       <div className="flex-1 overflow-hidden">
         {previewMode ? (
           <ScrollArea className="h-full">
-            <div className="p-6 prose prose-slate dark:prose-invert max-w-none note-preview">
+            <div className="p-6 prose prose-sm prose-slate dark:prose-invert max-w-none note-preview">
               <Markdown
                 remarkPlugins={remarkPlugins}
                 rehypePlugins={rehypePlugins}
@@ -347,7 +347,7 @@ export function ProjectNotesPanel({ projectId }: ProjectNotesPanelProps) {
               </div>
             </div>
             <ScrollArea className="flex-1 p-6">
-              <div className="prose prose-slate dark:prose-invert max-w-none">
+              <div className="prose prose-sm prose-slate dark:prose-invert max-w-none note-preview">
                 <Markdown
                   remarkPlugins={remarkPlugins}
                   rehypePlugins={rehypePlugins}

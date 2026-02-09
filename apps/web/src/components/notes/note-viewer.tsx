@@ -290,7 +290,7 @@ export function NoteViewer({ note, onEdit, onDelete, onPopout, isPipEditing, isP
         )}
         
         <ScrollArea className="h-full">
-          <div ref={contentRef} className="p-6 prose prose-slate dark:prose-invert max-w-none">
+          <div ref={contentRef} className="p-6 prose prose-sm prose-slate dark:prose-invert max-w-none note-preview">
             <Markdown
               remarkPlugins={remarkPlugins}
               rehypePlugins={rehypePlugins}

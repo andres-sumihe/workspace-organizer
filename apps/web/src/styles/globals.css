@@ -446,15 +446,19 @@ ins.remark-ins {
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
 }
 
-/* Ensure CodeMirror uses the preferred mono font and adjust editor size */
-.cm-scroller { font-family: var(--font-mono) !important; }
+/* Ensure ALL CodeMirror instances use the preferred mono font and match app text-sm */
+.cm-scroller {
+  font-family: var(--font-mono) !important;
+  font-size: 0.875rem !important; /* = text-sm ≈ 13px – matches UI body text */
+}
 
-/* Make editor font a bit smaller for better density */
-.note-editor .cm-scroller { font-size: 13px !important; }
-
-/* Make preview (prose) slightly smaller to match editor */
-.note-preview.prose { font-size: 0.95rem; line-height: 1.5; }
-.note-preview pre, .note-preview code, .note-preview .font-mono { font-size: 0.85rem; }
+/*
+ * Prose preview sizing – prose-sm class on container is the primary mechanism
+ * (sets font-size: 0.875rem = text-sm natively via @tailwindcss/typography).
+ * These rules act as a safety net and style inline code/pre blocks.
+ */
+.note-preview.prose { font-size: 0.875rem !important; line-height: 1.6; }
+.note-preview pre, .note-preview code, .note-preview .font-mono { font-size: 0.8125rem; }
 
 /* Sidebar collapsed state tweaks */
 .w-20 { min-width: 5rem; max-width: 5rem; }
