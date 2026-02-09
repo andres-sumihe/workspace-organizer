@@ -75,14 +75,43 @@ export function useUpdatePersonalProject() {
 
 /**
  * Mutation hook for deleting a personal project
- * Invalidates all personal projects queries on success
+ * Uses optimistic update to immediately remove the project from lists
  */
 export function useDeletePersonalProject() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (projectId: string) => personalProjectsApi.delete(projectId),
-    onSuccess: () => {
+    onMutate: async (projectId: string) => {
+      // Cancel any in-flight refetches so they don't overwrite our optimistic removal
+      await queryClient.cancelQueries({ queryKey: queryKeys.personalProjects.all });
+
+      // Snapshot every personal-projects list query for rollback
+      const previousQueries = queryClient.getQueriesData<{ items: { id: string }[] }>({
+        queryKey: queryKeys.personalProjects.lists(),
+      });
+
+      // Optimistically remove the project from all cached lists
+      queryClient.setQueriesData<{ items: { id: string }[] }>(
+        { queryKey: queryKeys.personalProjects.lists() },
+        (old) => {
+          if (!old?.items) return old;
+          return { ...old, items: old.items.filter((p) => p.id !== projectId) };
+        },
+      );
+
+      return { previousQueries };
+    },
+    onError: (_err, _projectId, context) => {
+      // Roll back every list query to its snapshot
+      if (context?.previousQueries) {
+        for (const [queryKey, data] of context.previousQueries) {
+          queryClient.setQueryData(queryKey, data);
+        }
+      }
+    },
+    onSettled: () => {
+      // Always refetch after mutation settles (success or error)
       queryClient.invalidateQueries({ queryKey: queryKeys.personalProjects.all });
     },
   });
