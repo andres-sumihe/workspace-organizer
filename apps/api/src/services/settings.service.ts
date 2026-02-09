@@ -47,6 +47,14 @@ const DEFAULT_TOOLS_GENERAL_SETTINGS: ToolsGeneralSettings = {
   baseSalary: null
 };
 
+export interface DashboardSettings {
+  streakWorkdaysOnly: boolean;
+}
+
+const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
+  streakWorkdaysOnly: false
+};
+
 export const settingsService = {
   /**
    * Get a single setting by key
@@ -173,6 +181,39 @@ export const settingsService = {
       ...DEFAULT_TOOLS_GENERAL_SETTINGS,
       ...setting?.value
     };
+  },
+
+  // ========================================================================
+  // Dashboard settings
+  // ========================================================================
+
+  /**
+   * Get dashboard settings (streak mode, etc.)
+   */
+  async getDashboardSettings(): Promise<DashboardSettings> {
+    const setting = await settingsRepository.get<DashboardSettings>('dashboard');
+    return {
+      ...DEFAULT_DASHBOARD_SETTINGS,
+      ...setting?.value
+    };
+  },
+
+  /**
+   * Update dashboard settings (partial merge)
+   */
+  async updateDashboardSettings(
+    input: Partial<DashboardSettings>
+  ): Promise<DashboardSettings> {
+    const current = await this.getDashboardSettings();
+    const merged: DashboardSettings = { ...current, ...input };
+
+    await settingsRepository.set(
+      'dashboard',
+      merged,
+      'Dashboard widget settings (streak mode, etc.)'
+    );
+
+    return merged;
   },
 
   /**

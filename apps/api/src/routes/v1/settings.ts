@@ -19,6 +19,12 @@ settingsRouter.put('/validation/swift-mt', settingsController.updateSwiftMTSetti
 // POST /api/v1/settings/validation/reset - Reset to defaults
 settingsRouter.post('/validation/reset', settingsController.resetValidationSettings);
 
+// GET /api/v1/settings/dashboard - Get dashboard settings (streak mode, etc.)
+settingsRouter.get('/dashboard', settingsController.getDashboardSettings);
+
+// PUT /api/v1/settings/dashboard - Update dashboard settings
+settingsRouter.put('/dashboard', settingsController.updateDashboardSettings);
+
 // GET /api/v1/settings/tools/general - Get tools general settings (base salary)
 settingsRouter.get('/tools/general', settingsController.getToolsGeneralSettings);
 

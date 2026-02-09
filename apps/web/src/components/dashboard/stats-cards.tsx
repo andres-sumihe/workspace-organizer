@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CheckCircle2,
   DollarSign,
@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 
 import { workLogsApi } from '@/api/journal';
+import { settingsApi } from '@/api/settings';
 import { toolsApi } from '@/api/tools';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,7 +20,6 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { queryKeys } from '@/lib/query-client';
 
-const STREAK_WORKDAYS_KEY = 'dashboard_streak_workdays_only';
 const STALE_TIME = 2 * 60 * 1000; // 2 minutes
 
 // ============================================================================
@@ -166,8 +166,40 @@ export const ActiveFocusCountCard = () => {
 // Streak Card
 // ============================================================================
 export const StreakCard = () => {
-  const [streakWorkdaysOnly, setStreakWorkdaysOnly] = useState(() => {
-    return localStorage.getItem(STREAK_WORKDAYS_KEY) === 'true';
+  const queryClient = useQueryClient();
+
+  // Fetch dashboard settings from DB
+  const { data: dashboardSettings } = useQuery({
+    queryKey: queryKeys.settings.dashboard(),
+    queryFn: () => settingsApi.getDashboardSettings(),
+    staleTime: STALE_TIME,
+    placeholderData: (prev) => prev,
+  });
+
+  const streakWorkdaysOnly = dashboardSettings?.streakWorkdaysOnly ?? false;
+
+  // Mutation to persist the setting
+  const { mutate: updateDashboardSettings } = useMutation({
+    mutationFn: (workdaysOnly: boolean) =>
+      settingsApi.updateDashboardSettings({ streakWorkdaysOnly: workdaysOnly }),
+    onMutate: async (workdaysOnly) => {
+      // Optimistic update
+      await queryClient.cancelQueries({ queryKey: queryKeys.settings.dashboard() });
+      const previous = queryClient.getQueryData(queryKeys.settings.dashboard());
+      queryClient.setQueryData(queryKeys.settings.dashboard(), (old: Record<string, unknown> | undefined) => ({
+        ...old,
+        streakWorkdaysOnly: workdaysOnly,
+      }));
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.settings.dashboard(), context.previous);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.settings.dashboard() });
+    },
   });
 
   const sixtyDaysAgoStr = useMemo(() => {
@@ -228,8 +260,7 @@ export const StreakCard = () => {
   }, [historyRes, streakWorkdaysOnly]);
 
   const handleStreakModeChange = (workdaysOnly: boolean) => {
-    setStreakWorkdaysOnly(workdaysOnly);
-    localStorage.setItem(STREAK_WORKDAYS_KEY, String(workdaysOnly));
+    updateDashboardSettings(workdaysOnly);
   };
 
   return (

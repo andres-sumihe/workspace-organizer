@@ -1,5 +1,6 @@
 import { settingsService } from '../services/settings.service.js';
 
+import type { DashboardSettings } from '../services/settings.service.js';
 import type { ToolsGeneralSettings } from '@workspace/shared';
 import type { NextFunction, Request, Response } from 'express';
 
@@ -97,6 +98,33 @@ export const settingsController = {
     try {
       const settings = await settingsService.getToolsGeneralSettings();
       res.json(settings);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * GET /api/v1/settings/dashboard
+   * Get dashboard settings (streak mode, etc.)
+   */
+  async getDashboardSettings(_req: Request, res: Response, next: NextFunction) {
+    try {
+      const settings = await settingsService.getDashboardSettings();
+      res.json(settings);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * PUT /api/v1/settings/dashboard
+   * Update dashboard settings
+   */
+  async updateDashboardSettings(req: Request, res: Response, next: NextFunction) {
+    try {
+      const input = req.body as Partial<DashboardSettings>;
+      const result = await settingsService.updateDashboardSettings(input);
+      res.json(result);
     } catch (error) {
       next(error);
     }
