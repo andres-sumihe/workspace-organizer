@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 
 import type {
   PersonalProjectDetail,
@@ -36,6 +37,7 @@ import {
 } from '@/api/journal';
 import { TaskDetailModal, TASK_STATUS_CONFIG } from '@/components/journal';
 import { ProjectNotesPanel } from '@/components/notes/project-notes-panel';
+import { queryKeys } from '@/lib/query-client';
 import { WorkspaceFilesTab } from '@/features/workspaces/components/workspace-project-tab';
 import { AppPage, AppPageContent, AppPageTabs } from '@/components/layout/app-page';
 import {
@@ -295,6 +297,7 @@ interface QuickTaskDialogProps {
 }
 
 function QuickTaskDialog({ open, onOpenChange, projectId, onCreated }: QuickTaskDialogProps) {
+  const queryClient = useQueryClient();
   const [content, setContent] = useState('');
   const [priority, setPriority] = useState<'low' | 'medium' | 'high' | ''>('');
   const [dueDate, setDueDate] = useState('');
@@ -323,6 +326,9 @@ function QuickTaskDialog({ open, onOpenChange, projectId, onCreated }: QuickTask
       };
       await workLogsApi.create(data);
       onCreated();
+      // Invalidate caches so dashboard watchlist + journal reflect the new task
+      void queryClient.invalidateQueries({ queryKey: queryKeys.personalProjects.lists() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.workLogs.all });
       onOpenChange(false);
     } finally {
       setIsSaving(false);
@@ -397,6 +403,7 @@ export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const queryClient = useQueryClient();
 
   const [project, setProject] = useState<PersonalProjectDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -440,6 +447,11 @@ export function ProjectDetailPage() {
   }, [project]);
 
   // Handlers
+  const invalidateRelatedCaches = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.personalProjects.lists() });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.workLogs.all });
+  }, [queryClient]);
+
   const handleTaskStatusChange = async (taskId: string, newStatus: WorkLogStatus) => {
     try {
       await workLogsApi.update(taskId, { status: newStatus });
@@ -448,6 +460,7 @@ export function ProjectDetailPage() {
         setSelectedTask((prev) => (prev ? { ...prev, status: newStatus } : prev));
       }
       fetchProject();
+      invalidateRelatedCaches();
     } catch (err) {
       console.error('Failed to update task status:', err);
     }
@@ -461,6 +474,7 @@ export function ProjectDetailPage() {
         setSelectedTask((prev) => (prev ? { ...prev, flags } : prev));
       }
       fetchProject();
+      invalidateRelatedCaches();
     } catch (err) {
       console.error('Failed to update task flags:', err);
     }
@@ -476,6 +490,7 @@ export function ProjectDetailPage() {
         setSelectedTask(null);
       }
       fetchProject();
+      invalidateRelatedCaches();
     } finally {
       setDeleteTaskId(null);
     }

@@ -2,7 +2,15 @@ import { taggingsRepository } from './taggings.repository.js';
 import { tagsRepository } from './tags.repository.js';
 import { getDb } from '../db/client.js';
 
-import type { WorkLogEntry, WorkLogStatus, WorkLogPriority, Tag, PersonalProjectSummary, TaskUpdateFlag } from '@workspace/shared';
+import type {
+  WorkLogEntry,
+  WorkLogStatus,
+  WorkLogPriority,
+  Tag,
+  PersonalProjectSummary,
+  PersonalProjectTaskStats,
+  TaskUpdateFlag
+} from '@workspace/shared';
 
 interface WorkLogRow {
   id: string;
@@ -228,6 +236,47 @@ export const workLogsRepository = {
     }
 
     return entries;
+  },
+
+  /**
+   * Get task statistics for a batch of project IDs.
+   */
+  async getTaskStatsByProjectIds(
+    projectIds: string[]
+  ): Promise<Record<string, PersonalProjectTaskStats>> {
+    if (projectIds.length === 0) return {};
+
+    const db = await getDb();
+    const placeholders = projectIds.map(() => '?').join(',');
+    const rows = db
+      .prepare(
+        `SELECT 
+          project_id as projectId,
+          COUNT(*) as total,
+          SUM(CASE WHEN status = 'todo' THEN 1 ELSE 0 END) as todo,
+          SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as inProgress,
+          SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as done
+        FROM work_logs
+        WHERE project_id IN (${placeholders})
+        GROUP BY project_id`
+      )
+      .all(...projectIds) as {
+        projectId: string;
+        total: number;
+        todo: number;
+        inProgress: number;
+        done: number;
+      }[];
+
+    return rows.reduce<Record<string, PersonalProjectTaskStats>>((acc, row) => {
+      acc[row.projectId] = {
+        total: Number(row.total ?? 0),
+        todo: Number(row.todo ?? 0),
+        inProgress: Number(row.inProgress ?? 0),
+        done: Number(row.done ?? 0)
+      };
+      return acc;
+    }, {});
   },
 
   /**
