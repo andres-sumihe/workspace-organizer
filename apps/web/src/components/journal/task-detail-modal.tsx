@@ -83,8 +83,18 @@ export function TaskDetailModal({
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
           {/* ── Top Section: Task Info ── */}
           <div className="space-y-5">
-            {/* Status + Priority row */}
+            {/* Description */}
             <div className="flex items-start gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground uppercase">Description</Label>
+                <p className="text-sm whitespace-pre-wrap">{entry.content}</p>
+              </div>
+            </div>
+
+            <hr />
+
+            {/* Status + Priority row */}
+            <div className="grid grid-cols-2 gap-x-6 gap-y-4" >
               <div className="flex-1 space-y-1.5">
                 <Label className="text-xs text-muted-foreground uppercase">Status</Label>
                 <DropdownMenu>
@@ -123,13 +133,6 @@ export function TaskDetailModal({
                 </div>
               )}
             </div>
-
-            {/* Description */}
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground uppercase">Description</Label>
-              <p className="text-sm whitespace-pre-wrap">{entry.content}</p>
-            </div>
-
             {/* Metadata grid */}
             <div className="grid grid-cols-2 gap-x-6 gap-y-4">
               {/* Date */}
