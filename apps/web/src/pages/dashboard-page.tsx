@@ -2,20 +2,20 @@ import { Loader2, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { workLogsApi } from '@/api/journal';
-import { ProductivityHeatmapCard } from '@/components/dashboard/productivity-heatmap-card';
+import { workLogsApi } from '@/features/journal/api/journal';
+import { ProductivityHeatmapCard } from '@/features/dashboard/components/productivity-heatmap-card';
 import {
   OvertimeStatCard,
   TasksCompletedCard,
   ActiveFocusCountCard,
   StreakCard,
-} from '@/components/dashboard/stats-cards';
+} from '@/features/dashboard/components/stats-cards';
 import {
   ActiveFocusCard,
   ProjectsWatchlistCard,
   RecentActivityCard,
   PinnedNotesCard,
-} from '@/components/dashboard/dashboard-cards';
+} from '@/features/dashboard/components/dashboard-cards';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { queryKeys } from '@/lib/query-client';

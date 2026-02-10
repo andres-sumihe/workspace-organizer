@@ -546,7 +546,7 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath }: WorkspaceFile
     if (!workspaceId) return;
     setProjectSaving(true);
     try {
-      const { createWorkspaceProject, updateWorkspaceProject } = await import('@/api/workspaces');
+      const { createWorkspaceProject, updateWorkspaceProject } = await import('@/features/workspaces/api/workspaces');
       if (projectDialogMode === 'create') {
         await createWorkspaceProject(workspaceId, projectFormData);
       } else if (projectToEdit) {
@@ -566,7 +566,7 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath }: WorkspaceFile
     if (!workspaceId || !projectToEdit) return;
     if (!confirm('Delete this project? This will not delete files on disk.')) return;
     try {
-      const { deleteWorkspaceProject } = await import('@/api/workspaces');
+      const { deleteWorkspaceProject } = await import('@/features/workspaces/api/workspaces');
       await deleteWorkspaceProject(workspaceId, projectToEdit.id);
       setSelectedProjectId(null);
       setProjectDialogOpen(false);

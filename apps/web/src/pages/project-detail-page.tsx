@@ -34,9 +34,9 @@ import {
   personalProjectsApi,
   workLogsApi,
   type CreateWorkLogRequest
-} from '@/api/journal';
-import { TaskDetailModal, TASK_STATUS_CONFIG } from '@/components/journal';
-import { ProjectNotesPanel } from '@/components/notes/project-notes-panel';
+} from '@/features/journal/api/journal';
+import { TaskDetailModal, TASK_STATUS_CONFIG } from '@/features/journal/components';
+import { ProjectNotesPanel } from '@/features/notes/components/project-notes-panel';
 import { queryKeys } from '@/lib/query-client';
 import { WorkspaceFilesTab } from '@/features/workspaces/components/workspace-project-tab';
 import { AppPage, AppPageContent, AppPageTabs } from '@/components/layout/app-page';

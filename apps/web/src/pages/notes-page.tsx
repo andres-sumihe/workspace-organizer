@@ -30,13 +30,13 @@ import type {
   CredentialData
 } from '@workspace/shared';
 
-import { notesApi, credentialsApi, vaultApi } from '@/api/notes-vault';
-import { useNotesList } from '@/hooks/use-notes';
-import { usePersonalProjectsList } from '@/hooks/use-personal-projects';
-import { useVaultStatus, useCredentialsList } from '@/hooks/use-vault';
+import { notesApi, credentialsApi, vaultApi } from '@/features/notes/api/notes-vault';
+import { useNotesList } from '@/features/notes/hooks/use-notes';
+import { usePersonalProjectsList } from '@/features/journal/hooks/use-personal-projects';
+import { useVaultStatus, useCredentialsList } from '@/features/notes/hooks/use-vault';
 import { AppPage, AppPageContent } from '@/components/layout/app-page';
-import { NoteEditor } from '@/components/notes/note-editor';
-import { NoteViewer } from '@/components/notes/note-viewer';
+import { NoteEditor } from '@/features/notes/components/note-editor';
+import { NoteViewer } from '@/features/notes/components/note-viewer';
 import {
   AlertDialog,
   AlertDialogAction,

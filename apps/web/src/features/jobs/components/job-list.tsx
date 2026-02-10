@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table';
-import { useJobList, useJobFilters, useDeleteJob } from '@/hooks/use-jobs';
+import { useJobList, useJobFilters, useDeleteJob } from '@/features/jobs/hooks/use-jobs';
 
 interface JobListProps {
   onJobSelect?: (jobId: string) => void;

@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageLoader } from '@/components/ui/page-loader';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useDriveAnalysis } from '@/hooks/use-scripts';
+import { useDriveAnalysis } from '@/features/scripts/hooks/use-scripts';
 import { queryKeys } from '@/lib/query-client';
 
 interface DriveMappingWithScript extends DriveMapping {

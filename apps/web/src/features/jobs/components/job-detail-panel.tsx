@@ -16,8 +16,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { useLinkJobToScript, useUnlinkJobFromScript, useScriptSuggestions } from '@/hooks/use-jobs';
-import { useScriptList } from '@/hooks/use-scripts';
+import { useLinkJobToScript, useUnlinkJobFromScript, useScriptSuggestions } from '@/features/jobs/hooks/use-jobs';
+import { useScriptList } from '@/features/scripts/hooks/use-scripts';
 import { formatTime } from '@/lib/utils'
 
 interface JobDetailPanelProps {

@@ -2,9 +2,9 @@ import { Loader2, UserPlus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
-import type { AvailableTeam } from '@/api/teams';
+import type { AvailableTeam } from '@/features/teams/api/teams';
 
-import { listAvailableTeams } from '@/api/teams';
+import { listAvailableTeams } from '@/features/teams/api/teams';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,

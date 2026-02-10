@@ -1,8 +1,8 @@
 import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, FileWarning } from 'lucide-react';
 import { useState } from 'react';
 
-import type { ISO20022ValidationResult } from '@/utils/iso20022-validator';
-import type { SwiftMTValidationResult } from '@/utils/swift-mt-validator';
+import type { ISO20022ValidationResult } from '@/features/settings/utils/iso20022-validator';
+import type { SwiftMTValidationResult } from '@/features/settings/utils/swift-mt-validator';
 
 import { Button } from '@/components/ui/button';
 

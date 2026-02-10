@@ -3,8 +3,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
-import { schemaValidationApi, type ValidationResponse } from '@/api/schema-validation';
-import { settingsApi } from '@/api/settings';
+import { schemaValidationApi, type ValidationResponse } from '@/features/settings/api/schema-validation';
+import { settingsApi } from '@/features/settings/api/settings';
 import { toolsApi } from '@/api/tools';
 import { AppPage, AppPageContent, AppPageTabs } from '@/components/layout/app-page';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -19,7 +19,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useInstallation } from '@/contexts/installation-context';
 import { useMode } from '@/contexts/mode-context';
 import { useValidationSettings } from '@/contexts/validation-settings-context';
-import { extractBICFromLT } from '@/utils/swift-mt-validator';
+import { extractBICFromLT } from '@/features/settings/utils/swift-mt-validator';
 
 type ConnectionFormState = {
   host: string;

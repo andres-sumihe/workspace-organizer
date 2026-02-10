@@ -8,7 +8,7 @@ import { ScriptsListPanel } from './scripts-list-panel';
 
 import type { ScriptFilters } from '../types';
 
-import { useScriptList, useScriptDetail, useDriveConflicts } from '@/hooks/use-scripts';
+import { useScriptList, useScriptDetail, useDriveConflicts } from '@/features/scripts/hooks/use-scripts';
 import { queryKeys } from '@/lib/query-client';
 
 interface ScriptsTabProps {

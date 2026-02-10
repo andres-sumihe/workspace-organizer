@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, type Dispatch, type SetStateAction } from 'react';
 
-import { fetchWorkspaceProjects, createWorkspaceProject, updateWorkspaceProject, deleteWorkspaceProject } from '@/api/workspaces';
+import { fetchWorkspaceProjects, createWorkspaceProject, updateWorkspaceProject, deleteWorkspaceProject } from '@/features/workspaces/api/workspaces';
 
 export interface Project {
   id: string;

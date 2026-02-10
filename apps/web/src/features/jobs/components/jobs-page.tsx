@@ -28,7 +28,7 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog';
-import { useJobStats, useJobDetail, useClearAllJobs, useLinkingStatus, useAutoLinkJobs } from '@/hooks/use-jobs';
+import { useJobStats, useJobDetail, useClearAllJobs, useLinkingStatus, useAutoLinkJobs } from '@/features/jobs/hooks/use-jobs';
 import { queryKeys } from '@/lib/query-client';
 
 

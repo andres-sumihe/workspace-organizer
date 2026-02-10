@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 import type { BatchScriptDetail, ScriptTag } from '@workspace/shared';
 
-import { createScript, updateScript, fetchScriptDetail, fetchTags, createTag } from '@/api/scripts';
+import { createScript, updateScript, fetchScriptDetail, fetchTags, createTag } from '@/features/scripts/api/scripts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';

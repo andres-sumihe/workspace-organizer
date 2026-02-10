@@ -31,13 +31,13 @@ import {
   type WorkLogEntry,
   type CreateWorkLogRequest,
   type UpdateWorkLogRequest
-} from '@/api/journal';
+} from '@/features/journal/api/journal';
 import {
   useWorkLogsList
-} from '@/hooks/use-work-logs';
-import { useTagsList } from '@/hooks/use-tags';
-import { usePersonalProjectsList } from '@/hooks/use-personal-projects';
-import { TaskDetailModal, TASK_STATUS_CONFIG, TASK_PRIORITY_CONFIG } from '@/components/journal';
+} from '@/features/journal/hooks/use-work-logs';
+import { useTagsList } from '@/features/journal/hooks/use-tags';
+import { usePersonalProjectsList } from '@/features/journal/hooks/use-personal-projects';
+import { TaskDetailModal, TASK_STATUS_CONFIG, TASK_PRIORITY_CONFIG } from '@/features/journal/components';
 import { AppPage, AppPageContent } from '@/components/layout/app-page';
 import {
   AlertDialog,
@@ -89,7 +89,7 @@ import {
   getYesterdayDate,
   parseContentForSuggestions,
   formatFullDate
-} from '@/utils/journal-parser';
+} from '@/features/journal/utils/journal-parser';
 
 // ============================================================================
 // Types & Constants
@@ -285,7 +285,7 @@ function KanbanColumn({ status, index, entries, selectedEntry, onSelectEntry }: 
   );
 }
 
-// TaskDetailModal is now imported from @/components/journal (shared component)
+// TaskDetailModal is now imported from @/features/journal/components (shared component)
 
 interface ProjectFilterProps {
   projects: PersonalProject[];

@@ -13,7 +13,7 @@ import { FileManagerProvider } from '@/contexts/file-manager-context';
 import { useInstallation } from '@/contexts/installation-context';
 import { useMode } from '@/contexts/mode-context';
 import { WorkspaceProvider } from '@/contexts/workspace-context';
-import { useDashboardPrefetch } from '@/hooks/use-dashboard-prefetch';
+import { useDashboardPrefetch } from '@/features/dashboard/hooks/use-dashboard-prefetch';
 import { useMenuCommands } from '@/hooks/use-menu-commands';
 import { AuthenticatedLayout } from '@/layouts/authenticated-layout';
 import { DashboardPage } from '@/pages/dashboard-page';

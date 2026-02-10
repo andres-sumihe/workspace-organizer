@@ -3,8 +3,8 @@ import React, { useRef, useState } from 'react';
 
 import type { ControlMImportResult } from '@workspace/shared';
 
-import { importJobs, autoLinkJobs } from '@/api/controlm-jobs';
-import type { AutoLinkResult } from '@/api/controlm-jobs';
+import { importJobs, autoLinkJobs } from '@/features/jobs/api/controlm-jobs';
+import type { AutoLinkResult } from '@/features/jobs/api/controlm-jobs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';

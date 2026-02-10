@@ -6,7 +6,7 @@ import type { BuilderMeta, CaptureFormValues, EditableFile, EditableFolder, Edit
 import type { TemplateTokenEntry } from '@/types/desktop';
 import type { TemplateSummaryV2 } from '@workspace/shared';
 
-import { fetchTemplateList, fetchWorkspaceTemplates, assignTemplateToWorkspace, unassignTemplateFromWorkspace } from '@/api/templates';
+import { fetchTemplateList, fetchWorkspaceTemplates, assignTemplateToWorkspace, unassignTemplateFromWorkspace } from '@/features/templates/api/templates';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
