@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0]
+
+## Added
+- Add sort button for sorting based on the priority
+- Add Weekly Report on Journal page
+- File Manager now support file and folder operations:
+  - Copy
+  - Cut
+  - Paste 
+  - Duplicate
+  - New File / Folder
+  - Reveal in Explorer
+  - Open in VS Code
+
+## Changed
+- Reverse task updates, the latest updates now on the top
+- auto-lock vault now follow the session lock settings
+- Search on Notes & Vault page now works on both tab
+- Remove Blocked status from Work Logs item
+- Refactored TaskDetail layout
+
+## Fixed
+- Fix auto-fill field failed to reasign field after user override action
+- Fix false timeout log messages on debug log
+- Projects Watchlist now displays actual progress
+
 ## [0.3.1]
 
 ## Fixed
