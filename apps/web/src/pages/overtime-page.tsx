@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 
 import type { OvertimeEntry } from '@workspace/shared';
 
-import { useOvertimeList, useToolsGeneralSettings, useCreateOvertimeEntry, useDeleteOvertimeEntry } from '@/hooks/use-overtime';
+import { useOvertimeList, useToolsGeneralSettings, useCreateOvertimeEntry, useDeleteOvertimeEntry } from '@/features/overtime/hooks/use-overtime';
 import { AppPage, AppPageContent, AppPageTabs } from '@/components/layout/app-page';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {

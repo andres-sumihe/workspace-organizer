@@ -2,7 +2,7 @@ import { FileCode, HardDrive, Plus, RefreshCw, FolderSearch, Network, Users } fr
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 
-import { scanScripts } from '@/api/scripts';
+import { scanScripts } from '@/features/scripts/api/scripts';
 import { AppPage, AppPageTabs } from '@/components/layout/app-page';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';

@@ -10,18 +10,18 @@ import {
   ReportToolbar,
   ReportProjectGroup,
   ReportParkingLot,
-} from '@/components/weekly-report';
+} from '@/features/weekly-report/components';
 import { AppPage, AppPageContent } from '@/components/layout/app-page';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useWeeklyReportData } from '@/hooks/use-weekly-report-data';
-import { useUpdateWorkLog } from '@/hooks/use-work-logs';
+import { useWeeklyReportData } from '@/features/weekly-report/hooks/use-weekly-report-data';
+import { useUpdateWorkLog } from '@/features/journal/hooks/use-work-logs';
 import {
   formatDate,
   getWeekStart,
   getWeekEnd,
   getWeekRangeLabel,
-} from '@/utils/journal-parser';
+} from '@/features/journal/utils/journal-parser';
 import {
   groupByProject,
   groupByStatus,
@@ -29,7 +29,7 @@ import {
   computeSummary,
   unmapStatus,
   unmapPriority,
-} from '@/utils/weekly-report-mapper';
+} from '@/features/weekly-report/utils/weekly-report-mapper';
 
 // ============================================================================
 // Helpers

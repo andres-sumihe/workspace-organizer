@@ -1,9 +1,9 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 
-import type { ISO20022ValidationCriteria } from '@/utils/iso20022-validator';
-import type { SwiftMTValidationCriteria } from '@/utils/swift-mt-validator';
+import type { ISO20022ValidationCriteria } from '@/features/settings/utils/iso20022-validator';
+import type { SwiftMTValidationCriteria } from '@/features/settings/utils/swift-mt-validator';
 
-import { settingsApi } from '@/api/settings';
+import { settingsApi } from '@/features/settings/api/settings';
 
 interface ValidationSettingsContextValue {
   // Loading state

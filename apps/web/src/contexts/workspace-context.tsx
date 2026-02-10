@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 
 import type { WorkspaceSummary } from '@workspace/shared';
 
-import { fetchWorkspaceList, updateWorkspace as updateWorkspaceAPI } from '@/api/workspaces';
+import { fetchWorkspaceList, updateWorkspace as updateWorkspaceAPI } from '@/features/workspaces/api/workspaces';
 
 interface WorkspaceContextValue {
   workspaces: WorkspaceSummary[];

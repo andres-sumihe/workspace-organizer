@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { useCreateJob, useUpdateJob, useJobDetail, useJobFilters } from '@/hooks/use-jobs';
+import { useCreateJob, useUpdateJob, useJobDetail, useJobFilters } from '@/features/jobs/hooks/use-jobs';
 
 interface JobDialogProps {
   open: boolean;

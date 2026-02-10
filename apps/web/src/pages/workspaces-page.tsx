@@ -7,7 +7,7 @@ import type { BuilderMeta, CaptureFormValues, EditableFile, EditableFolder, Edit
 import type { WorkspaceFormValues } from '@/features/workspaces';
 import type { TemplateManifest, TemplateSummary, TemplateTokenEntry } from '@/types/desktop';
 
-import { createWorkspace } from '@/api/workspaces';
+import { createWorkspace } from '@/features/workspaces/api/workspaces';
 import { AppPage, AppPageContent } from '@/components/layout/app-page';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';

@@ -23,8 +23,8 @@ import { Button } from '@/components/ui/button';
 import { ContentSearchBar, type ContentSearchBarRef } from '@/components/ui/content-search-bar';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useValidationSettings } from '@/contexts/validation-settings-context';
-import { detectISO20022, validateISO20022 } from '@/utils/iso20022-validator';
-import { detectSwiftMT, validateSwiftMT } from '@/utils/swift-mt-validator';
+import { detectISO20022, validateISO20022 } from '@/features/settings/utils/iso20022-validator';
+import { detectSwiftMT, validateSwiftMT } from '@/features/settings/utils/swift-mt-validator';
 
 interface PreviewPanelProps {
   preview: WorkspaceFilePreview | null;

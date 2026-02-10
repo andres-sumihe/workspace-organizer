@@ -22,15 +22,15 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import type { PersonalProject, PersonalProjectStatus, Tag, WorkspaceSummary } from '@workspace/shared';
 
-import { type CreatePersonalProjectRequest, type UpdatePersonalProjectRequest } from '@/api/journal';
+import { type CreatePersonalProjectRequest, type UpdatePersonalProjectRequest } from '@/features/journal/api/journal';
 import {
   usePersonalProjectsList,
   useCreatePersonalProject,
   useUpdatePersonalProject,
   useDeletePersonalProject
-} from '@/hooks/use-personal-projects';
-import { useTagsList, useCreateTag } from '@/hooks/use-tags';
-import { useWorkspacesList } from '@/hooks/use-workspaces';
+} from '@/features/journal/hooks/use-personal-projects';
+import { useTagsList, useCreateTag } from '@/features/journal/hooks/use-tags';
+import { useWorkspacesList } from '@/features/workspaces/hooks/use-workspaces';
 import { AppPage, AppPageContent } from '@/components/layout/app-page';
 import {
   AlertDialog,

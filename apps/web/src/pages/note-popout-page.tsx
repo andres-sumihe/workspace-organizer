@@ -3,10 +3,10 @@ import { useParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 
 import type { Note, PersonalProject } from '@workspace/shared';
-import { notesApi } from '@/api/notes-vault';
-import { personalProjectsApi } from '@/api/journal';
-import { NoteEditor } from '@/components/notes/note-editor';
-import { NoteViewer } from '@/components/notes/note-viewer';
+import { notesApi } from '@/features/notes/api/notes-vault';
+import { personalProjectsApi } from '@/features/journal/api/journal';
+import { NoteEditor } from '@/features/notes/components/note-editor';
+import { NoteViewer } from '@/features/notes/components/note-viewer';
 
 // BroadcastChannel for cross-window coordination
 const NOTE_CHANNEL_NAME = 'note-pip-channel';

@@ -3,10 +3,10 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
-import type { TeamWithMembership, TeamMemberDetail } from '@/api/teams';
+import type { TeamWithMembership, TeamMemberDetail } from '@/features/teams/api/teams';
 import type { TeamRole } from '@workspace/shared';
 
-import { listTeams, getTeam, listMembers, updateMemberRole, removeMember, createTeam, joinTeam } from '@/api/teams';
+import { listTeams, getTeam, listMembers, updateMemberRole, removeMember, createTeam, joinTeam } from '@/features/teams/api/teams';
 import { AppPage, AppPageContent, AppPageTabs } from '@/components/layout/app-page';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
