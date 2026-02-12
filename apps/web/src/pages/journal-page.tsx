@@ -985,7 +985,8 @@ export function JournalPage() {
           updateData.actualEndDate = getTodayDate();
         }
         await workLogsApi.update(id, updateData);
-        // Invalidate personal projects so watchlist progress updates
+        // Invalidate work logs so dashboard/heatmap/other views update
+        queryClient.invalidateQueries({ queryKey: queryKeys.workLogs.all });
         queryClient.invalidateQueries({ queryKey: queryKeys.personalProjects.lists() });
       } catch (err) {
         console.error('Failed to update status:', err);
@@ -1120,8 +1121,9 @@ export function JournalPage() {
         });
       }
       
-      // Refetch current week entries
-      refetch();
+      // Invalidate all work log queries so dashboard/heatmap/today filter update
+      queryClient.invalidateQueries({ queryKey: queryKeys.workLogs.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.personalProjects.lists() });
       
       // Refetch unfinished past entries
       try {
@@ -1136,7 +1138,7 @@ export function JournalPage() {
         console.error('Failed to refresh past unfinished tasks:', err);
       }
     },
-    [unfinishedPast, refetch]
+    [unfinishedPast, queryClient]
   );
 
   // Summary stats
@@ -1353,6 +1355,7 @@ export function JournalPage() {
                       updateData.actualEndDate = getTodayDate();
                     }
                     workLogsApi.update(entryId, updateData).then(() => {
+                      queryClient.invalidateQueries({ queryKey: queryKeys.workLogs.all });
                       queryClient.invalidateQueries({ queryKey: queryKeys.personalProjects.lists() });
                     }).catch((err) => {
                       console.error('Failed to update status:', err);
