@@ -1,15 +1,10 @@
-import { useCallback, useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
 import {
   AlertTriangle,
   Check,
   ChevronRight,
   Circle,
   Clock,
-  Loader2,
-  MessageSquarePlus,
-  Send,
-  X,
 } from 'lucide-react';
 
 import type {
@@ -17,17 +12,15 @@ import type {
   WeeklyReportStatus,
   WeeklyReportPriority,
   TaskUpdateFlag,
-  CreateTaskUpdateRequest,
 } from '@workspace/shared';
 
-import { taskUpdatesApi } from '@/features/journal/api/journal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
-import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { formatDateDisplay, formatRelativeTime, formatTimestampDisplay } from '@/features/journal/utils/journal-parser';
+import { formatDateDisplay, formatTimestampDisplay } from '@/features/journal/utils/journal-parser';
+import { TaskUpdatesSection } from '@/features/journal/components';
 
 // ============================================================================
 // Config
@@ -94,42 +87,6 @@ export function ReportTaskRow({
   const statusConfig = STATUS_DISPLAY[item.status];
   const StatusIcon = statusConfig.icon;
   const priorityConfig = PRIORITY_BADGE[item.priority];
-
-  // -- Quick update form state --
-  const [showUpdateForm, setShowUpdateForm] = useState(false);
-  const [updateContent, setUpdateContent] = useState('');
-
-  const queryClient = useQueryClient();
-  const updateQueryKey = ['task-updates', 'work_log', item.sourceId];
-
-  // -- Lazy-load task updates when expanded --
-  const { data: updatesRes, isLoading: updatesLoading } = useQuery({
-    queryKey: updateQueryKey,
-    queryFn: () => taskUpdatesApi.listByEntity('work_log', item.sourceId),
-    enabled: isExpanded, // Only fetch when row is expanded
-    staleTime: 30_000,   // Cache for 30s to avoid refetch on collapse/expand
-  });
-
-  const updates = [...(updatesRes?.items ?? [])].reverse(); // Newest first
-
-  // -- Create task update mutation --
-  const createUpdateMutation = useMutation({
-    mutationFn: (data: CreateTaskUpdateRequest) => taskUpdatesApi.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: updateQueryKey });
-      setUpdateContent('');
-      setShowUpdateForm(false);
-    },
-  });
-
-  const handleAddUpdate = useCallback(() => {
-    if (!updateContent.trim()) return;
-    createUpdateMutation.mutate({
-      entityType: 'work_log',
-      entityId: item.sourceId,
-      content: updateContent.trim(),
-    });
-  }, [createUpdateMutation, item.sourceId, updateContent]);
 
   // -- Flag toggle helper --
   const handleFlagToggle = useCallback(
@@ -350,95 +307,8 @@ export function ReportTaskRow({
 
           <Separator />
 
-          {/* Task Updates */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-muted-foreground">
-                Updates {updates.length > 0 && `(${updates.length})`}
-              </p>
-              {!showUpdateForm && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 text-xs gap-1"
-                  onClick={() => setShowUpdateForm(true)}
-                >
-                  <MessageSquarePlus className="h-3 w-3" />
-                  Add Note
-                </Button>
-              )}
-            </div>
-
-            {/* Quick update form */}
-            {showUpdateForm && (
-              <div className="space-y-2">
-                <Textarea
-                  placeholder="Add a quick note or update..."
-                  value={updateContent}
-                  onChange={(e) => setUpdateContent(e.target.value)}
-                  className="min-h-16 text-sm resize-none"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                      e.preventDefault();
-                      handleAddUpdate();
-                    }
-                  }}
-                />
-                <div className="flex items-center gap-2 justify-end">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={() => {
-                      setShowUpdateForm(false);
-                      setUpdateContent('');
-                    }}
-                  >
-                    <X className="h-3 w-3 mr-1" />
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="h-7 text-xs"
-                    disabled={!updateContent.trim() || createUpdateMutation.isPending}
-                    onClick={handleAddUpdate}
-                  >
-                    {createUpdateMutation.isPending ? (
-                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                    ) : (
-                      <Send className="h-3 w-3 mr-1" />
-                    )}
-                    Save
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Updates list */}
-            {updatesLoading && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Loading updates...
-              </div>
-            )}
-
-            {!updatesLoading && updates.length === 0 && !showUpdateForm && (
-              <p className="text-xs text-muted-foreground italic py-1">No updates yet.</p>
-            )}
-
-            {updates.map((update) => (
-              <div key={update.id} className="flex gap-2 py-1.5 group">
-                <div className="w-1 shrink-0 rounded-full bg-border" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm whitespace-pre-wrap wrap-break-word">{update.content}</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    {formatRelativeTime(update.createdAt)}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
+          {/* Task Updates — reuse shared component with full CRUD + replies */}
+          <TaskUpdatesSection entityType="work_log" entityId={item.sourceId} />
         </div>
       )}
     </div>
