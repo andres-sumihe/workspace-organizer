@@ -1,4 +1,4 @@
-import { AlertCircle, Download, FileUp, Package } from 'lucide-react';
+import { AlertCircle, CircleHelp, Download, FileUp, Package } from 'lucide-react';
 import { useCallback, useState } from 'react';
 
 import { usePayloadTransfer } from '../hooks/use-payload-transfer';
@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 interface PayloadDialogProps {
@@ -173,10 +174,22 @@ export const PayloadDialog = ({ open, onOpenChange, selectedFiles = [], onReadFi
 
   const hasPreselectedFiles = selectedFiles.length > 0 && onReadFile;
 
+  const handleDownloadScript = useCallback(() => {
+    const baseUrl = import.meta.env.BASE_URL || '/';
+    const scriptUrl = `${baseUrl.replace(/\/$/, '')}/file-manager-scripts/file-manager-v1.3.ps1`;
+    const anchor = document.createElement('a');
+    anchor.href = scriptUrl;
+    anchor.download = 'file-manager-v1.3.ps1';
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    setSuccessMessage('✓ Download started: file-manager-v1.3.ps1');
+  }, []);
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Package className="size-4" />
             File Transfer
@@ -186,7 +199,45 @@ export const PayloadDialog = ({ open, onOpenChange, selectedFiles = [], onReadFi
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 overflow-y-auto pr-1">
+          <div className="bg-muted/40 border rounded p-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-muted-foreground">
+                Need the standalone helper script?
+              </p>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="ghost" size="icon" className="size-6">
+                    <CircleHelp className="size-4 text-muted-foreground" />
+                    <span className="sr-only">Script help</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-80 text-xs space-y-2">
+                  <p className="font-medium text-foreground">What this script is for</p>
+                  <p className="text-muted-foreground">
+                    A standalone PowerShell helper to pack/unpack file transfer payloads outside this app.
+                  </p>
+                  <p className="font-medium text-foreground">How to use</p>
+                  <ul className="list-disc pl-4 text-muted-foreground space-y-1">
+                    <li>Download the script and run it on Windows (PowerShell).</li>
+                    <li>Choose Transfer Files, then Pack or Unpack.</li>
+                    <li>Use clipboard payload text or a payload .txt file.</li>
+                  </ul>
+                  <p className="font-medium text-foreground">Restrictions</p>
+                  <ul className="list-disc pl-4 text-muted-foreground space-y-1">
+                    <li>Windows-only PowerShell script.</li>
+                    <li>Files only (not folder structure replication).</li>
+                    <li>Payload size grows due to Base64 encoding.</li>
+                  </ul>
+                </PopoverContent>
+              </Popover>
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={handleDownloadScript}>
+              <Download className="mr-2 size-4" />
+              Download Script (file-manager-v1.3.ps1)
+            </Button>
+          </div>
+
           {/* Mode selection */}
           <div>
             <Label className="text-base font-medium">Operation</Label>
@@ -322,7 +373,7 @@ export const PayloadDialog = ({ open, onOpenChange, selectedFiles = [], onReadFi
           )}
         </div>
 
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="flex justify-end gap-2 pt-2 shrink-0">
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             Close
           </Button>
