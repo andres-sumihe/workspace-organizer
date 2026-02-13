@@ -49,6 +49,8 @@ const DesktopOnlyBanner = () => (
 interface WorkspaceFilesTabProps {
   workspaceId: string;
   customRootPath?: string;
+  /** Relative path to navigate to and highlight (from mention chip click) */
+  highlightPath?: string;
 }
 
 interface ProjectFormData {
@@ -61,7 +63,7 @@ interface ProjectFormData {
 // Main Component
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const WorkspaceFilesTab = ({ workspaceId, customRootPath }: WorkspaceFilesTabProps) => {
+export const WorkspaceFilesTab = ({ workspaceId, customRootPath, highlightPath }: WorkspaceFilesTabProps) => {
   const { workspaces } = useWorkspaceContext();
   const { getState, updateState } = useFileManagerState();
   
@@ -334,6 +336,32 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath }: WorkspaceFile
     }
     prevSelectedProjectId.current = selectedProjectId;
   }, [selectedProjectId, desktopAvailable, projectsLoaded, loadDirectory, setSelectedFiles]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Navigate to highlighted file (from mention chip click)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const lastHighlightRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (!highlightPath || !desktopAvailable || highlightPath === lastHighlightRef.current) return;
+    lastHighlightRef.current = highlightPath;
+
+    // Extract parent directory and file name from the path
+    const separatorIdx = Math.max(highlightPath.lastIndexOf('/'), highlightPath.lastIndexOf('\\'));
+    const parentDir = separatorIdx > 0 ? highlightPath.slice(0, separatorIdx) : '';
+
+    const navigateToFile = async () => {
+      // Navigate to the parent directory
+      await loadDirectory(parentDir);
+      // Select the highlighted file so it stands out
+      setSelectedFiles(new Set([highlightPath]));
+      // Open preview for files (not directories)
+      await loadPreview(highlightPath);
+    };
+
+    void navigateToFile();
+  }, [highlightPath, desktopAvailable, loadDirectory, setSelectedFiles, loadPreview]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Entry click handler

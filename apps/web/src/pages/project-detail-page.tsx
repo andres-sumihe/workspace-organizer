@@ -38,6 +38,7 @@ import {
 import { TaskDetailModal, TASK_STATUS_CONFIG } from '@/features/journal/components';
 import { ProjectNotesPanel } from '@/features/notes/components/project-notes-panel';
 import { queryKeys } from '@/lib/query-client';
+import { extractPlainText } from '@/components/ui/mention-content-view';
 import { WorkspaceFilesTab } from '@/features/workspaces/components/workspace-project-tab';
 import { AppPage, AppPageContent, AppPageTabs } from '@/components/layout/app-page';
 import {
@@ -197,7 +198,7 @@ function TaskRow({ task, onStatusChange, onEdit, onDelete, onViewInJournal }: Ta
           title="Click to edit task"
         >
           <span className={`font-medium ${task.status === 'done' ? 'line-through text-muted-foreground' : ''}`}>
-            {task.content.length > 80 ? `${task.content.substring(0, 80)}...` : task.content}
+            {(() => { const t = extractPlainText(task.content); return t.length > 80 ? `${t.substring(0, 80)}...` : t; })()}
           </span>
           <span className="text-xs text-muted-foreground">
             Journal: {formatRelativeDate(task.date)}
@@ -411,6 +412,13 @@ export function ProjectDetailPage() {
   const [activeTab, setActiveTab] = useState<TabValue>(
     (searchParams.get('tab') as TabValue) || 'overview'
   );
+
+  // Sync tab & highlight from URL search params (e.g. mention chip navigation)
+  const highlightPath = searchParams.get('highlight') ?? undefined;
+  useEffect(() => {
+    const tab = searchParams.get('tab') as TabValue | null;
+    if (tab && tab !== activeTab) setActiveTab(tab);
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Dialog states
   const [quickTaskOpen, setQuickTaskOpen] = useState(false);
@@ -686,9 +694,7 @@ export function ProjectDetailPage() {
                               <span
                                 className={`flex-1 text-sm ${task.status === 'done' ? 'line-through text-muted-foreground' : ''}`}
                               >
-                                {task.content.length > 60
-                                  ? `${task.content.substring(0, 60)}...`
-                                  : task.content}
+                                {(() => { const t = extractPlainText(task.content); return t.length > 60 ? `${t.substring(0, 60)}...` : t; })()}
                               </span>
                               <span className="text-xs text-muted-foreground">
                                 {formatRelativeDate(task.date)}
@@ -884,6 +890,7 @@ export function ProjectDetailPage() {
               <WorkspaceFilesTab 
                 workspaceId={project.linkedWorkspace?.id ?? 'standalone'} 
                 customRootPath={project.folderPath}
+                highlightPath={highlightPath}
               />
             ) : (
               <Card>
