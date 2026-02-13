@@ -125,6 +125,13 @@ export const queryKeys = {
     stats: (params?: Record<string, unknown>) => [...queryKeys.overtime.all, 'stats', params] as const,
   },
 
+  // Workspace files domain (Electron IPC directory listing)
+  workspaceFiles: {
+    all: ['workspaceFiles'] as const,
+    list: (rootPath: string, relativePath?: string) =>
+      [...queryKeys.workspaceFiles.all, 'list', rootPath, relativePath ?? ''] as const,
+  },
+
   // Settings domain
   settings: {
     all: ['settings'] as const,

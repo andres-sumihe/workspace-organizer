@@ -12,6 +12,7 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { queryKeys } from '@/lib/query-client';
+import { extractPlainText } from '@/components/ui/mention-content-view';
 
 const STALE_TIME = 2 * 60 * 1000; // 2 minutes
 
@@ -64,7 +65,7 @@ export const ActiveFocusCard = () => {
             {activeTasks.map((task) => (
               <div key={task.id} className="flex items-center justify-between space-x-4 border-b pb-4 last:border-0 last:pb-0">
                 <div className="space-y-1">
-                  <p className="text-sm font-medium leading-none">{task.content}</p>
+                  <p className="text-sm font-medium leading-none">{extractPlainText(task.content)}</p>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Badge variant={task.status === 'in_progress' ? 'default' : 'secondary'} className="text-[10px] h-5 px-1.5">
                       {task.status.replace('_', ' ')}

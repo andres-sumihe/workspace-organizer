@@ -15,10 +15,10 @@ import type {
 } from '@workspace/shared';
 
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import { MentionContentView } from '@/components/ui/mention-content-view';
 import { formatDateDisplay, formatTimestampDisplay } from '@/features/journal/utils/journal-parser';
 import { TaskUpdatesSection } from '@/features/journal/components';
 
@@ -163,16 +163,21 @@ export function ReportTaskRow({
         </Popover>
 
         {/* Task title — click to expand */}
-        <button
-          type="button"
+        <div
+          role="button"
+          tabIndex={0}
           onClick={onToggleExpand}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onToggleExpand(); }}
           className={cn(
-            'flex-1 text-sm text-left truncate',
+            'flex-1 text-sm text-left truncate cursor-pointer',
             item.status === 'done' && 'line-through text-muted-foreground',
           )}
         >
-          {item.title}
-        </button>
+          <MentionContentView content={item.title} className={cn(
+            'truncate inline',
+            item.status === 'done' && 'line-through text-muted-foreground',
+          )} />
+        </div>
 
         {/* Flags — inline badges */}
         {item.flags.length > 0 && (

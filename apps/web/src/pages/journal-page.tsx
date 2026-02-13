@@ -78,7 +78,9 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Textarea } from '@/components/ui/textarea';
+import { MentionTextarea } from '@/components/ui/mention-input';
+import { MentionContentView, extractPlainText } from '@/components/ui/mention-content-view';
+import { useProjectFileMention } from '@/hooks/use-file-mention';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   formatDate,
@@ -145,9 +147,9 @@ function KanbanCard({ entry, index, isSelected, onSelect }: KanbanCardProps) {
     >
       {/* Drag Handle + Content */}
       <div className="flex items-start gap-2 ml-1">
-        <p className={`text-sm leading-snug flex-1 font-medium ${entry.status === 'done' ? 'line-through text-muted-foreground' : 'text-foreground/90'}`}>
-          {entry.content}
-        </p>
+        <div className={`text-sm leading-snug flex-1 font-medium ${entry.status === 'done' ? 'line-through text-muted-foreground' : 'text-foreground/90'}`}>
+          <MentionContentView content={entry.content} />
+        </div>
       </div>
 
       {/* Metadata Row */}
@@ -358,7 +360,9 @@ function EntryFormDialog({
   onSave,
   onCreateTag
 }: EntryFormDialogProps) {
-  const [content, setContent] = useState('');
+  const mentionResolver = useProjectFileMention();
+  const [content, setContent] = useState('');       // plain text for parsing
+  const [contentJson, setContentJson] = useState(''); // Tiptap JSON string for persistence
   const [date, setDate] = useState(getTodayDate());
   const [status, setStatus] = useState<WorkLogStatus>('todo');
   const [priority, setPriority] = useState<WorkLogPriority | 'none'>('none');
@@ -388,7 +392,8 @@ function EntryFormDialog({
   useEffect(() => {
     if (open) {
       if (entry) {
-        setContent(entry.content);
+        setContent(extractPlainText(entry.content));
+        setContentJson(entry.content);
         setDate(entry.date);
         setStatus(entry.status);
         setPriority(entry.priority ?? 'none');
@@ -404,6 +409,7 @@ function EntryFormDialog({
         setUserOverrideProject(false);
       } else {
         setContent('');
+        setContentJson('');
         setDate(defaultDate ?? getTodayDate());
         setStatus('todo');
         setPriority('none');
@@ -546,7 +552,7 @@ function EntryFormDialog({
       finalContent = finalContent.replace(/\s+/g, ' ').trim();
 
       const data: CreateWorkLogRequest | UpdateWorkLogRequest = {
-        content: finalContent,
+        content: contentJson || finalContent,
         date,
         status,
         priority: priority !== 'none' ? priority : undefined,
@@ -601,12 +607,16 @@ function EntryFormDialog({
           {/* Content */}
           <div className="space-y-2">
             <Label htmlFor="content">What did you work on?</Label>
-            <Textarea
-              id="content"
-              placeholder="e.g., Fixed bug in login #dev by tomorrow priority: high project: Q1 Launch"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              rows={3}
+            <MentionTextarea
+              placeholder="e.g., Fixed bug in login #dev by tomorrow priority: high project: Q1 Launch. Type / to mention files..."
+              value={contentJson}
+              onChange={({ text, json }) => {
+                setContent(text);
+                setContentJson(JSON.stringify(json));
+              }}
+              items={mentionResolver}
+              triggerChar="/"
+              minHeight="80px"
             />
             {/* Auto-detection Feedback */}
             {(suggestions.date || suggestions.dueDate || suggestions.priority || suggestions.project) && (

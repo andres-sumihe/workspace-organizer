@@ -1,7 +1,8 @@
 import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { MentionTextarea } from '@/components/ui/mention-input';
+import { MentionContentView, extractPlainText } from '@/components/ui/mention-content-view';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,6 +12,7 @@ import {
 import { MessageSquarePlus, MoreHorizontal, Pencil, Trash2, Send, X, MessageCircle, Reply, CornerDownRight } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { taskUpdatesApi } from '@/features/journal/api/journal';
+import { useProjectFileMention } from '@/hooks/use-file-mention';
 
 import type { TaskUpdate, TaskUpdateEntityType, CreateTaskUpdateRequest } from '@workspace/shared';
 
@@ -27,12 +29,17 @@ const formatUpdateDate = formatRelativeTime;
 const formatFullDate = formatTimestampDisplay;
 
 export function TaskUpdatesSection({ entityType, entityId }: TaskUpdatesSectionProps) {
+  const mentionResolver = useProjectFileMention();
+  const items = mentionResolver;
   const [isAdding, setIsAdding] = useState(false);
   const [newContent, setNewContent] = useState('');
+  const [newContentText, setNewContentText] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState('');
+  const [editingContentText, setEditingContentText] = useState('');
   const [replyingToId, setReplyingToId] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState('');
+  const [replyContentText, setReplyContentText] = useState('');
 
   const queryClient = useQueryClient();
   const queryKey = ['task-updates', entityType, entityId];
@@ -53,6 +60,7 @@ export function TaskUpdatesSection({ entityType, entityId }: TaskUpdatesSectionP
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
       setNewContent('');
+      setNewContentText('');
       setIsAdding(false);
     },
     onError: (err) => {
@@ -68,6 +76,7 @@ export function TaskUpdatesSection({ entityType, entityId }: TaskUpdatesSectionP
       queryClient.invalidateQueries({ queryKey });
       setEditingId(null);
       setEditingContent('');
+      setEditingContentText('');
     },
     onError: (err) => {
       console.error('Failed to save update:', err);
@@ -86,27 +95,29 @@ export function TaskUpdatesSection({ entityType, entityId }: TaskUpdatesSectionP
   });
 
   const handleAdd = useCallback(() => {
-    if (!newContent.trim()) return;
+    if (!extractPlainText(newContent).trim()) return;
     createMutation.mutate({
       entityType,
       entityId,
-      content: newContent.trim()
+      content: newContent
     });
   }, [createMutation, entityType, entityId, newContent]);
 
   const handleEdit = useCallback((update: TaskUpdate) => {
     setEditingId(update.id);
     setEditingContent(update.content);
+    setEditingContentText(extractPlainText(update.content));
   }, []);
 
   const handleSaveEdit = useCallback(() => {
-    if (!editingId || !editingContent.trim()) return;
-    updateMutation.mutate({ id: editingId, content: editingContent.trim() });
+    if (!editingId || !extractPlainText(editingContent).trim()) return;
+    updateMutation.mutate({ id: editingId, content: editingContent });
   }, [updateMutation, editingId, editingContent]);
 
   const handleCancelEdit = useCallback(() => {
     setEditingId(null);
     setEditingContent('');
+    setEditingContentText('');
   }, []);
 
   const handleDelete = useCallback(
@@ -119,23 +130,26 @@ export function TaskUpdatesSection({ entityType, entityId }: TaskUpdatesSectionP
   const handleReply = useCallback((parentId: string) => {
     setReplyingToId(parentId);
     setReplyContent('');
+    setReplyContentText('');
   }, []);
 
   const handleCancelReply = useCallback(() => {
     setReplyingToId(null);
     setReplyContent('');
+    setReplyContentText('');
   }, []);
 
   const handleSubmitReply = useCallback(() => {
-    if (!replyingToId || !replyContent.trim()) return;
+    if (!replyingToId || !extractPlainText(replyContent).trim()) return;
     createMutation.mutate({
       entityType,
       entityId,
       parentId: replyingToId,
-      content: replyContent.trim()
+      content: replyContent
     });
     setReplyingToId(null);
     setReplyContent('');
+    setReplyContentText('');
   }, [createMutation, entityType, entityId, replyingToId, replyContent]);
 
   // Helper to count total updates including replies
@@ -172,12 +186,15 @@ export function TaskUpdatesSection({ entityType, entityId }: TaskUpdatesSectionP
       {/* Add new update form */}
       {isAdding && (
         <div className="space-y-2 p-3 bg-muted/50 rounded-lg">
-          <Textarea
-            placeholder="What's the latest on this task?"
-            value={newContent}
-            onChange={(e) => setNewContent(e.target.value)}
-            className="min-h-[60px] resize-none text-sm"
-            autoFocus
+          <MentionTextarea
+            placeholder="What's the latest on this task? Type / to mention files..."
+            onChange={({ text, json }) => {
+              setNewContentText(text);
+              setNewContent(JSON.stringify(json));
+            }}
+            items={items}
+            triggerChar="/"
+            className="min-h-15 text-sm"
           />
           <div className="flex justify-end gap-2">
             <Button
@@ -186,6 +203,7 @@ export function TaskUpdatesSection({ entityType, entityId }: TaskUpdatesSectionP
               onClick={() => {
                 setIsAdding(false);
                 setNewContent('');
+                setNewContentText('');
               }}
             >
               <X className="h-4 w-4 mr-1" />
@@ -194,7 +212,7 @@ export function TaskUpdatesSection({ entityType, entityId }: TaskUpdatesSectionP
             <Button
               size="sm"
               onClick={handleAdd}
-              disabled={!newContent.trim() || createMutation.isPending}
+              disabled={!newContentText.trim() || createMutation.isPending}
             >
               <Send className="h-4 w-4 mr-1" />
               {createMutation.isPending ? 'Adding...' : 'Add Update'}
@@ -219,11 +237,15 @@ export function TaskUpdatesSection({ entityType, entityId }: TaskUpdatesSectionP
                   {editingId === update.id ? (
                     /* Edit mode */
                     <div className="space-y-2">
-                      <Textarea
+                      <MentionTextarea
                         value={editingContent}
-                        onChange={(e) => setEditingContent(e.target.value)}
-                        className="min-h-[60px] resize-none text-sm"
-                        autoFocus
+                        onChange={({ text, json }) => {
+                          setEditingContentText(text);
+                          setEditingContent(JSON.stringify(json));
+                        }}
+                        items={items}
+                        triggerChar="/"
+                        className="min-h-15 text-sm"
                       />
                       <div className="flex justify-end gap-2">
                         <Button variant="ghost" size="sm" onClick={handleCancelEdit}>
@@ -232,7 +254,7 @@ export function TaskUpdatesSection({ entityType, entityId }: TaskUpdatesSectionP
                         <Button
                           size="sm"
                           onClick={handleSaveEdit}
-                          disabled={!editingContent.trim() || updateMutation.isPending}
+                          disabled={!editingContentText.trim() || updateMutation.isPending}
                         >
                           {updateMutation.isPending ? 'Saving...' : 'Save'}
                         </Button>
@@ -241,7 +263,7 @@ export function TaskUpdatesSection({ entityType, entityId }: TaskUpdatesSectionP
                   ) : (
                     /* View mode */
                     <>
-                      <p className="text-sm whitespace-pre-wrap pr-8">{update.content}</p>
+                      <MentionContentView content={update.content} className="pr-8" />
                       <p
                         className="text-xs text-muted-foreground mt-2"
                         title={formatFullDate(update.createdAt)}
@@ -293,11 +315,15 @@ export function TaskUpdatesSection({ entityType, entityId }: TaskUpdatesSectionP
                       >
                         {editingId === reply.id ? (
                           <div className="space-y-2">
-                            <Textarea
+                            <MentionTextarea
                               value={editingContent}
-                              onChange={(e) => setEditingContent(e.target.value)}
-                              className="min-h-[40px] resize-none text-sm"
-                              autoFocus
+                              onChange={({ text, json }) => {
+                                setEditingContentText(text);
+                                setEditingContent(JSON.stringify(json));
+                              }}
+                              items={items}
+                              triggerChar="/"
+                              className="min-h-10 text-sm"
                             />
                             <div className="flex justify-end gap-2">
                               <Button variant="ghost" size="sm" onClick={handleCancelEdit}>
@@ -306,7 +332,7 @@ export function TaskUpdatesSection({ entityType, entityId }: TaskUpdatesSectionP
                               <Button
                                 size="sm"
                                 onClick={handleSaveEdit}
-                                disabled={!editingContent.trim() || updateMutation.isPending}
+                                disabled={!editingContentText.trim() || updateMutation.isPending}
                               >
                                 {updateMutation.isPending ? 'Saving...' : 'Save'}
                               </Button>
@@ -316,7 +342,7 @@ export function TaskUpdatesSection({ entityType, entityId }: TaskUpdatesSectionP
                           <>
                             <div className="flex items-start gap-1">
                               <CornerDownRight className="h-3 w-3 text-muted-foreground mt-1 shrink-0" />
-                              <p className="text-sm whitespace-pre-wrap pr-6">{reply.content}</p>
+                              <MentionContentView content={reply.content} className="pr-6" />
                             </div>
                             <p
                               className="text-xs text-muted-foreground mt-1 ml-4"
@@ -363,12 +389,15 @@ export function TaskUpdatesSection({ entityType, entityId }: TaskUpdatesSectionP
                   <div className="ml-4 space-y-2 p-2 bg-muted/30 rounded-lg border-l-2 border-primary">
                     <div className="flex items-start gap-2">
                       <CornerDownRight className="h-4 w-4 text-primary mt-2 shrink-0" />
-                      <Textarea
-                        placeholder="Write a reply..."
-                        value={replyContent}
-                        onChange={(e) => setReplyContent(e.target.value)}
-                        className="min-h-[40px] resize-none text-sm flex-1"
-                        autoFocus
+                      <MentionTextarea
+                        placeholder="Write a reply... Type / to mention files"
+                        onChange={({ text, json }) => {
+                          setReplyContentText(text);
+                          setReplyContent(JSON.stringify(json));
+                        }}
+                        items={items}
+                        triggerChar="/"
+                        className="min-h-10 text-sm flex-1"
                       />
                     </div>
                     <div className="flex justify-end gap-2">
@@ -378,7 +407,7 @@ export function TaskUpdatesSection({ entityType, entityId }: TaskUpdatesSectionP
                       <Button
                         size="sm"
                         onClick={handleSubmitReply}
-                        disabled={!replyContent.trim() || createMutation.isPending}
+                        disabled={!replyContentText.trim() || createMutation.isPending}
                       >
                         <Send className="h-3 w-3 mr-1" />
                         {createMutation.isPending ? 'Sending...' : 'Reply'}

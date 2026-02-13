@@ -1,5 +1,7 @@
 import type { WeeklyReportProjectGroup, WeeklyReportSummary, WeeklyReportItem } from '@workspace/shared';
 
+import { extractPlainText } from '@/components/ui/mention-content-view';
+
 const STATUS_ICONS: Record<string, string> = {
   done: '✅',
   inProgress: '🔵',
@@ -18,7 +20,7 @@ function formatItemLine(item: WeeklyReportItem): string {
   const priority = PRIORITY_LABELS[item.priority];
   const flagStr = item.flags.length > 0 ? ` [${item.flags.join(', ')}]` : '';
   const priorityStr = priority ? ` (${priority})` : '';
-  return `- ${icon} ${item.title}${priorityStr}${flagStr}`;
+  return `- ${icon} ${extractPlainText(item.title)}${priorityStr}${flagStr}`;
 }
 
 /**

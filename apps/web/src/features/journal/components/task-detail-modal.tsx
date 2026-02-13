@@ -8,6 +8,7 @@ import {
 
 import type { TaskUpdateFlag, WorkLogEntry, WorkLogStatus } from '@workspace/shared';
 
+import { MentionContentView } from '@/components/ui/mention-content-view';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -87,7 +88,7 @@ export function TaskDetailModal({
             <div className="flex items-start gap-4">
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground uppercase">Description</Label>
-                <p className="text-sm whitespace-pre-wrap">{entry.content}</p>
+                <MentionContentView content={entry.content} className="whitespace-pre-wrap" />
               </div>
             </div>
 
