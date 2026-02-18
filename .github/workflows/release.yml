@@ -27,6 +27,9 @@ jobs:
           node-version: 22.16.0
           cache: 'pnpm'
 
+      - name: Configure pnpm for Electron packaging
+        run: pnpm config set node-linker hoisted
+
       - name: Install Dependencies
         run: pnpm install
 
