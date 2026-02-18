@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1]
+
+## Added
+- Add downloadable file-manager script for extract/pack file on windows server.
+- Add mentioned file feature on Task Descriptions, Updates and Comments.
+
+## Fixed
+- Fix journal page not automatically update state
+- Fix comments not appeared on Journal Report 
+
 ## [0.4.0]
 
 ## Added
