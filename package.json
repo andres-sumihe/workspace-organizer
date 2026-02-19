@@ -17,7 +17,8 @@
     "dev:api": "pnpm --filter @workspace/api dev",
     "dev:web": "pnpm --filter @workspace/web dev",
     "dev:desktop": "concurrently \"pnpm --filter @workspace/api dev\" \"pnpm --filter @workspace/web dev\" \"node ./scripts/wait-for-http.js http://127.0.0.1:5173 && electron .\"",
-    "build": "pnpm --filter @workspace/api build:bundle && pnpm --filter @workspace/web build",
+    "build:lib": "node scripts/bundle-lib.mjs",
+    "build": "pnpm --filter @workspace/api build:bundle && pnpm --filter @workspace/web build && pnpm run build:lib",
     "prebuild:desktop": "node scripts/validate-desktop-build.js",
     "rebuild:electron": "pnpm dlx @electron/rebuild --force",
     "rebuild:node": "npm rebuild better-sqlite3",
@@ -62,6 +63,7 @@
     "concurrently": "^9.2.1",
     "electron": "^33.2.0",
     "electron-builder": "^26.0.12",
+    "esbuild": "^0.27.2",
     "eslint": "^9.38.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-import-resolver-typescript": "^4.4.4",
@@ -113,6 +115,7 @@
     },
     "files": [
       "electron/**/*",
+      "lib/dist/**/*",
       "lib/**/*",
       "apps/api/dist/**/*",
       "apps/web/dist/**/*",
@@ -171,6 +174,12 @@
       "better-sqlite3",
       "electron",
       "sharp"
+    ],
+    "ignoredBuiltDependencies": [
+      "electron-winstaller",
+      "esbuild",
+      "sqlite3",
+      "unrs-resolver"
     ]
   }
 }
