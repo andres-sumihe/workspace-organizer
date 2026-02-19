@@ -851,12 +851,15 @@ ipcMain.handle('select-directory', async () => {
 });
 
 // hook up template & fs services
-const templateZip = require('../lib/template-zip');
-const templateEngine = require('../lib/template-engine');
-const fsExecutor = require('../lib/fs-executor');
-const workspaceFs = require('../lib/workspace-fs');
-const templateRegistry = require('../lib/template-registry');
-const workspaceTemplateMap = require('../lib/workspace-template-map');
+// In production, use esbuild-bundled versions (lib/dist/) so the packaged app
+// doesn't depend on node_modules for transitive dependencies like wrappy/once.
+const libDir = app.isPackaged ? '../lib/dist' : '../lib';
+const templateZip = require(`${libDir}/template-zip`);
+const templateEngine = require(`${libDir}/template-engine`);
+const fsExecutor = require(`${libDir}/fs-executor`);
+const workspaceFs = require(`${libDir}/workspace-fs`);
+const templateRegistry = require(`${libDir}/template-registry`);
+const workspaceTemplateMap = require(`${libDir}/workspace-template-map`);
 
 const getUserDataRoot = () => path.join(app.getPath('userData'), 'workspace-organizer');
 
