@@ -33,6 +33,8 @@ interface DirectoryBrowserProps {
   onNewFolder: () => void;
   onRevealInExplorer: (path: string) => void;
   onOpenInVSCode: (path: string) => void;
+  onArchive: (paths: string[]) => void;
+  onExtract: (path: string) => void;
   onImportExternalFiles: (paths: string[]) => Promise<void>;
   hasClipboard?: boolean;
   loading: boolean;
@@ -56,6 +58,8 @@ const DirectoryBrowserComponent = forwardRef<DirectoryBrowserHandle, DirectoryBr
   onNewFolder,
   onRevealInExplorer,
   onOpenInVSCode,
+  onArchive,
+  onExtract,
   onImportExternalFiles,
   hasClipboard,
   loading
@@ -264,6 +268,8 @@ const DirectoryBrowserComponent = forwardRef<DirectoryBrowserHandle, DirectoryBr
                         onNewFolder={onNewFolder}
                         onRevealInExplorer={onRevealInExplorer}
                         onOpenInVSCode={onOpenInVSCode}
+                        onArchive={onArchive}
+                        onExtract={onExtract}
                         hasMultipleSelected={selectedFiles.size > 1}
                         hasClipboard={hasClipboard}
                         disabled={loading || isRenaming}

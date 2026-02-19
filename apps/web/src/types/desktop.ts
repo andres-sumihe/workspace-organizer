@@ -201,6 +201,16 @@ export interface DesktopApi {
     imported?: Array<{ source: string; destination: string }>;
     errors?: Array<{ path: string; error: string }>;
   }>;
+  archiveEntries: (payload: {
+    rootPath: string;
+    relativePaths: string[];
+    archiveName: string;
+  }) => Promise<{ ok: boolean; error?: string; archivePath?: string }>;
+  extractArchive: (payload: {
+    rootPath: string;
+    archiveRelPath: string;
+    destinationDir?: string;
+  }) => Promise<{ ok: boolean; error?: string; extractedTo?: string }>;
   readClipboardFilePaths: () => Promise<{ ok: boolean; error?: string; paths: string[] }>;
   hasClipboardFiles: () => Promise<{ ok: boolean; hasFiles: boolean }>;
   setClipboardFilePaths: (paths: string[]) => Promise<{ ok: boolean; error?: string }>;

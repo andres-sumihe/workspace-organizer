@@ -33,6 +33,8 @@ interface UseFileOperationsReturn {
   handleOpenInVSCode: (relativePath?: string) => Promise<void>;
   handleDuplicate: (entry: WorkspaceDirectoryEntry) => Promise<void>;
   handleImportExternalFiles: (externalPaths: string[]) => Promise<void>;
+  handleArchive: (paths?: string[]) => Promise<void>;
+  handleExtract: (archivePath: string) => Promise<void>;
 }
 
 export const useFileOperations = ({
@@ -449,6 +451,66 @@ export const useFileOperations = ({
     }
   }, [getEffectiveRootPath, currentPath, onRefreshDirectory]);
 
+  // ─── Archive (Compress to ZIP) ────────────────────────────────────────
+
+  const handleArchive = useCallback(async (paths?: string[]) => {
+    const pathsToArchive = paths ?? Array.from(selectedFiles);
+    if (pathsToArchive.length === 0) {
+      toast.error('No files selected for archiving.');
+      return;
+    }
+
+    const effectiveRoot = getEffectiveRootPath();
+    if (!effectiveRoot || !window.api?.archiveEntries) {
+      toast.error('Desktop bridge unavailable.');
+      return;
+    }
+
+    try {
+      // Derive archive name from the first entry
+      const firstName = pathsToArchive[0].split('/').pop() || 'archive';
+      const baseName = pathsToArchive.length === 1
+        ? firstName.replace(/\.[^.]+$/, '')
+        : 'archive';
+      const archiveName = `${baseName}.zip`;
+
+      const response = await window.api.archiveEntries({
+        rootPath: effectiveRoot,
+        relativePaths: pathsToArchive,
+        archiveName,
+      });
+
+      if (!response.ok) throw new Error(response.error || 'Archive creation failed');
+      toast.success(`Created ${response.archivePath}`);
+      await onRefreshDirectory();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to create archive');
+    }
+  }, [selectedFiles, getEffectiveRootPath, onRefreshDirectory]);
+
+  // ─── Extract Archive ──────────────────────────────────────────────────
+
+  const handleExtract = useCallback(async (archivePath: string) => {
+    const effectiveRoot = getEffectiveRootPath();
+    if (!effectiveRoot || !window.api?.extractArchive) {
+      toast.error('Desktop bridge unavailable.');
+      return;
+    }
+
+    try {
+      const response = await window.api.extractArchive({
+        rootPath: effectiveRoot,
+        archiveRelPath: archivePath,
+      });
+
+      if (!response.ok) throw new Error(response.error || 'Extraction failed');
+      toast.success(`Extracted to ${response.extractedTo}`);
+      await onRefreshDirectory();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to extract archive');
+    }
+  }, [getEffectiveRootPath, onRefreshDirectory]);
+
   return {
     selectedFiles,
     setSelectedFiles,
@@ -467,5 +529,7 @@ export const useFileOperations = ({
     handleOpenInVSCode,
     handleDuplicate,
     handleImportExternalFiles,
+    handleArchive,
+    handleExtract,
   };
 };

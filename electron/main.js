@@ -1175,6 +1175,32 @@ ipcMain.handle('workspace:import-external', async (event, payload) => {
   }
 });
 
+ipcMain.handle('workspace:archive', async (event, payload) => {
+  try {
+    const result = await workspaceFs.archiveEntries(
+      payload?.rootPath,
+      payload?.relativePaths || [],
+      payload?.archiveName || 'archive'
+    );
+    return { ok: true, ...result };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
+ipcMain.handle('workspace:extract', async (event, payload) => {
+  try {
+    const result = await workspaceFs.extractArchive(
+      payload?.rootPath,
+      payload?.archiveRelPath,
+      payload?.destinationDir
+    );
+    return { ok: true, ...result };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
 // ─── Clipboard: file path operations (CF_HDROP) ────────────────────────────
 // Electron's clipboard.readBuffer/writeBuffer uses RegisterClipboardFormatW()
 // internally — this creates CUSTOM registered formats, not standard ones.

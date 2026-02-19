@@ -1,4 +1,5 @@
 import {
+  Archive,
   Clipboard,
   ClipboardCopy,
   Code,
@@ -7,6 +8,7 @@ import {
   ExternalLink,
   FilePlus,
   FolderPlus,
+  PackageOpen,
   Scissors,
   Trash2
 } from 'lucide-react';
@@ -20,6 +22,13 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger
 } from '@/components/ui/context-menu';
+
+const ARCHIVE_EXTENSIONS = ['.zip', '.7z', '.rar'];
+
+const isArchiveFile = (filePath: string): boolean => {
+  const ext = filePath.toLowerCase().split('.').pop();
+  return ext ? ARCHIVE_EXTENSIONS.includes(`.${ext}`) : false;
+};
 
 interface FileContextMenuProps {
   children: ReactNode;
@@ -35,6 +44,8 @@ interface FileContextMenuProps {
   onNewFolder: () => void;
   onRevealInExplorer: (path: string) => void;
   onOpenInVSCode: (path: string) => void;
+  onArchive: (paths: string[]) => void;
+  onExtract: (path: string) => void;
   hasMultipleSelected?: boolean;
   hasClipboard?: boolean;
   disabled?: boolean;
@@ -54,6 +65,8 @@ export const FileContextMenu = ({
   onNewFolder,
   onRevealInExplorer,
   onOpenInVSCode,
+  onArchive,
+  onExtract,
   hasMultipleSelected,
   hasClipboard,
   disabled
@@ -61,6 +74,8 @@ export const FileContextMenu = ({
   if (disabled) {
     return <>{children}</>;
   }
+
+  const showExtract = entryType === 'file' && isArchiveFile(entryPath);
 
   return (
     <ContextMenu>
@@ -93,6 +108,20 @@ export const FileContextMenu = ({
           <ClipboardCopy className="mr-2 h-4 w-4" />
           Duplicate
         </ContextMenuItem>
+
+        <ContextMenuSeparator />
+
+        {/* Archive operations */}
+        <ContextMenuItem onClick={() => onArchive([entryPath])} className="cursor-pointer">
+          <Archive className="mr-2 h-4 w-4" />
+          Compress to ZIP
+        </ContextMenuItem>
+        {showExtract ? (
+          <ContextMenuItem onClick={() => onExtract(entryPath)} className="cursor-pointer">
+            <PackageOpen className="mr-2 h-4 w-4" />
+            Extract Here
+          </ContextMenuItem>
+        ) : null}
 
         <ContextMenuSeparator />
 

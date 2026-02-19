@@ -46,6 +46,8 @@ contextBridge.exposeInMainWorld('api', {
   revealInExplorer: (payload) => ipcRenderer.invoke('workspace:reveal-in-explorer', payload),
   openInVSCode: (payload) => ipcRenderer.invoke('workspace:open-in-vscode', payload),
   importExternalFiles: (payload) => ipcRenderer.invoke('workspace:import-external', payload),
+  archiveEntries: (payload) => ipcRenderer.invoke('workspace:archive', payload),
+  extractArchive: (payload) => ipcRenderer.invoke('workspace:extract', payload),
   readClipboardFilePaths: () => ipcRenderer.invoke('clipboard:read-file-paths'),
   hasClipboardFiles: () => ipcRenderer.invoke('clipboard:has-file-paths'),
   setClipboardFilePaths: (paths) => ipcRenderer.invoke('clipboard:set-file-paths', paths),
