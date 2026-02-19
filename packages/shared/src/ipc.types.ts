@@ -200,6 +200,18 @@ export interface TypedElectronAPI {
     errors?: Array<{ path: string; error: string }>;
   }>;
 
+  // Archive & Extract operations
+  archiveEntries: (payload: {
+    rootPath: string;
+    relativePaths: string[];
+    archiveName: string;
+  }) => Promise<{ ok: boolean; error?: string; archivePath?: string }>;
+  extractArchive: (payload: {
+    rootPath: string;
+    archiveRelPath: string;
+    destinationDir?: string;
+  }) => Promise<{ ok: boolean; error?: string; extractedTo?: string }>;
+
   // System clipboard file operations
   readClipboardFilePaths: () => Promise<{ ok: boolean; error?: string; paths: string[] }>;
   hasClipboardFiles: () => Promise<{ ok: boolean; hasFiles: boolean }>;

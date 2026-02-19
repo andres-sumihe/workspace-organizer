@@ -228,7 +228,9 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath, highlightPath }
     handleRevealInExplorer,
     handleOpenInVSCode,
     handleDuplicate,
-    handleImportExternalFiles
+    handleImportExternalFiles,
+    handleArchive,
+    handleExtract
   } = useFileOperations({
     getEffectiveRootPath,
     currentPath,
@@ -787,6 +789,8 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath, highlightPath }
               onNewFolder={openNewFolderDialog}
               onRevealInExplorer={handleRevealInExplorer}
               onOpenInVSCode={handleOpenInVSCode}
+              onArchive={handleArchive}
+              onExtract={handleExtract}
               onImportExternalFiles={handleImportExternalFiles}
               hasClipboard={canPaste}
               loading={directoryLoading}
