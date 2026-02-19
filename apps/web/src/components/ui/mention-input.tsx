@@ -11,6 +11,7 @@ import Mention from "@tiptap/extension-mention";
 import Placeholder from "@tiptap/extension-placeholder";
 import StarterKit from "@tiptap/starter-kit";
 import { createRoot } from "react-dom/client";
+import { flushSync } from "react-dom";
 
 import { cn } from "@/lib/utils";
 
@@ -153,39 +154,64 @@ const MentionWithProject = Mention.extend({
 });
 
 // ---------------------------------------------------------------------------
-// Dropdown positioning helper (fixed positioning relative to viewport)
+// Dropdown positioning helper
 // ---------------------------------------------------------------------------
 
 const DROPDOWN_MAX_HEIGHT = 240; // matches max-h-60 (15rem = 240px)
 const DROPDOWN_GAP = 4;
 
+/**
+ * Position the suggestion dropdown relative to the caret.
+ *
+ * When inside a dialog with CSS `transform` the browser treats
+ * `position: fixed` as relative to the transform ancestor — NOT the
+ * viewport.  We detect that ancestor (the DialogContent element) and
+ * offset our coordinates accordingly.
+ *
+ * `transformAncestor` is the nearest ancestor with a CSS transform
+ * (i.e. DialogContent).  When null we fall back to true viewport-fixed.
+ */
 function positionDropdown(
   container: HTMLElement,
   rect: DOMRect,
-  anchorRoot: HTMLElement | null,
+  transformAncestor: HTMLElement | null,
 ) {
   const spaceBelow = window.innerHeight - rect.bottom;
-  const spaceAbove = rect.top;
-
-  const viewportTop =
-    spaceBelow >= DROPDOWN_MAX_HEIGHT + DROPDOWN_GAP || spaceBelow >= spaceAbove
-      ? rect.bottom + DROPDOWN_GAP
-      : rect.top - DROPDOWN_MAX_HEIGHT - DROPDOWN_GAP;
-
-  // Clamp horizontally so the dropdown doesn't overflow the viewport
+  const actualHeight = container.offsetHeight || DROPDOWN_MAX_HEIGHT;
   const viewportLeft = Math.max(4, Math.min(rect.left, window.innerWidth - 280));
 
-  if (anchorRoot) {
-    const rootRect = anchorRoot.getBoundingClientRect();
-    container.style.position = "absolute";
-    container.style.top = `${viewportTop - rootRect.top + anchorRoot.scrollTop}px`;
-    container.style.left = `${viewportLeft - rootRect.left + anchorRoot.scrollLeft}px`;
-    return;
-  }
+  // Position below if enough space, or if more space below than above
+  const viewportTop =
+    spaceBelow >= actualHeight + DROPDOWN_GAP || spaceBelow >= rect.top
+      ? rect.bottom + DROPDOWN_GAP
+      : rect.top - actualHeight - DROPDOWN_GAP;
 
   container.style.position = "fixed";
-  container.style.top = `${viewportTop}px`;
-  container.style.left = `${viewportLeft}px`;
+
+  if (transformAncestor) {
+    const aRect = transformAncestor.getBoundingClientRect();
+    container.style.top = `${viewportTop - aRect.top}px`;
+    container.style.left = `${viewportLeft - aRect.left}px`;
+  } else {
+    container.style.top = `${viewportTop}px`;
+    container.style.left = `${viewportLeft}px`;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Find the nearest ancestor with a CSS transform (containing block for fixed)
+// ---------------------------------------------------------------------------
+
+function findTransformAncestor(el: Element): HTMLElement | null {
+  let current = el.parentElement;
+  while (current) {
+    const transform = getComputedStyle(current).transform;
+    if (transform && transform !== "none") {
+      return current;
+    }
+    current = current.parentElement;
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -213,8 +239,24 @@ interface SuggestionRendererInstance {
   reactRoot: ReturnType<typeof createRoot> | null;
   ref: MentionSuggestionListRef | null;
   container: HTMLElement | null;
-  anchorRoot: HTMLElement | null;
+  /** Nearest ancestor with CSS transform (DialogContent), or null */
+  transformAncestor: HTMLElement | null;
   cleanupAutoUpdate: (() => void) | null;
+  cleanupClickOutside: (() => void) | null;
+}
+
+/** Tear down the suggestion dropdown completely */
+function destroyInstance(instance: SuggestionRendererInstance) {
+  instance.cleanupAutoUpdate?.();
+  instance.cleanupAutoUpdate = null;
+  instance.cleanupClickOutside?.();
+  instance.cleanupClickOutside = null;
+  instance.reactRoot?.unmount();
+  instance.container?.remove();
+  instance.reactRoot = null;
+  instance.container = null;
+  instance.transformAncestor = null;
+  instance.ref = null;
 }
 
 function createSuggestionRenderer(
@@ -240,8 +282,9 @@ function createSuggestionRenderer(
         reactRoot: null,
         ref: null,
         container: null,
-        anchorRoot: null,
+        transformAncestor: null,
         cleanupAutoUpdate: null,
+        cleanupClickOutside: null,
       };
 
       /** Set up scroll + resize listeners that reposition the dropdown */
@@ -255,7 +298,7 @@ function createSuggestionRenderer(
         const reposition = () => {
           const rect = getClientRect();
           if (rect && instance.container) {
-            positionDropdown(instance.container, rect, instance.anchorRoot);
+            positionDropdown(instance.container, rect, instance.transformAncestor);
           }
         };
 
@@ -287,52 +330,84 @@ function createSuggestionRenderer(
           instance.container = document.createElement("div");
           instance.container.style.zIndex = "9999";
 
-          instance.reactRoot = createRoot(instance.container);
-          instance.reactRoot.render(
-            <MentionSuggestionList
-              ref={(r) => {
-                instance.ref = r;
-              }}
-              items={props.items}
-              command={props.command}
-            />,
-          );
+          // Append to DOM BEFORE rendering so offsetHeight is measurable
+          const editorDom = props.editor.view.dom;
+          const dialogEl =
+            editorDom.closest("[data-radix-dialog-content]") ??
+            editorDom.closest("[role='dialog']");
 
-          // Append inside dialog content so react-remove-scroll (Radix
-          // Dialog scroll lock) treats the dropdown as an allowed scroll
-          // target. Falls back to document.body when not inside a dialog.
-          const dialog =
-            props.editor.view.dom.closest("[data-radix-dialog-content]") ??
-            props.editor.view.dom.closest("[role='dialog']");
-          instance.anchorRoot = dialog instanceof HTMLElement ? dialog : null;
-          (instance.anchorRoot ?? document.body).appendChild(instance.container);
+          if (dialogEl instanceof HTMLElement) {
+            dialogEl.appendChild(instance.container);
+            instance.transformAncestor = dialogEl;
+          } else {
+            document.body.appendChild(instance.container);
+            instance.transformAncestor = findTransformAncestor(editorDom);
+          }
+
+          // Render synchronously so offsetHeight is accurate for positioning
+          instance.reactRoot = createRoot(instance.container);
+          flushSync(() => {
+            instance.reactRoot!.render(
+              <MentionSuggestionList
+                ref={(r) => {
+                  instance.ref = r;
+                }}
+                items={props.items}
+                command={props.command}
+              />,
+            );
+          });
 
           const rect = props.clientRect?.();
           if (rect && instance.container) {
-            positionDropdown(instance.container, rect, instance.anchorRoot);
+            positionDropdown(instance.container, rect, instance.transformAncestor);
           }
 
           // Track scroll/resize to keep dropdown anchored
           if (props.editor) {
             startAutoUpdate(props.editor.view.dom, props.clientRect ?? undefined);
           }
+
+          // Click-outside listener: dismiss when clicking outside
+          // editor + dropdown (mimics VS Code behavior).
+          // We tear down the renderer directly (same as the Escape handler)
+          // instead of using the suggestion plugin's exit mechanism, because
+          // tiptap's exit meta only lasts for one transaction — any subsequent
+          // transaction (blur, focus change) would re-discover the trigger
+          // text and reopen the suggestion.
+          const onDocMouseDown = (e: MouseEvent) => {
+            const target = e.target as Node | null;
+            if (!target) return;
+            if (editorDom.contains(target)) return;
+            if (instance.container?.contains(target)) return;
+            destroyInstance(instance);
+          };
+          // Delay registration so the current mousedown (if any) finishes
+          setTimeout(() => {
+            document.addEventListener("mousedown", onDocMouseDown, true);
+          }, 0);
+          instance.cleanupClickOutside = () => {
+            document.removeEventListener("mousedown", onDocMouseDown, true);
+          };
         },
 
         onUpdate: (props: SuggestionProps<MentionSuggestionItem>) => {
           if (!instance.reactRoot) return;
-          instance.reactRoot.render(
-            <MentionSuggestionList
-              ref={(r) => {
-                instance.ref = r;
-              }}
-              items={props.items}
-              command={props.command}
-            />,
-          );
+          flushSync(() => {
+            instance.reactRoot!.render(
+              <MentionSuggestionList
+                ref={(r) => {
+                  instance.ref = r;
+                }}
+                items={props.items}
+                command={props.command}
+              />,
+            );
+          });
 
           const rect = props.clientRect?.();
           if (rect && instance.container) {
-            positionDropdown(instance.container, rect, instance.anchorRoot);
+            positionDropdown(instance.container, rect, instance.transformAncestor);
           }
 
           // Refresh listeners (editor DOM might have changed)
@@ -343,27 +418,27 @@ function createSuggestionRenderer(
 
         onKeyDown: (props: SuggestionKeyDownProps) => {
           if (props.event.key === "Escape") {
-            stopAutoUpdate();
-            instance.reactRoot?.unmount();
-            instance.container?.remove();
-            instance.container = null;
-            instance.anchorRoot = null;
-            instance.reactRoot = null;
+            destroyInstance(instance);
             return true;
           }
           return instance.ref?.onKeyDown(props) ?? false;
         },
 
         onExit: () => {
-          stopAutoUpdate();
           // Delay unmount slightly so React can finish rendering
+          const { cleanupAutoUpdate, cleanupClickOutside, reactRoot, container } = instance;
+          cleanupAutoUpdate?.();
+          cleanupClickOutside?.();
+          instance.cleanupAutoUpdate = null;
+          instance.cleanupClickOutside = null;
+          instance.ref = null;
           setTimeout(() => {
-            instance.reactRoot?.unmount();
-            instance.container?.remove();
-            instance.container = null;
-            instance.anchorRoot = null;
-            instance.reactRoot = null;
+            reactRoot?.unmount();
+            container?.remove();
           }, 0);
+          instance.reactRoot = null;
+          instance.container = null;
+          instance.transformAncestor = null;
         },
       };
     },
