@@ -2,16 +2,31 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useState,
   type ReactNode,
 } from "react";
 import type { SuggestionKeyDownProps, SuggestionProps } from "@tiptap/suggestion";
 
 import { EditorContent, useEditor } from "@tiptap/react";
+import type { Editor } from "@tiptap/react";
 import Mention from "@tiptap/extension-mention";
 import Placeholder from "@tiptap/extension-placeholder";
 import StarterKit from "@tiptap/starter-kit";
+import Image from "@tiptap/extension-image";
 import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
+import {
+  Bold,
+  Italic,
+  Strikethrough,
+  Code,
+  Quote,
+  List,
+  ListOrdered,
+  ImagePlus,
+  CodeSquare,
+  Loader2,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -56,6 +71,10 @@ export interface MentionInputProps {
   multiline?: boolean;
   /** CSS min-height applied in multi-line mode. @default "80px" */
   minHeight?: string;
+  /** CSS max-height applied in multi-line mode — editor scrolls beyond this. */
+  maxHeight?: string;
+  /** Enable rich text toolbar and formatting (heading, blockquote, code block, lists, image). @default false */
+  richText?: boolean;
   /** Additional className merged onto the outer wrapper */
   className?: string;
   /** Disable editing */
@@ -446,6 +465,97 @@ function createSuggestionRenderer(
 }
 
 // ---------------------------------------------------------------------------
+// Image upload helper
+// ---------------------------------------------------------------------------
+
+const API_URL = (import.meta as { env?: Record<string, unknown> }).env?.VITE_API_URL ?? '';
+
+async function uploadImageFile(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const token = localStorage.getItem('auth_access_token');
+  const res = await fetch(`${API_URL}/api/v1/uploads/images`, {
+    method: 'POST',
+    body: formData,
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+
+  if (!res.ok) {
+    throw new Error('Image upload failed');
+  }
+
+  const json = (await res.json()) as { data: { url: string } };
+  return json.data.url;
+}
+
+function isImageFile(file: File): boolean {
+  return /^image\/(jpeg|png|gif|webp|svg\+xml)$/.test(file.type);
+}
+
+// ---------------------------------------------------------------------------
+// RichTextToolbar — formatting buttons for the editor
+// ---------------------------------------------------------------------------
+
+interface RichTextToolbarProps {
+  editor: Editor | null;
+  onImageUpload?: () => void;
+  isUploading?: boolean;
+}
+
+function RichTextToolbar({ editor, onImageUpload, isUploading }: RichTextToolbarProps) {
+  if (!editor) return null;
+
+  const btn = (active: boolean) =>
+    cn(
+      "inline-flex items-center justify-center h-7 w-7 rounded-sm transition-colors",
+      "hover:bg-accent hover:text-accent-foreground",
+      active && "bg-accent text-accent-foreground",
+    );
+
+  return (
+    <div className="flex items-center gap-0.5 border-t border-border pt-1.5 mt-1.5 flex-wrap">
+      <button type="button" title="Bold" className={btn(editor.isActive("bold"))} onClick={() => editor.chain().focus().toggleBold().run()}>
+        <Bold className="h-3.5 w-3.5" />
+      </button>
+      <button type="button" title="Italic" className={btn(editor.isActive("italic"))} onClick={() => editor.chain().focus().toggleItalic().run()}>
+        <Italic className="h-3.5 w-3.5" />
+      </button>
+      <button type="button" title="Strikethrough" className={btn(editor.isActive("strike"))} onClick={() => editor.chain().focus().toggleStrike().run()}>
+        <Strikethrough className="h-3.5 w-3.5" />
+      </button>
+
+      <div className="w-px h-4 bg-border mx-0.5" />
+
+      <button type="button" title="Inline Code" className={btn(editor.isActive("code"))} onClick={() => editor.chain().focus().toggleCode().run()}>
+        <Code className="h-3.5 w-3.5" />
+      </button>
+      <button type="button" title="Code Block" className={btn(editor.isActive("codeBlock"))} onClick={() => editor.chain().focus().toggleCodeBlock().run()}>
+        <CodeSquare className="h-3.5 w-3.5" />
+      </button>
+      <button type="button" title="Blockquote" className={btn(editor.isActive("blockquote"))} onClick={() => editor.chain().focus().toggleBlockquote().run()}>
+        <Quote className="h-3.5 w-3.5" />
+      </button>
+
+      <div className="w-px h-4 bg-border mx-0.5" />
+
+      <button type="button" title="Bullet List" className={btn(editor.isActive("bulletList"))} onClick={() => editor.chain().focus().toggleBulletList().run()}>
+        <List className="h-3.5 w-3.5" />
+      </button>
+      <button type="button" title="Ordered List" className={btn(editor.isActive("orderedList"))} onClick={() => editor.chain().focus().toggleOrderedList().run()}>
+        <ListOrdered className="h-3.5 w-3.5" />
+      </button>
+
+      <div className="w-px h-4 bg-border mx-0.5" />
+
+      <button type="button" title="Upload Image" className={btn(false)} onClick={onImageUpload} disabled={isUploading}>
+        {isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // MentionInput component
 // ---------------------------------------------------------------------------
 
@@ -457,6 +567,8 @@ export function MentionInput({
   items,
   multiline = false,
   minHeight = "80px",
+  maxHeight,
+  richText = false,
   className,
   disabled = false,
   onBlur,
@@ -471,6 +583,11 @@ export function MentionInput({
 
   const triggerCharRef = useRef(triggerChar);
   triggerCharRef.current = triggerChar;
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<Editor | null>(null);
+  const isUploadingRef = useRef(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Stable suggestion config (must not recreate on every render)
   const suggestionConfig = useRef(
@@ -489,19 +606,50 @@ export function MentionInput({
     ),
   );
 
+  // Image upload handler shared by toolbar, paste, and drop
+  const handleImageFiles = useCallback(async (files: File[], editorInstance: Editor) => {
+    const imageFiles = files.filter(isImageFile);
+    if (imageFiles.length === 0) return false;
+
+    isUploadingRef.current = true;
+    setIsUploading(true);
+    try {
+      for (const file of imageFiles) {
+        const url = await uploadImageFile(file);
+        editorInstance.chain().focus().setImage({ src: url }).run();
+      }
+    } catch (err) {
+      console.error('Image upload failed:', err);
+    } finally {
+      isUploadingRef.current = false;
+      setIsUploading(false);
+    }
+    return true;
+  }, []);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        // Disable features we don't need for a simple input
-        heading: false,
-        blockquote: false,
-        codeBlock: false,
-        bulletList: false,
-        orderedList: false,
+        heading: richText ? { levels: [1, 2, 3] } : false,
+        blockquote: richText ? {} : false,
+        codeBlock: richText ? {} : false,
+        bulletList: richText ? {} : false,
+        orderedList: richText ? {} : false,
         horizontalRule: false,
         // In single-line mode, hitting Enter should not create new blocks
         ...(multiline ? {} : { hardBreak: false }),
       }),
+      ...(richText
+        ? [
+            Image.configure({
+              inline: false,
+              allowBase64: false,
+              HTMLAttributes: {
+                class: 'rounded-md max-w-full h-auto my-1',
+              },
+            }),
+          ]
+        : []),
       Placeholder.configure({ placeholder: placeholder ?? "" }),
       MentionWithProject.configure({
         HTMLAttributes: {
@@ -524,6 +672,7 @@ export function MentionInput({
           multiline
             ? "min-h-[60px]"
             : "whitespace-nowrap overflow-x-auto",
+          richText && "tiptap-rich-text",
         ),
         // Prevent Enter in single-line mode
         ...(!multiline
@@ -541,6 +690,38 @@ export function MentionInput({
             }
             return false;
           },
+      // Intercept paste events to handle images
+      handlePaste: richText
+        ? (_view, event) => {
+            const clipboardItems = event.clipboardData?.items;
+            if (!clipboardItems) return false;
+            const files: File[] = [];
+            for (const item of Array.from(clipboardItems)) {
+              if (item.kind === 'file' && item.type.startsWith('image/')) {
+                const file = item.getAsFile();
+                if (file) files.push(file);
+              }
+            }
+            if (files.length === 0) return false;
+            const ed = editorRef.current;
+            if (!ed) return false;
+            event.preventDefault();
+            handleImageFiles(files, ed);
+            return true;
+          }
+        : undefined,
+      // Intercept drop events to handle images
+      handleDrop: richText
+        ? (_view, event) => {
+            const files = Array.from(event.dataTransfer?.files ?? []).filter(f => f.type.startsWith('image/'));
+            if (files.length === 0) return false;
+            const ed = editorRef.current;
+            if (!ed) return false;
+            event.preventDefault();
+            handleImageFiles(files, ed);
+            return true;
+          }
+        : undefined,
     },
     onUpdate: ({ editor: ed }) => {
       const json = ed.getJSON() as Record<string, unknown>;
@@ -552,6 +733,9 @@ export function MentionInput({
     onBlur: () => onBlur?.(),
     onFocus: () => onFocus?.(),
   });
+
+  // Keep editorRef in sync so paste/drop handlers can access the instance
+  editorRef.current = editor;
 
   // Sync external value into the editor (controlled mode).
   // Supports both plain text and serialised Tiptap JSON strings.
@@ -595,22 +779,61 @@ export function MentionInput({
     editor?.commands.focus();
   }, [editor]);
 
+  const handleToolbarImageUpload = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileInputChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(e.target.files ?? []);
+      if (files.length > 0 && editor) {
+        await handleImageFiles(files, editor);
+      }
+      // Reset the input so re-selecting the same file triggers onChange
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    },
+    [editor, handleImageFiles],
+  );
+
   return (
     // Outer wrapper matches shadcn Input/Textarea styling
     <div
       onClick={handleWrapperClick}
       className={cn(
-        "flex w-full rounded-md border border-input bg-transparent text-base shadow-sm transition-colors md:text-sm",
+        "flex flex-col w-full rounded-md border border-input bg-transparent text-base shadow-sm transition-colors md:text-sm",
         "placeholder:text-muted-foreground",
         "focus-within:outline-none focus-within:ring-1 focus-within:ring-ring",
         disabled && "cursor-not-allowed opacity-50",
-        multiline ? "items-start px-3 py-2" : "items-center px-3 py-1 h-9",
+        multiline ? "px-3 py-2" : "items-center px-3 py-1 h-9",
         className,
       )}
       style={multiline ? { minHeight } : undefined}
     >
-      {startAdornment}
-      <EditorContent editor={editor} className="flex-1 [&_.tiptap]:outline-none" />
+      <div className="flex items-start flex-1 min-w-0">
+        {startAdornment}
+        <div
+          className="flex-1 [&_.tiptap]:outline-none overflow-y-auto"
+          style={multiline && maxHeight ? { maxHeight } : undefined}
+        >
+          <EditorContent editor={editor} />
+        </div>
+      </div>
+      {richText && multiline && (
+        <>
+          <RichTextToolbar
+            editor={editor}
+            onImageUpload={handleToolbarImageUpload}
+            isUploading={isUploading}
+          />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"
+            className="hidden"
+            onChange={handleFileInputChange}
+          />
+        </>
+      )}
     </div>
   );
 }

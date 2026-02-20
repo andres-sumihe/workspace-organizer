@@ -129,9 +129,28 @@ function NodeRenderer({
   node: TiptapNode;
   navigate: ReturnType<typeof useNavigate>;
 }): ReactNode {
-  if (node.type === "text") return <>{node.text}</>;
+  if (node.type === "text") {
+    let content: ReactNode = <>{node.text}</>;
+    const marks = (node as TiptapNode & { marks?: { type: string }[] }).marks;
+    if (marks) {
+      for (const mark of marks) {
+        if (mark.type === "bold") content = <strong>{content}</strong>;
+        else if (mark.type === "italic") content = <em>{content}</em>;
+        else if (mark.type === "strike") content = <s>{content}</s>;
+        else if (mark.type === "code") content = <code className="rounded bg-muted px-1 py-0.5 text-xs font-mono">{content}</code>;
+      }
+    }
+    return content;
+  }
   if (node.type === "mention")
     return <MentionChip node={node} navigate={navigate} />;
+
+  if (node.type === "image") {
+    const src = node.attrs?.src as string | undefined;
+    const alt = (node.attrs?.alt as string) || "uploaded image";
+    if (!src) return null;
+    return <img src={src} alt={alt} className="rounded-md max-w-full h-auto my-1" />;
+  }
 
   if (node.type === "paragraph") {
     return (
@@ -141,6 +160,73 @@ function NodeRenderer({
         ))}
       </p>
     );
+  }
+
+  if (node.type === "heading") {
+    const level = (node.attrs?.level as number) ?? 1;
+    const children = node.content?.map((child, i) => (
+      <NodeRenderer key={i} node={child} navigate={navigate} />
+    ));
+    if (level === 1) return <h1 className="text-lg font-bold my-1">{children}</h1>;
+    if (level === 2) return <h2 className="text-base font-bold my-1">{children}</h2>;
+    return <h3 className="text-sm font-bold my-1">{children}</h3>;
+  }
+
+  if (node.type === "blockquote") {
+    return (
+      <blockquote className="border-l-2 border-muted-foreground/30 pl-3 my-1 text-muted-foreground italic">
+        {node.content?.map((child, i) => (
+          <NodeRenderer key={i} node={child} navigate={navigate} />
+        ))}
+      </blockquote>
+    );
+  }
+
+  if (node.type === "codeBlock") {
+    const text = node.content?.map((child) => child.text ?? "").join("") ?? "";
+    return (
+      <pre className="rounded bg-muted p-2 my-1 text-xs font-mono overflow-x-auto">
+        <code>{text}</code>
+      </pre>
+    );
+  }
+
+  if (node.type === "bulletList") {
+    return (
+      <ul className="list-disc pl-5 my-1">
+        {node.content?.map((child, i) => (
+          <NodeRenderer key={i} node={child} navigate={navigate} />
+        ))}
+      </ul>
+    );
+  }
+
+  if (node.type === "orderedList") {
+    return (
+      <ol className="list-decimal pl-5 my-1">
+        {node.content?.map((child, i) => (
+          <NodeRenderer key={i} node={child} navigate={navigate} />
+        ))}
+      </ol>
+    );
+  }
+
+  if (node.type === "listItem") {
+    return (
+      <li>
+        {node.content?.map((child, i) => (
+          <NodeRenderer key={i} node={child} navigate={navigate} />
+        ))}
+      </li>
+    );
+  }
+
+  if (node.type === "hardBreak") {
+    return <br />;
+  }
+
+  if (node.type === "horizontalRule") {
+    return <hr className="my-2 border-border" />;
   }
 
   // doc / unknown — just render children

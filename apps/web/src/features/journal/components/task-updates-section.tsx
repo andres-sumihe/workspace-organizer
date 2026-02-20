@@ -195,6 +195,8 @@ export function TaskUpdatesSection({ entityType, entityId }: TaskUpdatesSectionP
             items={items}
             triggerChar="/"
             className="min-h-15 text-sm"
+            richText
+            maxHeight="300px"
           />
           <div className="flex justify-end gap-2">
             <Button
@@ -246,6 +248,8 @@ export function TaskUpdatesSection({ entityType, entityId }: TaskUpdatesSectionP
                         items={items}
                         triggerChar="/"
                         className="min-h-15 text-sm"
+                        richText
+                        maxHeight="300px"
                       />
                       <div className="flex justify-end gap-2">
                         <Button variant="ghost" size="sm" onClick={handleCancelEdit}>
@@ -324,6 +328,8 @@ export function TaskUpdatesSection({ entityType, entityId }: TaskUpdatesSectionP
                               items={items}
                               triggerChar="/"
                               className="min-h-10 text-sm"
+                              richText
+                              maxHeight="300px"
                             />
                             <div className="flex justify-end gap-2">
                               <Button variant="ghost" size="sm" onClick={handleCancelEdit}>
@@ -398,6 +404,8 @@ export function TaskUpdatesSection({ entityType, entityId }: TaskUpdatesSectionP
                         items={items}
                         triggerChar="/"
                         className="min-h-10 text-sm flex-1"
+                        richText
+                        maxHeight="300px"
                       />
                     </div>
                     <div className="flex justify-end gap-2">
