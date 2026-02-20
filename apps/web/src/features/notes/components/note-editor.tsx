@@ -1,29 +1,40 @@
-import { markdown } from '@codemirror/lang-markdown';
-import { languages } from '@codemirror/language-data';
-import { search, searchKeymap } from '@codemirror/search';
-import CodeMirror from '@uiw/react-codemirror';
-import { keymap } from '@codemirror/view';
+import { EditorContent, useEditor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import { Markdown as TiptapMarkdown } from 'tiptap-markdown';
+import Image from '@tiptap/extension-image';
+import TaskList from '@tiptap/extension-task-list';
+import TaskItem from '@tiptap/extension-task-item';
+import LinkExtension from '@tiptap/extension-link';
+import Highlight from '@tiptap/extension-highlight';
+import Typography from '@tiptap/extension-typography';
+import UnderlineExtension from '@tiptap/extension-underline';
+import TextAlign from '@tiptap/extension-text-align';
+import Placeholder from '@tiptap/extension-placeholder';
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import { Table } from '@tiptap/extension-table/table';
+import { TableRow } from '@tiptap/extension-table/row';
+import { TableCell } from '@tiptap/extension-table/cell';
+import { TableHeader } from '@tiptap/extension-table/header';
+import SuperscriptExtension from '@tiptap/extension-superscript';
+import SubscriptExtension from '@tiptap/extension-subscript';
+import { common, createLowlight } from 'lowlight';
+import { CustomGlobalDragHandle } from './custom-drag-handle';
 import {
-  Eye,
   Loader2,
-  Pencil,
   Pin,
   PinOff,
   ExternalLink
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Markdown from 'react-markdown';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type {
   Note,
   PersonalProject
 } from '@workspace/shared';
 
-import { useTheme } from '@/components/theme-provider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
   SelectContent,
@@ -32,16 +43,50 @@ import {
   SelectValue
 } from '@/components/ui/select';
 
-import { markdownComponents, remarkPlugins, rehypePlugins } from './markdown-config';
+import { NoteBubbleMenu } from './bubble-menu';
+import { SlashCommands, createSlashCommandSuggestion } from './slash-command';
+
+// ---------------------------------------------------------------------------
+// lowlight instance (syntax highlighting for code blocks)
+// ---------------------------------------------------------------------------
+const lowlight = createLowlight(common);
+
+// ---------------------------------------------------------------------------
+// Image upload helper (reused from mention-input)
+// ---------------------------------------------------------------------------
+const API_URL = (import.meta as { env?: Record<string, unknown> }).env?.VITE_API_URL ?? '';
+
+async function uploadImageFile(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const token = localStorage.getItem('auth_access_token');
+  const res = await fetch(`${API_URL}/api/v1/uploads/images`, {
+    method: 'POST',
+    body: formData,
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+
+  if (!res.ok) throw new Error('Image upload failed');
+
+  const json = (await res.json()) as { data: { url: string } };
+  return json.data.url;
+}
+
+function isImageFile(file: File): boolean {
+  return /^image\/(jpeg|png|gif|webp|svg\+xml)$/.test(file.type);
+}
+
+// ---------------------------------------------------------------------------
+// Props
+// ---------------------------------------------------------------------------
 
 interface NoteEditorProps {
   note: Note | null;
   projects: PersonalProject[];
   onSave: (id: string | null, data: { title: string; content: string; isPinned: boolean; projectId?: string }) => Promise<void>;
   onClose: () => void;
-  // Called when the draft becomes dirty/clean
   onDirtyChange?: (dirty: boolean) => void;
-  // Token to request a save action from parent; increment to request another save
   saveRequestId?: number;
   onSaveCompleted?: () => void;
   onPopout?: () => void;
@@ -59,40 +104,169 @@ export function NoteEditor({
   onPopout,
   hideCloseButton 
 }: NoteEditorProps) {
-  const { theme } = useTheme();
   const [title, setTitle] = useState(note?.title ?? '');
-  const [content, setContent] = useState(note?.content ?? '');
   const [isPinned, setIsPinned] = useState(note?.isPinned ?? false);
   const [projectId, setProjectId] = useState<string>(note?.projectId ?? 'none');
   const [isSaving, setIsSaving] = useState(false);
-  const [previewMode, setPreviewMode] = useState(false);
-  const initialRef = useRef({ title: note?.title ?? '', content: note?.content ?? '', isPinned: note?.isPinned ?? false, projectId: note?.projectId ?? 'none' });
-  const dirty = title !== initialRef.current.title || content !== initialRef.current.content || isPinned !== initialRef.current.isPinned || projectId !== initialRef.current.projectId;
 
-  const editorTheme = useMemo(() => {
-    if (theme === 'dark') return 'dark';
-    if (theme === 'light') return 'light';
-    return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-  }, [theme]);
+  const initialRef = useRef({
+    title: note?.title ?? '',
+    content: note?.content ?? '',
+    isPinned: note?.isPinned ?? false,
+    projectId: note?.projectId ?? 'none',
+  });
 
-  const extensions = useMemo(() => [
-    markdown({ codeLanguages: languages }),
-    search({ top: true }),
-    keymap.of(searchKeymap)
-  ], []);
+  // Ref to hold latest editor ref for image upload callbacks
+  const editorRef = useRef<ReturnType<typeof useEditor>>(null);
+
+  // Image upload trigger (called from slash command)
+  const triggerImageUpload = useCallback(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/jpeg,image/png,image/gif,image/webp,image/svg+xml';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file || !isImageFile(file)) return;
+      try {
+        const url = await uploadImageFile(file);
+        editorRef.current?.chain().focus().setImage({ src: url }).run();
+      } catch {
+        // silently fail — image upload failed
+      }
+    };
+    input.click();
+  }, []);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        codeBlock: false, // replaced by CodeBlockLowlight
+      }),
+      TiptapMarkdown.configure({
+        html: false,
+        transformPastedText: true,
+        transformCopiedText: true,
+      }),
+      Image.configure({ inline: false }),
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      LinkExtension.configure({
+        openOnClick: false,
+        autolink: true,
+      }),
+      Highlight,
+      Typography,
+      UnderlineExtension,
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+      }),
+      Placeholder.configure({
+        placeholder: 'Type "/" for commands...',
+      }),
+      CodeBlockLowlight.configure({ lowlight }),
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableCell,
+      TableHeader,
+      SuperscriptExtension,
+      SubscriptExtension,
+      CustomGlobalDragHandle.configure({
+        dragHandleWidth: 20,
+        scrollTreshold: 100,
+      }),
+      SlashCommands.configure({
+        suggestion: createSlashCommandSuggestion(triggerImageUpload),
+      }),
+    ],
+    content: note?.content ?? '',
+    editorProps: {
+      attributes: {
+        class: 'tiptap-note-editor tiptap-rich-text outline-none min-h-full p-6',
+      },
+      handleDrop: (_view, event) => {
+        const files = event.dataTransfer?.files;
+        if (!files?.length) return false;
+
+        const imageFiles = Array.from(files).filter(isImageFile);
+        if (imageFiles.length === 0) return false;
+
+        event.preventDefault();
+        imageFiles.forEach(async (file) => {
+          try {
+            const url = await uploadImageFile(file);
+            editorRef.current?.chain().focus().setImage({ src: url }).run();
+          } catch {
+            // silently fail
+          }
+        });
+        return true;
+      },
+      handlePaste: (_view, event) => {
+        const files = event.clipboardData?.files;
+        if (!files?.length) return false;
+
+        const imageFiles = Array.from(files).filter(isImageFile);
+        if (imageFiles.length === 0) return false;
+
+        event.preventDefault();
+        imageFiles.forEach(async (file) => {
+          try {
+            const url = await uploadImageFile(file);
+            editorRef.current?.chain().focus().setImage({ src: url }).run();
+          } catch {
+            // silently fail
+          }
+        });
+        return true;
+      },
+    },
+    // Load markdown content on init
+    onCreate: ({ editor: e }) => {
+      if (note?.content) {
+        // tiptap-markdown parses md content automatically via the extension
+        // Content is already set via `content` prop which gets parsed by Markdown extension
+      }
+      editorRef.current = e as ReturnType<typeof useEditor>;
+    },
+    onUpdate: ({ editor: e }) => {
+      editorRef.current = e as ReturnType<typeof useEditor>;
+    },
+  });
+
+  // Keep editorRef in sync
+  useEffect(() => {
+    if (editor) {
+      editorRef.current = editor;
+    }
+  }, [editor]);
+
+  // Get current content as markdown
+  const getMarkdownContent = useCallback(() => {
+    if (!editor) return '';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return ((editor.storage as any).markdown as { getMarkdown?: () => string })?.getMarkdown?.() ?? '';
+  }, [editor]);
+
+  // Dirty tracking
+  const currentContent = editor ? getMarkdownContent() : '';
+  const dirty =
+    title !== initialRef.current.title ||
+    currentContent !== initialRef.current.content ||
+    isPinned !== initialRef.current.isPinned ||
+    projectId !== initialRef.current.projectId;
 
   const handleSave = useCallback(async (closeAfterSave = true) => {
     if (!title.trim()) return;
     setIsSaving(true);
+    const content = getMarkdownContent();
     try {
       await onSave(note?.id ?? null, {
         title: title.trim(),
         content,
         isPinned,
-        projectId: projectId !== 'none' ? projectId : undefined
+        projectId: projectId !== 'none' ? projectId : undefined,
       });
 
-      // Update initial snapshot after successful save
       initialRef.current = { title: title.trim(), content, isPinned, projectId };
       onDirtyChange?.(false);
 
@@ -100,17 +274,16 @@ export function NoteEditor({
     } finally {
       setIsSaving(false);
     }
-  }, [note?.id, title, content, isPinned, projectId, onSave, onClose, onDirtyChange, hideCloseButton]);
+  }, [note?.id, title, isPinned, projectId, getMarkdownContent, onSave, onClose, onDirtyChange, hideCloseButton]);
 
   // Notify parent when draft becomes dirty/clean
   useEffect(() => {
     onDirtyChange?.(dirty);
   }, [dirty, onDirtyChange]);
 
-  // Respond to parent's save token (save without closing)
+  // Respond to parent's save token
   useEffect(() => {
     if (saveRequestId && saveRequestId > 0) {
-      // save without closing, then notify parent via callback
       (async () => {
         await handleSave(false);
         onSaveCompleted?.();
@@ -149,14 +322,6 @@ export function NoteEditor({
           >
             {isPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setPreviewMode(!previewMode)}
-            title={previewMode ? 'Edit' : 'Preview'}
-          >
-            {previewMode ? <Pencil className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          </Button>
         </div>
       </div>
 
@@ -182,37 +347,10 @@ export function NoteEditor({
         </div>
       </div>
 
-      {/* Editor/Preview */}
-      <div className="flex-1 overflow-hidden">
-        {previewMode ? (
-          <ScrollArea className="h-full">
-            <div className="p-6 prose prose-sm prose-slate dark:prose-invert max-w-none note-preview">
-              <Markdown
-                remarkPlugins={remarkPlugins}
-                rehypePlugins={rehypePlugins}
-                components={markdownComponents}
-              >
-                {content || '*No content*'}
-              </Markdown>
-            </div>
-          </ScrollArea>
-        ) : (
-          <CodeMirror
-            value={content}
-            height="100%"
-            extensions={extensions}
-            onChange={setContent}
-            theme={editorTheme}
-            placeholder="Write your notes in Markdown..."
-            basicSetup={{
-              lineNumbers: false,
-              highlightActiveLineGutter: false,
-              foldGutter: false,
-              highlightActiveLine: false
-            }}
-            className="h-full note-editor"
-          />
-        )}
+      {/* WYSIWYG Editor */}
+      <div className="flex-1 overflow-y-auto">
+        {editor && <NoteBubbleMenu editor={editor} />}
+        <EditorContent editor={editor} className="h-full" />
       </div>
 
       {/* Footer */}

@@ -1,3 +1,20 @@
+import { EditorContent, useEditor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import { Markdown as TiptapMarkdown } from 'tiptap-markdown';
+import Image from '@tiptap/extension-image';
+import TaskList from '@tiptap/extension-task-list';
+import TaskItem from '@tiptap/extension-task-item';
+import LinkExtension from '@tiptap/extension-link';
+import Highlight from '@tiptap/extension-highlight';
+import UnderlineExtension from '@tiptap/extension-underline';
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import { Table } from '@tiptap/extension-table/table';
+import { TableRow } from '@tiptap/extension-table/row';
+import { TableCell } from '@tiptap/extension-table/cell';
+import { TableHeader } from '@tiptap/extension-table/header';
+import SuperscriptExtension from '@tiptap/extension-superscript';
+import SubscriptExtension from '@tiptap/extension-subscript';
+import { common, createLowlight } from 'lowlight';
 import {
   ExternalLink,
   FileText,
@@ -8,7 +25,6 @@ import {
   MonitorSmartphone
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import Markdown from 'react-markdown';
 
 import type { Note } from '@workspace/shared';
 
@@ -21,7 +37,10 @@ import {
   TooltipTrigger
 } from '@/components/ui/tooltip';
 
-import { markdownComponents, remarkPlugins, rehypePlugins } from './markdown-config';
+// ---------------------------------------------------------------------------
+// lowlight instance (syntax highlighting for code blocks)
+// ---------------------------------------------------------------------------
+const lowlight = createLowlight(common);
 
 // Debounce hook for search optimization
 function useDebouncedValue<T>(value: T, delay: number): T {
@@ -58,6 +77,36 @@ export function NoteViewer({ note, onEdit, onDelete, onPopout, isPipEditing, isP
   // Debounce search query for performance (150ms delay)
   const debouncedQuery = useDebouncedValue(searchQuery, 150);
 
+  // Read-only Tiptap editor
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        codeBlock: false,
+      }),
+      TiptapMarkdown.configure({ html: false }),
+      Image.configure({ inline: false }),
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      LinkExtension.configure({ openOnClick: true, autolink: true }),
+      Highlight,
+      UnderlineExtension,
+      CodeBlockLowlight.configure({ lowlight }),
+      Table,
+      TableRow,
+      TableCell,
+      TableHeader,
+      SuperscriptExtension,
+      SubscriptExtension,
+    ],
+    content: note?.content ?? '',
+    editable: false,
+    editorProps: {
+      attributes: {
+        class: 'tiptap-note-viewer tiptap-rich-text outline-none p-6',
+      },
+    },
+  }, [note?.id, note?.content]);
+
   // Handle Ctrl+F to open search
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -76,7 +125,7 @@ export function NoteViewer({ note, onEdit, onDelete, onPopout, isPipEditing, isP
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showSearch]);
 
-  // Highlight matches in content (uses debounced query for performance)
+  // Highlight matches in rendered content (DOM-based search)
   useEffect(() => {
     if (!contentRef.current) {
       setMatchCount(0);
@@ -128,7 +177,6 @@ export function NoteViewer({ note, onEdit, onDelete, onPopout, isPipEditing, isP
           const mark = document.createElement('mark');
           mark.setAttribute('data-search-highlight', 'true');
           mark.setAttribute('data-match-index', String(totalMatches));
-          // Use CSS classes for consistent selection-like appearance
           mark.className = 'bg-blue-200/50 dark:bg-blue-500/30 text-inherit';
           mark.textContent = match;
           fragment.appendChild(mark);
@@ -272,7 +320,7 @@ export function NoteViewer({ note, onEdit, onDelete, onPopout, isPipEditing, isP
       </div>
       
       <div className="relative flex-1 overflow-hidden">
-        {/* Floating search bar - same style as File Manager */}
+        {/* Floating search bar */}
         {showSearch && (
           <ContentSearchBar
             ref={searchBarRef}
@@ -290,14 +338,8 @@ export function NoteViewer({ note, onEdit, onDelete, onPopout, isPipEditing, isP
         )}
         
         <ScrollArea className="h-full">
-          <div ref={contentRef} className="p-6 prose prose-sm prose-slate dark:prose-invert max-w-none note-preview">
-            <Markdown
-              remarkPlugins={remarkPlugins}
-              rehypePlugins={rehypePlugins}
-              components={markdownComponents}
-            >
-              {note.content || '*No content*'}
-            </Markdown>
+          <div ref={contentRef}>
+            <EditorContent editor={editor} />
           </div>
         </ScrollArea>
       </div>
