@@ -19,6 +19,7 @@ import { teamScriptsRouter } from './team-scripts.js';
 import { teamsRouter } from './teams.js';
 import { templatesRouter } from './templates.js';
 import { toolsOvertimeRouter } from './tools-overtime.js';
+import { uploadsRouter } from './uploads.js';
 import { workLogsRouter } from './work-logs.js';
 import { workspacesRouter } from './workspaces.js';
 import { isSharedDbConnected } from '../../db/shared-client.js';
@@ -56,6 +57,9 @@ v1Router.use('/task-updates', taskUpdatesRouter);
 v1Router.use('/notes', notesRouter);
 v1Router.use('/credentials', credentialsRouter);
 v1Router.use('/vault', vaultRouter);
+
+// Uploads routes - always available (local data only)
+v1Router.use('/uploads', uploadsRouter);
 
 // Middleware to check if shared database is connected for shared features
 const requireSharedDb = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {

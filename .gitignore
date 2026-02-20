@@ -10,6 +10,7 @@ yarn.lock
 .npmrc
 /apps/api/data/*.sqlite
 /apps/data/*.sqlite
+/apps/api/data/uploads/
 
 # Electron build outputs
 release/
