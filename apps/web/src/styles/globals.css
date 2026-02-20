@@ -628,3 +628,207 @@ ins.remark-ins {
   height: auto;
   margin: 0.25rem 0;
 }
+
+/* ---------------------------------------------------------------------------
+ * Tiptap Note Editor / Viewer — additional styles
+ * Task lists, drag handle, placeholder, horizontal rule, links
+ * --------------------------------------------------------------------------- */
+
+/* Task list checkboxes */
+.tiptap-rich-text ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.tiptap-rich-text ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.tiptap-rich-text ul[data-type="taskList"] li > label {
+  flex-shrink: 0;
+  margin-top: 0.2rem;
+}
+
+.tiptap-rich-text ul[data-type="taskList"] li > label input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+.tiptap-rich-text ul[data-type="taskList"] li > div {
+  flex: 1;
+}
+
+.tiptap-rich-text ul[data-type="taskList"] li[data-checked="true"] > div p {
+  text-decoration: line-through;
+  color: var(--muted-foreground);
+}
+
+/* Horizontal rule */
+.tiptap-rich-text hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1rem 0;
+}
+
+/* Links */
+.tiptap-rich-text a {
+  color: hsl(217 91% 60%);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.dark .tiptap-rich-text a {
+  color: hsl(217 91% 70%);
+}
+
+/* Tables */
+.tiptap-rich-text table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.75rem 0;
+  overflow: hidden;
+  table-layout: fixed;
+}
+
+.tiptap-rich-text table td,
+.tiptap-rich-text table th {
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.6rem;
+  vertical-align: top;
+  position: relative;
+  min-width: 80px;
+}
+
+.tiptap-rich-text table th {
+  background-color: var(--muted);
+  font-weight: 600;
+  text-align: left;
+}
+
+.tiptap-rich-text table .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: hsl(217 91% 60% / 0.15);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.dark .tiptap-rich-text table .selectedCell::after {
+  background: hsl(217 91% 60% / 0.25);
+}
+
+.tiptap-rich-text table .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background-color: hsl(217 91% 60%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.tiptap-rich-text.resize-cursor {
+  cursor: col-resize;
+}
+
+/* Highlight mark */
+.tiptap-rich-text mark {
+  background-color: oklch(0.9 0.15 90);
+  padding: 0.1em 0.2em;
+  border-radius: 0.15em;
+}
+
+.dark .tiptap-rich-text mark {
+  background-color: oklch(0.5 0.15 90);
+  color: oklch(0.985 0 0);
+}
+
+/* Placeholder */
+.tiptap-note-editor .is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--muted-foreground);
+  pointer-events: none;
+  height: 0;
+  font-style: italic;
+}
+
+/* Drag handle styling */
+.drag-handle {
+  position: fixed;
+  opacity: 1;
+  transition: opacity 0.15s ease;
+  border-radius: 0.25rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 16' width='14' height='14'%3E%3Ccircle cx='3' cy='3' r='1.5' fill='%23999'/%3E%3Ccircle cx='7' cy='3' r='1.5' fill='%23999'/%3E%3Ccircle cx='3' cy='8' r='1.5' fill='%23999'/%3E%3Ccircle cx='7' cy='8' r='1.5' fill='%23999'/%3E%3Ccircle cx='3' cy='13' r='1.5' fill='%23999'/%3E%3Ccircle cx='7' cy='13' r='1.5' fill='%23999'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  width: 14px;
+  height: 22px;
+  z-index: 20;
+  cursor: grab;
+}
+
+.drag-handle:hover {
+  background-color: var(--accent);
+  border-radius: 0.25rem;
+}
+
+.drag-handle.hide {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Code block language label */
+.tiptap-rich-text pre {
+  position: relative;
+}
+
+/* Heading sizes in note editor (larger than comment/rich-text defaults) */
+.tiptap-note-editor h1, .tiptap-note-viewer h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0.75rem 0 0.5rem;
+  line-height: 1.3;
+}
+
+.tiptap-note-editor h2, .tiptap-note-viewer h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0.5rem 0 0.375rem;
+  line-height: 1.35;
+}
+
+.tiptap-note-editor h3, .tiptap-note-viewer h3 {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  margin: 0.375rem 0 0.25rem;
+  line-height: 1.4;
+}
+
+/* Paragraph spacing in note editor */
+.tiptap-note-editor p, .tiptap-note-viewer p {
+  margin: 0.25rem 0;
+  line-height: 1.65;
+}
+
+/* lowlight syntax highlighting (github-ish theme) */
+.tiptap-rich-text pre code .hljs-keyword { color: hsl(340 82% 52%); }
+.tiptap-rich-text pre code .hljs-string { color: hsl(29 80% 44%); }
+.tiptap-rich-text pre code .hljs-title { color: hsl(198 99% 37%); }
+.tiptap-rich-text pre code .hljs-comment { color: hsl(0 0% 55%); font-style: italic; }
+.tiptap-rich-text pre code .hljs-number { color: hsl(27 87% 50%); }
+.tiptap-rich-text pre code .hljs-built_in { color: hsl(198 99% 37%); }
+.tiptap-rich-text pre code .hljs-attr { color: hsl(198 99% 37%); }
+
+.dark .tiptap-rich-text pre code .hljs-keyword { color: hsl(340 82% 65%); }
+.dark .tiptap-rich-text pre code .hljs-string { color: hsl(95 38% 62%); }
+.dark .tiptap-rich-text pre code .hljs-title { color: hsl(207 82% 66%); }
+.dark .tiptap-rich-text pre code .hljs-comment { color: hsl(0 0% 50%); font-style: italic; }
+.dark .tiptap-rich-text pre code .hljs-number { color: hsl(29 54% 61%); }
+.dark .tiptap-rich-text pre code .hljs-built_in { color: hsl(187 47% 55%); }
+.dark .tiptap-rich-text pre code .hljs-attr { color: hsl(207 82% 66%); }
