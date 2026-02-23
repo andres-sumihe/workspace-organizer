@@ -9,13 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Added
 - Add Extract and Archive functionality for file and folder operations
-- Add Image Attachment for TaskUpdate and Comments
+- Add Image attachment for Task Updates and Comments
+- Add Image attachment for Notes 
+- Add Image Preview on Notes, Task Updates, and Comments
 
 ## Fixed
 - Fix issue on file mention feature where the dropdown position not align with the input field.
+- 
 
 ## Changed
-- TaskUpdate and Comment input now support more tools
+- Task Update and Comment input now support more tools
+- Refactor Notes editor and viewer component to use tiptap
+- Password on vault now can be revealed
 
 ## [0.4.2]
 
