@@ -124,35 +124,52 @@ export const serveImage = async (req: Request, res: Response, next: NextFunction
   }
 };
 
+/**
+ * DELETE /api/v1/uploads/images/:filename
+ * Deletes an uploaded image from disk.
+ */
+export const deleteImage = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const filename = req.params.filename as string | undefined;
+
+    if (!filename || !/^[\da-f-]+\.\w+$/i.test(filename)) {
+      res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Invalid filename' });
+      return;
+    }
+
+    const filePath = path.join(getUploadsDir(), filename);
+
+    try {
+      await fs.access(filePath);
+    } catch {
+      res.status(404).json({ code: 'NOT_FOUND', message: 'Image not found' });
+      return;
+    }
+
+    await fs.unlink(filePath);
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ---------------------------------------------------------------------------
 // Image cleanup helpers
 // ---------------------------------------------------------------------------
 
 /**
- * Extract uploaded image filenames from a Tiptap JSON content string.
- * Returns filenames (e.g. "abc-123.png") found in image node `src` attributes
+ * Extract uploaded image filenames from content (markdown or Tiptap JSON).
+ * Returns filenames (e.g. "abc-123.png") found in image references
  * that point to our upload endpoint.
  */
-export function extractImageFilenames(contentJson: string): string[] {
+export function extractImageFilenames(content: string): string[] {
   const filenames: string[] = [];
-  try {
-    const doc = JSON.parse(contentJson);
-    const walk = (node: Record<string, unknown>) => {
-      if (node.type === 'image') {
-        const src = (node.attrs as Record<string, unknown> | undefined)?.src as string | undefined;
-        if (src) {
-          const match = src.match(/\/api\/v1\/uploads\/images\/([\da-f-]+\.\w+)$/i);
-          if (match) filenames.push(match[1]);
-        }
-      }
-      const content = node.content as Record<string, unknown>[] | undefined;
-      content?.forEach(walk);
-    };
-    walk(doc);
-  } catch {
-    // Not valid JSON or unexpected structure — ignore
+  const pattern = /\/api\/v1\/uploads\/images\/([\da-f-]+\.\w+)/gi;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(content)) !== null) {
+    filenames.push(match[1]);
   }
-  return filenames;
+  return [...new Set(filenames)];
 }
 
 /**

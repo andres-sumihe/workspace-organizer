@@ -627,6 +627,12 @@ ins.remark-ins {
   max-width: 100%;
   height: auto;
   margin: 0.25rem 0;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.tiptap-rich-text img:hover {
+  opacity: 0.85;
 }
 
 /* ---------------------------------------------------------------------------
@@ -832,3 +838,128 @@ ins.remark-ins {
 .dark .tiptap-rich-text pre code .hljs-number { color: hsl(29 54% 61%); }
 .dark .tiptap-rich-text pre code .hljs-built_in { color: hsl(187 47% 55%); }
 .dark .tiptap-rich-text pre code .hljs-attr { color: hsl(207 82% 66%); }
+
+/* Mathematics (KaTeX inline/block rendering) */
+.tiptap-rich-text .tiptap-mathematics-render {
+  display: inline;
+  cursor: pointer;
+}
+
+.tiptap-rich-text .tiptap-mathematics-render--editable:hover {
+  background-color: var(--accent);
+  border-radius: 0.25rem;
+}
+
+.tiptap-rich-text div.tiptap-mathematics-render {
+  display: block;
+  text-align: center;
+  padding: 0.75rem 0;
+  margin: 0.5rem 0;
+}
+
+.tiptap-rich-text .block-math-error,
+.tiptap-rich-text .tiptap-mathematics-render.block-math-error {
+  color: var(--destructive);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+
+/* Admonition containers (:::note, :::warning, :::tip, etc.) */
+.tiptap-rich-text div[data-admonition] {
+  position: relative;
+  padding: 0.75rem 1rem;
+  margin: 0.75rem 0;
+  border-radius: 0.375rem;
+  border-left: 4px solid var(--border);
+  background-color: var(--muted);
+}
+
+.tiptap-rich-text div[data-admonition]::before {
+  content: attr(data-type);
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
+  color: var(--muted-foreground);
+}
+
+.tiptap-rich-text div[data-admonition] > p {
+  margin: 0.125rem 0;
+}
+
+/* Note */
+.tiptap-rich-text div[data-admonition][data-type="note"] {
+  border-left-color: oklch(0.6 0.15 250);
+  background-color: oklch(0.97 0.02 250);
+}
+.dark .tiptap-rich-text div[data-admonition][data-type="note"] {
+  background-color: oklch(0.2 0.02 250);
+}
+.tiptap-rich-text div[data-admonition][data-type="note"]::before {
+  color: oklch(0.5 0.15 250);
+}
+.dark .tiptap-rich-text div[data-admonition][data-type="note"]::before {
+  color: oklch(0.7 0.15 250);
+}
+
+/* Warning */
+.tiptap-rich-text div[data-admonition][data-type="warning"] {
+  border-left-color: oklch(0.75 0.18 60);
+  background-color: oklch(0.97 0.04 60);
+}
+.dark .tiptap-rich-text div[data-admonition][data-type="warning"] {
+  background-color: oklch(0.25 0.04 60);
+}
+.tiptap-rich-text div[data-admonition][data-type="warning"]::before {
+  color: oklch(0.6 0.18 60);
+}
+.dark .tiptap-rich-text div[data-admonition][data-type="warning"]::before {
+  color: oklch(0.8 0.18 60);
+}
+
+/* Tip */
+.tiptap-rich-text div[data-admonition][data-type="tip"] {
+  border-left-color: oklch(0.65 0.18 140);
+  background-color: oklch(0.97 0.03 140);
+}
+.dark .tiptap-rich-text div[data-admonition][data-type="tip"] {
+  background-color: oklch(0.22 0.03 140);
+}
+.tiptap-rich-text div[data-admonition][data-type="tip"]::before {
+  color: oklch(0.5 0.18 140);
+}
+.dark .tiptap-rich-text div[data-admonition][data-type="tip"]::before {
+  color: oklch(0.7 0.18 140);
+}
+
+/* Info */
+.tiptap-rich-text div[data-admonition][data-type="info"] {
+  border-left-color: oklch(0.55 0.2 230);
+  background-color: oklch(0.97 0.02 230);
+}
+.dark .tiptap-rich-text div[data-admonition][data-type="info"] {
+  background-color: oklch(0.2 0.03 230);
+}
+.tiptap-rich-text div[data-admonition][data-type="info"]::before {
+  color: oklch(0.5 0.2 230);
+}
+.dark .tiptap-rich-text div[data-admonition][data-type="info"]::before {
+  color: oklch(0.7 0.2 230);
+}
+
+/* Danger */
+.tiptap-rich-text div[data-admonition][data-type="danger"] {
+  border-left-color: oklch(0.6 0.2 25);
+  background-color: oklch(0.97 0.03 25);
+}
+.dark .tiptap-rich-text div[data-admonition][data-type="danger"] {
+  background-color: oklch(0.22 0.04 25);
+}
+.tiptap-rich-text div[data-admonition][data-type="danger"]::before {
+  color: oklch(0.55 0.2 25);
+}
+.dark .tiptap-rich-text div[data-admonition][data-type="danger"]::before {
+  color: oklch(0.75 0.2 25);
+}

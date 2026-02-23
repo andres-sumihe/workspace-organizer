@@ -5,7 +5,6 @@ import Image from '@tiptap/extension-image';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import LinkExtension from '@tiptap/extension-link';
-import Highlight from '@tiptap/extension-highlight';
 import Typography from '@tiptap/extension-typography';
 import UnderlineExtension from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
@@ -15,8 +14,9 @@ import { Table } from '@tiptap/extension-table/table';
 import { TableRow } from '@tiptap/extension-table/row';
 import { TableCell } from '@tiptap/extension-table/cell';
 import { TableHeader } from '@tiptap/extension-table/header';
-import SuperscriptExtension from '@tiptap/extension-superscript';
-import SubscriptExtension from '@tiptap/extension-subscript';
+import { MarkdownSuperscript, MarkdownSubscript, MarkdownHighlight, MarkdownInlineMath, MarkdownBlockMath } from './markdown-extensions';
+import 'katex/dist/katex.min.css';
+import { PasteMarkdown } from './paste-markdown';
 import { common, createLowlight } from 'lowlight';
 import { CustomGlobalDragHandle } from './custom-drag-handle';
 import {
@@ -33,6 +33,7 @@ import type {
 } from '@workspace/shared';
 
 import { Button } from '@/components/ui/button';
+import { useImageClickPreview } from '@/components/ui/image-preview';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -44,7 +45,12 @@ import {
 } from '@/components/ui/select';
 
 import { NoteBubbleMenu } from './bubble-menu';
+import { TableContextMenu } from './table-bubble-menu';
+import { MathContextMenu } from './math-context-menu';
+import { AdmonitionContextMenu } from './admonition-context-menu';
+import { MathInputDialog, type MathMode } from './math-input-dialog';
 import { SlashCommands, createSlashCommandSuggestion } from './slash-command';
+import { Admonition } from './admonition-extension';
 
 // ---------------------------------------------------------------------------
 // lowlight instance (syntax highlighting for code blocks)
@@ -69,13 +75,100 @@ async function uploadImageFile(file: File): Promise<string> {
 
   if (!res.ok) throw new Error('Image upload failed');
 
-  const json = (await res.json()) as { data: { url: string } };
+  const json = (await res.json()) as { data: { url: string; filename: string } };
   return json.data.url;
 }
 
 function isImageFile(file: File): boolean {
   return /^image\/(jpeg|png|gif|webp|svg\+xml)$/.test(file.type);
 }
+
+/** Extract uploaded image filenames from content string */
+function extractImageFilenames(content: string): Set<string> {
+  const filenames = new Set<string>();
+  const pattern = /\/api\/v1\/uploads\/images\/([\da-f-]+\.\w+)/gi;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(content)) !== null) {
+    filenames.add(match[1]);
+  }
+  return filenames;
+}
+
+/** Extract filename from an upload URL */
+function extractFilenameFromUrl(url: string): string | null {
+  const match = /\/api\/v1\/uploads\/images\/([\da-f-]+\.\w+)/i.exec(url);
+  return match ? match[1] : null;
+}
+
+/**
+ * Insert a block-level image into the editor.
+ * When the cursor sits inside a non-empty text block (e.g. a paragraph with
+ * text) the standard `setImage` command silently fails because it cannot
+ * place a block node at an inline position.  This helper detects that case
+ * and uses a raw ProseMirror transaction to insert the image *after* the
+ * current text block instead.
+ */
+function insertImageAtCursor(
+  ed: ReturnType<typeof useEditor> | null,
+  src: string,
+): void {
+  if (!ed) return;
+
+  // Always re-focus first — the async upload gap may have defocused the editor
+  ed.commands.focus();
+
+  const imageType = ed.state.schema.nodes.image;
+  if (!imageType) return;
+
+  const { $from } = ed.state.selection;
+
+  // Inside a non-empty text block → insert image block right after it
+  if ($from.parent.isTextblock && $from.parent.content.size > 0) {
+    try {
+      const insertPos = $from.after($from.depth);
+      const imageNode = imageType.create({ src });
+      const tr = ed.state.tr.insert(insertPos, imageNode);
+      ed.view.dispatch(tr);
+      return;
+    } catch {
+      // tr.insert position invalid — fall through to next strategy
+    }
+  }
+
+  // Standard command — works when cursor is in an empty block or between blocks
+  if (ed.chain().focus().setImage({ src }).run()) return;
+
+  // Last resort: append at end of document
+  try {
+    const endPos = ed.state.doc.content.size;
+    const imageNode = imageType.create({ src });
+    const tr = ed.state.tr.insert(endPos, imageNode);
+    ed.view.dispatch(tr);
+  } catch {
+    console.error('[Image Insert] All insertion methods failed for:', src);
+  }
+}
+
+/** Delete an uploaded image by filename */
+async function deleteUploadedImage(filename: string): Promise<boolean> {
+  try {
+    const token = localStorage.getItem('auth_access_token');
+    const res = await fetch(`${API_URL}/api/v1/uploads/images/${filename}`, {
+      method: 'DELETE',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok && res.status !== 404) {
+      console.warn('[Image Cleanup] DELETE failed:', res.status, filename);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('[Image Cleanup] DELETE error:', filename, err);
+    return false;
+  }
+}
+
+
 
 // ---------------------------------------------------------------------------
 // Props
@@ -119,6 +212,87 @@ export function NoteEditor({
   // Ref to hold latest editor ref for image upload callbacks
   const editorRef = useRef<ReturnType<typeof useEditor>>(null);
 
+  // Image preview on click
+  const editorContainerRef = useRef<HTMLDivElement>(null);
+  const imagePreviewDialog = useImageClickPreview(editorContainerRef);
+
+  // Track images uploaded during this editing session for orphan cleanup
+  const sessionUploadsRef = useRef<Set<string>>(new Set());
+
+  // Clean up orphaned uploads on unmount (Scenario II: close without saving)
+  useEffect(() => {
+    const uploadsRef = sessionUploadsRef;
+    return () => {
+      if (uploadsRef.current.size > 0) {
+        const orphans = [...uploadsRef.current];
+        console.warn('[Image Cleanup] Unmount — deleting orphaned uploads:', orphans);
+        orphans.forEach((fn) => deleteUploadedImage(fn));
+        uploadsRef.current.clear();
+      }
+    };
+  }, []);
+
+  // Math dialog state
+  const [mathDialog, setMathDialog] = useState<{
+    open: boolean;
+    mode: MathMode;
+    initialLatex: string;
+    editPos: number | null; // non-null when editing existing node
+  }>({ open: false, mode: 'inline', initialLatex: '', editPos: null });
+
+  const openMathDialog = useCallback((mode: MathMode) => {
+    setMathDialog({ open: true, mode, initialLatex: '', editPos: null });
+  }, []);
+
+  const openMathEdit = useCallback((latex: string, mode: MathMode, pos: number) => {
+    setMathDialog({ open: true, mode, initialLatex: latex, editPos: pos });
+  }, []);
+
+  const closeMathDialog = useCallback(() => {
+    setMathDialog(prev => ({ ...prev, open: false }));
+    editorRef.current?.commands.focus();
+  }, []);
+
+  const handleMathConfirm = useCallback((latex: string, mode: MathMode) => {
+    const ed = editorRef.current;
+    if (!ed) return;
+
+    if (mathDialog.editPos !== null) {
+      // Editing existing node
+      const node = ed.state.doc.nodeAt(mathDialog.editPos);
+      if (node) {
+        if (mode === 'inline') {
+          ed.chain().setNodeSelection(mathDialog.editPos).updateInlineMath({ latex }).focus().run();
+        } else {
+          ed.chain().setNodeSelection(mathDialog.editPos).updateBlockMath({ latex }).focus().run();
+        }
+      }
+    } else {
+      // Inserting new node via ProseMirror transaction (bypasses tiptap-markdown override)
+      const { state } = ed;
+      const nodeName = mode === 'inline' ? 'inlineMath' : 'blockMath';
+      const nodeType = state.schema.nodes[nodeName];
+      if (nodeType) {
+        const newNode = nodeType.create({ latex });
+        const tr = state.tr;
+        if (mode === 'block') {
+          const { $from } = state.selection;
+          if ($from.parent.content.size === 0) {
+            tr.replaceWith($from.before(), $from.after(), newNode);
+          } else {
+            tr.insert($from.after(), newNode);
+          }
+        } else {
+          tr.replaceSelectionWith(newNode);
+        }
+        ed.view.dispatch(tr);
+        ed.commands.focus();
+      }
+    }
+
+    setMathDialog(prev => ({ ...prev, open: false }));
+  }, [mathDialog.editPos]);
+
   // Image upload trigger (called from slash command)
   const triggerImageUpload = useCallback(() => {
     const input = document.createElement('input');
@@ -129,7 +303,12 @@ export function NoteEditor({
       if (!file || !isImageFile(file)) return;
       try {
         const url = await uploadImageFile(file);
-        editorRef.current?.chain().focus().setImage({ src: url }).run();
+        const fn = extractFilenameFromUrl(url);
+        if (fn) {
+          sessionUploadsRef.current.add(fn);
+          console.warn('[Image Cleanup] Tracked upload (file picker):', fn);
+        }
+        insertImageAtCursor(editorRef.current, url);
       } catch {
         // silently fail — image upload failed
       }
@@ -144,6 +323,7 @@ export function NoteEditor({
       }),
       TiptapMarkdown.configure({
         html: false,
+        linkify: true,
         transformPastedText: true,
         transformCopiedText: true,
       }),
@@ -154,7 +334,7 @@ export function NoteEditor({
         openOnClick: false,
         autolink: true,
       }),
-      Highlight,
+      MarkdownHighlight,
       Typography,
       UnderlineExtension,
       TextAlign.configure({
@@ -168,14 +348,25 @@ export function NoteEditor({
       TableRow,
       TableCell,
       TableHeader,
-      SuperscriptExtension,
-      SubscriptExtension,
+      MarkdownSuperscript,
+      MarkdownSubscript,
+      MarkdownInlineMath.configure({
+        katexOptions: { throwOnError: false },
+      }),
+      MarkdownBlockMath.configure({
+        katexOptions: { throwOnError: false },
+      }),
+      Admonition,
+      PasteMarkdown,
       CustomGlobalDragHandle.configure({
         dragHandleWidth: 20,
         scrollTreshold: 100,
       }),
       SlashCommands.configure({
-        suggestion: createSlashCommandSuggestion(triggerImageUpload),
+        suggestion: createSlashCommandSuggestion({
+          onImageUpload: triggerImageUpload,
+          onMathInsert: openMathDialog,
+        }),
       }),
     ],
     content: note?.content ?? '',
@@ -194,7 +385,12 @@ export function NoteEditor({
         imageFiles.forEach(async (file) => {
           try {
             const url = await uploadImageFile(file);
-            editorRef.current?.chain().focus().setImage({ src: url }).run();
+            const fn = extractFilenameFromUrl(url);
+            if (fn) {
+              sessionUploadsRef.current.add(fn);
+              console.warn('[Image Cleanup] Tracked upload (drop):', fn);
+            }
+            insertImageAtCursor(editorRef.current, url);
           } catch {
             // silently fail
           }
@@ -212,7 +408,12 @@ export function NoteEditor({
         imageFiles.forEach(async (file) => {
           try {
             const url = await uploadImageFile(file);
-            editorRef.current?.chain().focus().setImage({ src: url }).run();
+            const fn = extractFilenameFromUrl(url);
+            if (fn) {
+              sessionUploadsRef.current.add(fn);
+              console.warn('[Image Cleanup] Tracked upload (paste):', fn);
+            }
+            insertImageAtCursor(editorRef.current, url);
           } catch {
             // silently fail
           }
@@ -266,6 +467,17 @@ export function NoteEditor({
         isPinned,
         projectId: projectId !== 'none' ? projectId : undefined,
       });
+
+      // Clean up images uploaded this session but removed before saving
+      if (sessionUploadsRef.current.size > 0) {
+        const savedImages = extractImageFilenames(content);
+        const orphans = [...sessionUploadsRef.current].filter(fn => !savedImages.has(fn));
+        if (orphans.length > 0) {
+          console.warn('[Image Cleanup] Save — deleting orphaned uploads:', orphans);
+          await Promise.all(orphans.map(fn => deleteUploadedImage(fn)));
+        }
+        sessionUploadsRef.current.clear();
+      }
 
       initialRef.current = { title: title.trim(), content, isPinned, projectId };
       onDirtyChange?.(false);
@@ -348,10 +560,24 @@ export function NoteEditor({
       </div>
 
       {/* WYSIWYG Editor */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" ref={editorContainerRef}>
         {editor && <NoteBubbleMenu editor={editor} />}
+        {editor && <TableContextMenu editor={editor} />}
+        {editor && <MathContextMenu editor={editor} onEdit={openMathEdit} />}
+        {editor && <AdmonitionContextMenu editor={editor} />}
         <EditorContent editor={editor} className="h-full" />
       </div>
+
+      {imagePreviewDialog}
+
+      {/* Math Input Dialog */}
+      <MathInputDialog
+        open={mathDialog.open}
+        mode={mathDialog.mode}
+        initialLatex={mathDialog.initialLatex}
+        onConfirm={handleMathConfirm}
+        onCancel={closeMathDialog}
+      />
 
       {/* Footer */}
       <div className="flex items-center justify-end gap-2 p-4 border-t">

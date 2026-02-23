@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { notesRepository, type CreateNoteData, type UpdateNoteData, type ListNotesParams } from '../repositories/notes.repository.js';
+import { extractImageFilenames, deleteUploadedImages } from '../controllers/uploads.controller.js';
 
 import type { Note, CreateNoteRequest, UpdateNoteRequest } from '@workspace/shared';
 
@@ -55,6 +56,17 @@ export const notesService = {
       throw new Error(`Failed to update note with ID "${id}"`);
     }
 
+    // Clean up images that were in the old content but not in the new content
+    if (request.content !== undefined) {
+      const oldImages = extractImageFilenames(existing.content);
+      const newImages = extractImageFilenames(request.content);
+      const newSet = new Set(newImages);
+      const orphaned = oldImages.filter((f) => !newSet.has(f));
+      if (orphaned.length > 0) {
+        deleteUploadedImages(orphaned).catch(() => {});
+      }
+    }
+
     return updated;
   },
 
@@ -63,7 +75,18 @@ export const notesService = {
    * Returns true if deleted, false if not found
    */
   async delete(id: string): Promise<boolean> {
-    return notesRepository.delete(id);
+    // Fetch before deleting so we can clean up images
+    const existing = await notesRepository.getById(id);
+    const deleted = await notesRepository.delete(id);
+
+    if (deleted && existing) {
+      const images = extractImageFilenames(existing.content);
+      if (images.length > 0) {
+        deleteUploadedImages(images).catch(() => {});
+      }
+    }
+
+    return deleted;
   },
 
   /**

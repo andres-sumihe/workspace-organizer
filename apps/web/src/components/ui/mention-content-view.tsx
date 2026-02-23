@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { File, Folder } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useImagePreviewDialog } from "@/components/ui/image-preview";
 
 // ---------------------------------------------------------------------------
 // Tiptap JSON node shape (subset we care about)
@@ -125,9 +126,11 @@ function MentionChip({
 function NodeRenderer({
   node,
   navigate,
+  onImageClick,
 }: {
   node: TiptapNode;
   navigate: ReturnType<typeof useNavigate>;
+  onImageClick?: (src: string) => void;
 }): ReactNode {
   if (node.type === "text") {
     let content: ReactNode = <>{node.text}</>;
@@ -149,14 +152,21 @@ function NodeRenderer({
     const src = node.attrs?.src as string | undefined;
     const alt = (node.attrs?.alt as string) || "uploaded image";
     if (!src) return null;
-    return <img src={src} alt={alt} className="rounded-md max-w-full h-auto my-1" />;
+    return (
+      <img
+        src={src}
+        alt={alt}
+        className="rounded-md max-w-full h-auto my-1 cursor-pointer hover:opacity-85 transition-opacity"
+        onClick={onImageClick ? () => onImageClick(src) : undefined}
+      />
+    );
   }
 
   if (node.type === "paragraph") {
     return (
       <p className="m-0">
         {node.content?.map((child, i) => (
-          <NodeRenderer key={i} node={child} navigate={navigate} />
+          <NodeRenderer key={i} node={child} navigate={navigate} onImageClick={onImageClick} />
         ))}
       </p>
     );
@@ -165,7 +175,7 @@ function NodeRenderer({
   if (node.type === "heading") {
     const level = (node.attrs?.level as number) ?? 1;
     const children = node.content?.map((child, i) => (
-      <NodeRenderer key={i} node={child} navigate={navigate} />
+      <NodeRenderer key={i} node={child} navigate={navigate} onImageClick={onImageClick} />
     ));
     if (level === 1) return <h1 className="text-lg font-bold my-1">{children}</h1>;
     if (level === 2) return <h2 className="text-base font-bold my-1">{children}</h2>;
@@ -176,7 +186,7 @@ function NodeRenderer({
     return (
       <blockquote className="border-l-2 border-muted-foreground/30 pl-3 my-1 text-muted-foreground italic">
         {node.content?.map((child, i) => (
-          <NodeRenderer key={i} node={child} navigate={navigate} />
+          <NodeRenderer key={i} node={child} navigate={navigate} onImageClick={onImageClick} />
         ))}
       </blockquote>
     );
@@ -195,7 +205,7 @@ function NodeRenderer({
     return (
       <ul className="list-disc pl-5 my-1">
         {node.content?.map((child, i) => (
-          <NodeRenderer key={i} node={child} navigate={navigate} />
+          <NodeRenderer key={i} node={child} navigate={navigate} onImageClick={onImageClick} />
         ))}
       </ul>
     );
@@ -205,7 +215,7 @@ function NodeRenderer({
     return (
       <ol className="list-decimal pl-5 my-1">
         {node.content?.map((child, i) => (
-          <NodeRenderer key={i} node={child} navigate={navigate} />
+          <NodeRenderer key={i} node={child} navigate={navigate} onImageClick={onImageClick} />
         ))}
       </ol>
     );
@@ -215,7 +225,7 @@ function NodeRenderer({
     return (
       <li>
         {node.content?.map((child, i) => (
-          <NodeRenderer key={i} node={child} navigate={navigate} />
+          <NodeRenderer key={i} node={child} navigate={navigate} onImageClick={onImageClick} />
         ))}
       </li>
     );
@@ -233,7 +243,7 @@ function NodeRenderer({
   return (
     <>
       {node.content?.map((child, i) => (
-        <NodeRenderer key={i} node={child} navigate={navigate} />
+        <NodeRenderer key={i} node={child} navigate={navigate} onImageClick={onImageClick} />
       ))}
     </>
   );
@@ -261,6 +271,7 @@ export function MentionContentView({
   className,
 }: MentionContentViewProps) {
   const navigate = useNavigate();
+  const { preview, dialog } = useImagePreviewDialog();
 
   if (!content) return null;
 
@@ -269,7 +280,8 @@ export function MentionContentView({
       const doc = JSON.parse(content) as TiptapNode;
       return (
         <div className={cn("text-sm", className)}>
-          <NodeRenderer node={doc} navigate={navigate} />
+          <NodeRenderer node={doc} navigate={navigate} onImageClick={preview} />
+          {dialog}
         </div>
       );
     } catch {
