@@ -12,6 +12,9 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Eye,
+  EyeOff,
+  Copy,
+  Check,
   Pencil,
   Pin
 } from 'lucide-react';
@@ -440,11 +443,28 @@ interface CredentialRevealDialogProps {
 
 function CredentialRevealDialog({ open, onOpenChange, credential }: CredentialRevealDialogProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [revealedFields, setRevealedFields] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!open) {
+      setRevealedFields(new Set());
+      setCopiedField(null);
+    }
+  }, [open]);
 
   const copyToClipboard = async (value: string, field: string) => {
     await navigator.clipboard.writeText(value);
     setCopiedField(field);
     setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  const toggleReveal = (field: string) => {
+    setRevealedFields((prev) => {
+      const next = new Set(prev);
+      if (next.has(field)) next.delete(field);
+      else next.add(field);
+      return next;
+    });
   };
 
   if (!credential) return null;
@@ -461,53 +481,83 @@ function CredentialRevealDialog({ open, onOpenChange, credential }: CredentialRe
             {credential.title}
           </DialogTitle>
           <DialogDescription>
-            Click on a field to copy it to clipboard.
+            Reveal or copy individual credential fields.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
           {data.username && (
-            <div
-              className="flex items-center justify-between p-3 rounded-md bg-muted cursor-pointer hover:bg-muted/80"
-              onClick={() => copyToClipboard(data.username!, 'username')}
-            >
+            <div className="flex items-center justify-between p-3 rounded-md bg-muted">
               <div>
                 <p className="text-xs text-muted-foreground">Username</p>
                 <p className="font-mono">{data.username}</p>
               </div>
-              <Badge variant={copiedField === 'username' ? 'default' : 'outline'}>
-                {copiedField === 'username' ? 'Copied!' : 'Click to copy'}
-              </Badge>
+              <button
+                type="button"
+                onClick={() => copyToClipboard(data.username!, 'username')}
+                className="p-1.5 rounded-md hover:bg-background/60 transition-colors text-muted-foreground hover:text-foreground"
+                title={copiedField === 'username' ? 'Copied!' : 'Copy'}
+              >
+                {copiedField === 'username' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+              </button>
             </div>
           )}
 
           {data.password && (
-            <div
-              className="flex items-center justify-between p-3 rounded-md bg-muted cursor-pointer hover:bg-muted/80"
-              onClick={() => copyToClipboard(data.password!, 'password')}
-            >
-              <div>
+            <div className="flex items-center justify-between p-3 rounded-md bg-muted">
+              <div className="min-w-0 flex-1 mr-2">
                 <p className="text-xs text-muted-foreground">Password</p>
-                <p className="font-mono">{'•'.repeat(12)}</p>
+                <p className="font-mono truncate">
+                  {revealedFields.has('password') ? data.password : '•'.repeat(12)}
+                </p>
               </div>
-              <Badge variant={copiedField === 'password' ? 'default' : 'outline'}>
-                {copiedField === 'password' ? 'Copied!' : 'Click to copy'}
-              </Badge>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => toggleReveal('password')}
+                  className="p-1.5 rounded-md hover:bg-background/60 transition-colors text-muted-foreground hover:text-foreground"
+                  title={revealedFields.has('password') ? 'Hide' : 'Reveal'}
+                >
+                  {revealedFields.has('password') ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(data.password!, 'password')}
+                  className="p-1.5 rounded-md hover:bg-background/60 transition-colors text-muted-foreground hover:text-foreground"
+                  title={copiedField === 'password' ? 'Copied!' : 'Copy'}
+                >
+                  {copiedField === 'password' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
           )}
 
           {data.apiKey && (
-            <div
-              className="flex items-center justify-between p-3 rounded-md bg-muted cursor-pointer hover:bg-muted/80"
-              onClick={() => copyToClipboard(data.apiKey!, 'apiKey')}
-            >
-              <div>
+            <div className="flex items-center justify-between p-3 rounded-md bg-muted">
+              <div className="min-w-0 flex-1 mr-2">
                 <p className="text-xs text-muted-foreground">API Key</p>
-                <p className="font-mono">{data.apiKey.slice(0, 8)}{'•'.repeat(20)}</p>
+                <p className="font-mono truncate">
+                  {revealedFields.has('apiKey') ? data.apiKey : `${data.apiKey.slice(0, 8)}${'•'.repeat(20)}`}
+                </p>
               </div>
-              <Badge variant={copiedField === 'apiKey' ? 'default' : 'outline'}>
-                {copiedField === 'apiKey' ? 'Copied!' : 'Click to copy'}
-              </Badge>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => toggleReveal('apiKey')}
+                  className="p-1.5 rounded-md hover:bg-background/60 transition-colors text-muted-foreground hover:text-foreground"
+                  title={revealedFields.has('apiKey') ? 'Hide' : 'Reveal'}
+                >
+                  {revealedFields.has('apiKey') ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(data.apiKey!, 'apiKey')}
+                  className="p-1.5 rounded-md hover:bg-background/60 transition-colors text-muted-foreground hover:text-foreground"
+                  title={copiedField === 'apiKey' ? 'Copied!' : 'Copy'}
+                >
+                  {copiedField === 'apiKey' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
           )}
 
