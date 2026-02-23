@@ -5,15 +5,15 @@ import Image from '@tiptap/extension-image';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import LinkExtension from '@tiptap/extension-link';
-import Highlight from '@tiptap/extension-highlight';
 import UnderlineExtension from '@tiptap/extension-underline';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import { Table } from '@tiptap/extension-table/table';
 import { TableRow } from '@tiptap/extension-table/row';
 import { TableCell } from '@tiptap/extension-table/cell';
 import { TableHeader } from '@tiptap/extension-table/header';
-import SuperscriptExtension from '@tiptap/extension-superscript';
-import SubscriptExtension from '@tiptap/extension-subscript';
+import { MarkdownSuperscript, MarkdownSubscript, MarkdownHighlight, MarkdownInlineMath, MarkdownBlockMath } from './markdown-extensions';
+import { Admonition } from './admonition-extension';
+import 'katex/dist/katex.min.css';
 import { common, createLowlight } from 'lowlight';
 import {
   ExternalLink,
@@ -30,6 +30,7 @@ import type { Note } from '@workspace/shared';
 
 import { Button } from '@/components/ui/button';
 import { ContentSearchBar, type ContentSearchBarRef } from '@/components/ui/content-search-bar';
+import { useImageClickPreview } from '@/components/ui/image-preview';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Tooltip,
@@ -74,6 +75,9 @@ export function NoteViewer({ note, onEdit, onDelete, onPopout, isPipEditing, isP
   const searchBarRef = useRef<ContentSearchBarRef>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   
+  // Image preview on click
+  const imagePreviewDialog = useImageClickPreview(contentRef);
+
   // Debounce search query for performance (150ms delay)
   const debouncedQuery = useDebouncedValue(searchQuery, 150);
 
@@ -83,20 +87,23 @@ export function NoteViewer({ note, onEdit, onDelete, onPopout, isPipEditing, isP
       StarterKit.configure({
         codeBlock: false,
       }),
-      TiptapMarkdown.configure({ html: false }),
+      TiptapMarkdown.configure({ html: false, linkify: true }),
       Image.configure({ inline: false }),
       TaskList,
       TaskItem.configure({ nested: true }),
-      LinkExtension.configure({ openOnClick: true, autolink: true }),
-      Highlight,
+      LinkExtension.configure({ openOnClick: false, autolink: true }),
+      MarkdownHighlight,
       UnderlineExtension,
       CodeBlockLowlight.configure({ lowlight }),
       Table,
       TableRow,
       TableCell,
       TableHeader,
-      SuperscriptExtension,
-      SubscriptExtension,
+      MarkdownSuperscript,
+      MarkdownSubscript,
+      MarkdownInlineMath.configure({ katexOptions: { throwOnError: false } }),
+      MarkdownBlockMath.configure({ katexOptions: { throwOnError: false } }),
+      Admonition,
     ],
     content: note?.content ?? '',
     editable: false,
@@ -106,6 +113,49 @@ export function NoteViewer({ note, onEdit, onDelete, onPopout, isPipEditing, isP
       },
     },
   }, [note?.id, note?.content]);
+
+  // Handle link clicks — anchor links scroll to heading, external links open externally
+  useEffect(() => {
+    const dom = editor?.view?.dom;
+    if (!dom) return;
+
+    function handleClick(event: MouseEvent) {
+      const anchor = (event.target as HTMLElement).closest('a');
+      if (!anchor) return;
+
+      const href = anchor.getAttribute('href');
+      if (!href) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (href.startsWith('#')) {
+        // Anchor / slug link — scroll to the matching heading in the viewer
+        const slug = href.slice(1).toLowerCase();
+        const container = contentRef.current;
+        if (!container) return;
+
+        const headings = container.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        for (const heading of headings) {
+          const text = (heading.textContent ?? '').trim();
+          const headingSlug = text
+            .toLowerCase()
+            .replace(/[^\w\s-]/g, '')
+            .replace(/\s+/g, '-');
+          if (headingSlug === slug) {
+            heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+          }
+        }
+      } else {
+        // External link — open in new tab / Electron shell
+        window.open(href, '_blank', 'noopener,noreferrer');
+      }
+    }
+
+    dom.addEventListener('click', handleClick);
+    return () => dom.removeEventListener('click', handleClick);
+  }, [editor]);
 
   // Handle Ctrl+F to open search
   useEffect(() => {
@@ -343,6 +393,8 @@ export function NoteViewer({ note, onEdit, onDelete, onPopout, isPipEditing, isP
           </div>
         </ScrollArea>
       </div>
+
+      {imagePreviewDialog}
     </div>
   );
 }

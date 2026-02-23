@@ -24,6 +24,10 @@ import {
   Table2,
   Superscript,
   Subscript,
+  Sigma,
+  BookOpen,
+  AlertTriangle,
+  Lightbulb,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -47,11 +51,16 @@ interface CommandListRef {
   onKeyDown: (props: { event: KeyboardEvent }) => boolean;
 }
 
+interface CommandCallbacks {
+  onImageUpload?: () => void;
+  onMathInsert?: (mode: 'inline' | 'block') => void;
+}
+
 // ---------------------------------------------------------------------------
 // Command definitions
 // ---------------------------------------------------------------------------
 
-function getCommandGroups(onImageUpload?: () => void): CommandGroup[] {
+function getCommandGroups(callbacks?: CommandCallbacks): CommandGroup[] {
   return [
     {
       title: 'Headings',
@@ -136,7 +145,7 @@ function getCommandGroups(onImageUpload?: () => void): CommandGroup[] {
           icon: ImageIcon,
           command: ({ editor, range }) => {
             editor.chain().focus().deleteRange(range).run();
-            onImageUpload?.();
+            callbacks?.onImageUpload?.();
           },
         },
         {
@@ -178,6 +187,58 @@ function getCommandGroups(onImageUpload?: () => void): CommandGroup[] {
         },
       ],
     },
+    {
+      title: 'Containers',
+      items: [
+        {
+          title: 'Note',
+          description: 'Note container block',
+          icon: BookOpen,
+          command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).setAdmonition({ type: 'note' }).run();
+          },
+        },
+        {
+          title: 'Warning',
+          description: 'Warning container block',
+          icon: AlertTriangle,
+          command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).setAdmonition({ type: 'warning' }).run();
+          },
+        },
+        {
+          title: 'Tip',
+          description: 'Tip container block',
+          icon: Lightbulb,
+          command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).setAdmonition({ type: 'tip' }).run();
+          },
+        },
+      ],
+    },
+    {
+      title: 'Math',
+      items: [
+        {
+          title: 'Inline Math',
+          description: 'Inline equation ($...$)',
+          icon: Sigma,
+          command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).run();
+            callbacks?.onMathInsert?.('inline');
+          },
+        },
+        {
+          title: 'Block Math',
+          description: 'Block equation ($$...$$)',
+          icon: Sigma,
+          command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).run();
+            callbacks?.onMathInsert?.('block');
+          },
+        },
+      ],
+    },
   ];
 }
 
@@ -185,12 +246,12 @@ function getCommandGroups(onImageUpload?: () => void): CommandGroup[] {
 // CommandList component (rendered inside tippy popup)
 // ---------------------------------------------------------------------------
 
-const CommandList = forwardRef<CommandListRef, SuggestionProps & { onImageUpload?: () => void }>(
-  ({ editor, range, query, onImageUpload }, ref) => {
+const CommandList = forwardRef<CommandListRef, SuggestionProps & CommandCallbacks>(
+  ({ editor, range, query, onImageUpload, onMathInsert }, ref) => {
     const [selectedIndex, setSelectedIndex] = useState(0);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    const groups = getCommandGroups(onImageUpload);
+    const groups = getCommandGroups({ onImageUpload, onMathInsert });
 
     // Flatten + filter by query
     const filteredGroups = groups
@@ -298,7 +359,7 @@ CommandList.displayName = 'CommandList';
 // ---------------------------------------------------------------------------
 
 export function createSlashCommandSuggestion(
-  onImageUpload?: () => void
+  callbacks?: CommandCallbacks
 ): Omit<SuggestionOptions, 'editor'> {
   return {
     char: '/',
@@ -314,7 +375,7 @@ export function createSlashCommandSuggestion(
       return {
         onStart: (props: SuggestionProps) => {
           component = new ReactRenderer(CommandList, {
-            props: { ...props, onImageUpload },
+            props: { ...props, ...callbacks },
             editor: props.editor,
           });
 
@@ -331,7 +392,7 @@ export function createSlashCommandSuggestion(
           });
         },
         onUpdate: (props: SuggestionProps) => {
-          component?.updateProps({ ...props, onImageUpload });
+          component?.updateProps({ ...props, ...callbacks });
           if (props.clientRect && popup?.[0]) {
             popup[0].setProps({
               getReferenceClientRect: props.clientRect as () => DOMRect,

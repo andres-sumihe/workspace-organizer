@@ -1012,7 +1012,7 @@ export function NotesPage() {
                         <button
                           key={note.id}
                           onClick={() => attemptSelectNote(note)}
-                          className={`flex items-center gap-2 p-2 text-left text-sm transition-all duration-200 ease-linear hover:bg-muted/80 min-h-11.25 ${
+                          className={`flex items-center gap-2 p-2 text-left text-sm transition-all duration-200 ease-linear hover:bg-muted/80 min-h-11.25 group-data-[state=collapsed]/notes-sidebar:justify-center group-data-[state=collapsed]/notes-sidebar:gap-0 ${
                             selectedNote?.id === note.id ? 'bg-muted' : ''
                           }`}
                           title={note.title}
@@ -1024,7 +1024,7 @@ export function NotesPage() {
                               <FileText className="h-4 w-4 text-muted-foreground" />
                             )}
                           </div>
-                          <div className="flex-1 min-w-0 overflow-hidden transition-all duration-200 ease-linear opacity-100 w-full group-data-[state=collapsed]/notes-sidebar:w-0 group-data-[state=collapsed]/notes-sidebar:opacity-0 group-data-[state=collapsed]/notes-sidebar:max-h-0">
+                          <div className="flex-1 min-w-0 overflow-hidden transition-all duration-200 ease-linear opacity-100 w-full group-data-[state=collapsed]/notes-sidebar:w-0 group-data-[state=collapsed]/notes-sidebar:flex-none group-data-[state=collapsed]/notes-sidebar:opacity-0 group-data-[state=collapsed]/notes-sidebar:max-h-0">
                             <p className="font-medium truncate">{note.title}</p>
                             <p className="text-xs text-muted-foreground truncate opacity-80">
                               {note.content?.slice(0, 50) || 'No content'}
