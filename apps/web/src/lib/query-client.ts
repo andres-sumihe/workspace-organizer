@@ -146,4 +146,39 @@ export const queryKeys = {
     credentials: () => [...queryKeys.vault.all, 'credentials'] as const,
     credentialList: (params?: Record<string, unknown>) => [...queryKeys.vault.credentials(), 'list', params] as const,
   },
+
+  // Team Projects domain
+  teamProjects: {
+    all: ['teamProjects'] as const,
+    lists: () => [...queryKeys.teamProjects.all, 'list'] as const,
+    list: (teamId: string, params?: Record<string, unknown>) => [...queryKeys.teamProjects.lists(), teamId, params] as const,
+    details: () => [...queryKeys.teamProjects.all, 'detail'] as const,
+    detail: (teamId: string, projectId: string) => [...queryKeys.teamProjects.details(), teamId, projectId] as const,
+  },
+
+  // Team Notes domain
+  teamNotes: {
+    all: ['teamNotes'] as const,
+    lists: () => [...queryKeys.teamNotes.all, 'list'] as const,
+    list: (teamId: string, projectId: string, params?: Record<string, unknown>) => [...queryKeys.teamNotes.lists(), teamId, projectId, params] as const,
+    details: () => [...queryKeys.teamNotes.all, 'detail'] as const,
+    detail: (teamId: string, projectId: string, noteId: string) => [...queryKeys.teamNotes.details(), teamId, projectId, noteId] as const,
+    revisions: (teamId: string, projectId: string, noteId: string) => [...queryKeys.teamNotes.all, 'revisions', teamId, projectId, noteId] as const,
+  },
+
+  // Team Tasks domain
+  teamTasks: {
+    all: ['teamTasks'] as const,
+    lists: () => [...queryKeys.teamTasks.all, 'list'] as const,
+    list: (teamId: string, projectId: string, params?: Record<string, unknown>) => [...queryKeys.teamTasks.lists(), teamId, projectId, params] as const,
+    details: () => [...queryKeys.teamTasks.all, 'detail'] as const,
+    detail: (teamId: string, projectId: string, taskId: string) => [...queryKeys.teamTasks.details(), teamId, projectId, taskId] as const,
+  },
+
+  // Team Task Updates domain
+  teamTaskUpdates: {
+    all: ['teamTaskUpdates'] as const,
+    lists: () => [...queryKeys.teamTaskUpdates.all, 'list'] as const,
+    list: (teamId: string, projectId: string, taskId: string) => [...queryKeys.teamTaskUpdates.lists(), teamId, projectId, taskId] as const,
+  },
 };

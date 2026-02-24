@@ -140,6 +140,63 @@ const EXPECTED_SCHEMAS: Record<string, string[]> = {
     'value',
     'created_at',
     'updated_at'
+  ],
+  team_projects: [
+    'id',
+    'team_id',
+    'title',
+    'description',
+    'status',
+    'start_date',
+    'due_date',
+    'actual_end_date',
+    'business_proposal_id',
+    'change_id',
+    'created_by_email',
+    'updated_by_email',
+    'created_at',
+    'updated_at'
+  ],
+  team_notes: [
+    'id',
+    'team_id',
+    'project_id',
+    'title',
+    'content',
+    'is_pinned',
+    'created_by_email',
+    'updated_by_email',
+    'created_at',
+    'updated_at'
+  ],
+  team_note_revisions: [
+    'id',
+    'note_id',
+    'content',
+    'saved_by_email',
+    'revision_number',
+    'created_at'
+  ],
+  team_tasks: [
+    'id',
+    'team_id',
+    'project_id',
+    'title',
+    'description',
+    'status',
+    'priority',
+    'due_date',
+    'created_by_email',
+    'updated_by_email',
+    'created_at',
+    'updated_at'
+  ],
+  team_task_assignments: [
+    'id',
+    'task_id',
+    'email',
+    'display_name',
+    'assigned_at'
   ]
 };
 
