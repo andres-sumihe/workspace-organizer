@@ -696,7 +696,7 @@ export interface TeamMemberListResponse {
 /**
  * Resources that can be accessed in a team context.
  */
-export type TeamResource = 'teams' | 'team_members' | 'scripts' | 'controlm_jobs' | 'audit';
+export type TeamResource = 'teams' | 'team_members' | 'scripts' | 'controlm_jobs' | 'audit' | 'team_projects' | 'team_notes' | 'team_tasks';
 
 /**
  * Actions that can be performed on team resources.
@@ -713,21 +713,30 @@ export const TEAM_ROLE_PERMISSIONS: Record<TeamRole, Record<TeamResource, TeamAc
     team_members: ['create', 'read', 'update', 'delete', 'manage'],
     scripts: ['create', 'read', 'update', 'delete'],
     controlm_jobs: ['create', 'read', 'update', 'delete'],
-    audit: ['read']
+    audit: ['read'],
+    team_projects: ['create', 'read', 'update', 'delete', 'manage'],
+    team_notes: ['create', 'read', 'update', 'delete'],
+    team_tasks: ['create', 'read', 'update', 'delete', 'manage']
   },
   admin: {
     teams: ['read'],
     team_members: ['create', 'read', 'update', 'delete'],
     scripts: ['create', 'read', 'update', 'delete'],
     controlm_jobs: ['create', 'read', 'update', 'delete'],
-    audit: ['read']
+    audit: ['read'],
+    team_projects: ['create', 'read', 'update', 'delete'],
+    team_notes: ['create', 'read', 'update', 'delete'],
+    team_tasks: ['create', 'read', 'update', 'delete', 'manage']
   },
   member: {
     teams: ['read'],
     team_members: ['read'],
     scripts: ['create', 'read', 'update', 'delete'], // Own items only (enforced at service level)
     controlm_jobs: ['create', 'read', 'update', 'delete'], // Own items only
-    audit: ['read'] // Own actions only
+    audit: ['read'], // Own actions only
+    team_projects: ['read'],
+    team_notes: ['create', 'read', 'update', 'delete'], // Own items only
+    team_tasks: ['create', 'read', 'update'] // Can create and update assigned tasks
   }
 };
 
@@ -838,7 +847,16 @@ export type AuditAction =
   | 'JOB_LINK'
   | 'JOB_UNLINK'
   | 'JOB_DELETE'
-  | 'JOB_IMPORT';
+  | 'JOB_IMPORT'
+  | 'TEAM_PROJECT_CREATE'
+  | 'TEAM_PROJECT_UPDATE'
+  | 'TEAM_PROJECT_DELETE'
+  | 'TEAM_NOTE_CREATE'
+  | 'TEAM_NOTE_UPDATE'
+  | 'TEAM_NOTE_DELETE'
+  | 'TEAM_TASK_CREATE'
+  | 'TEAM_TASK_UPDATE'
+  | 'TEAM_TASK_DELETE';
 
 /**
  * Audit log entry stored in shared PostgreSQL.
@@ -1835,6 +1853,307 @@ export interface VaultSetupResponse {
 export interface VaultStatusResponse {
   isSetup: boolean;
   isUnlocked: boolean;
+}
+
+// ============================================================================
+// Team Projects Types
+// ============================================================================
+
+/**
+ * Status of a team project.
+ */
+export type TeamProjectStatus = 'active' | 'completed' | 'on_hold' | 'archived';
+
+/**
+ * Team project entity - collaborative project stored in shared PostgreSQL.
+ */
+export interface TeamProject {
+  id: string;
+  teamId: string;
+  title: string;
+  description?: string;
+  status: TeamProjectStatus;
+
+  // Planning Data
+  startDate?: string;
+  dueDate?: string;
+  actualEndDate?: string;
+
+  // Business Metadata
+  businessProposalId?: string;
+  changeId?: string;
+
+  // Ownership
+  createdByEmail: string;
+  updatedByEmail?: string;
+
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Request to create a new team project.
+ */
+export interface CreateTeamProjectRequest {
+  title: string;
+  description?: string;
+  status?: TeamProjectStatus;
+  startDate?: string;
+  dueDate?: string;
+  businessProposalId?: string;
+  changeId?: string;
+}
+
+/**
+ * Request to update an existing team project.
+ */
+export interface UpdateTeamProjectRequest {
+  title?: string;
+  description?: string;
+  status?: TeamProjectStatus;
+  startDate?: string;
+  dueDate?: string;
+  actualEndDate?: string;
+  businessProposalId?: string;
+  changeId?: string;
+}
+
+/**
+ * List item shape for team projects (includes task stats).
+ */
+export interface TeamProjectListItem extends TeamProject {
+  taskStats?: TeamProjectTaskStats;
+  noteCount?: number;
+}
+
+/**
+ * Task statistics for team projects.
+ */
+export interface TeamProjectTaskStats {
+  total: number;
+  completed: number;
+  inProgress: number;
+  pending: number;
+}
+
+/**
+ * Response containing a list of team projects.
+ */
+export interface TeamProjectListResponse {
+  items: TeamProjectListItem[];
+  meta: PaginationMeta;
+}
+
+/**
+ * Response containing a single team project.
+ */
+export interface TeamProjectResponse {
+  project: TeamProject;
+}
+
+// ============================================================================
+// Team Notes Types
+// ============================================================================
+
+/**
+ * A team note entry linked to a team project, stored in shared PostgreSQL.
+ */
+export interface TeamNote {
+  id: string;
+  teamId: string;
+  projectId: string;
+  title: string;
+  content: string;
+  isPinned: boolean;
+  createdByEmail: string;
+  updatedByEmail?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Request to create a new team note.
+ */
+export interface CreateTeamNoteRequest {
+  title: string;
+  content?: string;
+  isPinned?: boolean;
+}
+
+/**
+ * Request to update an existing team note.
+ */
+export interface UpdateTeamNoteRequest {
+  title?: string;
+  content?: string;
+  isPinned?: boolean;
+}
+
+/**
+ * Response containing a single team note.
+ */
+export interface TeamNoteResponse {
+  note: TeamNote;
+}
+
+/**
+ * Response containing a list of team notes.
+ */
+export interface TeamNoteListResponse {
+  items: TeamNote[];
+  meta: PaginationMeta;
+}
+
+/**
+ * A historical revision snapshot of a team note.
+ */
+export interface TeamNoteRevision {
+  id: string;
+  noteId: string;
+  content: string;
+  savedByEmail: string;
+  revisionNumber: number;
+  createdAt: string;
+}
+
+/**
+ * Response containing a list of note revisions.
+ */
+export interface TeamNoteRevisionListResponse {
+  items: TeamNoteRevision[];
+}
+
+// ============================================================================
+// Team Tasks Types
+// ============================================================================
+
+/**
+ * Status of a team task.
+ */
+export type TeamTaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
+
+/**
+ * Priority of a team task.
+ */
+export type TeamTaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+/**
+ * Team task entity - collaborative task linked to a team project.
+ */
+export interface TeamTask {
+  id: string;
+  teamId: string;
+  projectId: string;
+  title: string;
+  description?: string;
+  status: TeamTaskStatus;
+  priority: TeamTaskPriority;
+  dueDate?: string;
+  flags: TaskUpdateFlag[];
+  assignees: TeamTaskAssignee[];
+  createdByEmail: string;
+  updatedByEmail?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Assignee on a team task.
+ */
+export interface TeamTaskAssignee {
+  email: string;
+  displayName?: string;
+  assignedAt: string;
+}
+
+/**
+ * Request to create a new team task.
+ */
+export interface CreateTeamTaskRequest {
+  title: string;
+  description?: string;
+  status?: TeamTaskStatus;
+  priority?: TeamTaskPriority;
+  dueDate?: string;
+  assigneeEmails?: string[];
+}
+
+/**
+ * Request to update an existing team task.
+ */
+export interface UpdateTeamTaskRequest {
+  title?: string;
+  description?: string;
+  status?: TeamTaskStatus;
+  priority?: TeamTaskPriority;
+  dueDate?: string;
+  flags?: TaskUpdateFlag[];
+  assigneeEmails?: string[];
+}
+
+/**
+ * Response containing a single team task.
+ */
+export interface TeamTaskResponse {
+  task: TeamTask;
+}
+
+/**
+ * Response containing a list of team tasks.
+ */
+export interface TeamTaskListResponse {
+  items: TeamTask[];
+  meta: PaginationMeta;
+}
+
+// ============================================================================
+// Team Task Updates Types
+// ============================================================================
+
+/**
+ * A timestamped progress note/update for a team task.
+ * Includes author attribution for collaboration.
+ */
+export interface TeamTaskUpdate {
+  id: string;
+  teamId: string;
+  taskId: string;
+  parentId?: string;
+  content: string;
+  createdByEmail: string;
+  createdByDisplayName?: string;
+  replies?: TeamTaskUpdate[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Request to create a team task update.
+ */
+export interface CreateTeamTaskUpdateRequest {
+  parentId?: string;
+  content: string;
+}
+
+/**
+ * Request to update a team task update.
+ */
+export interface UpdateTeamTaskUpdateRequest {
+  content: string;
+}
+
+/**
+ * Response containing a list of team task updates.
+ */
+export interface TeamTaskUpdateListResponse {
+  items: TeamTaskUpdate[];
+}
+
+/**
+ * Response containing a single team task update.
+ */
+export interface TeamTaskUpdateResponse {
+  update: TeamTaskUpdate;
 }
 
 // IPC Types for Electron bridge

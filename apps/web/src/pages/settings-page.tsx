@@ -1436,7 +1436,7 @@ export const SettingsPage = () => {
                           <AlertDescription>
                             <p className="font-medium mb-1">Shared Mode Active</p>
                             <p>You are connected to a shared PostgreSQL database. Team features including 
-                               scripts management, Control-M jobs, and audit logging are enabled.</p>
+                               team projects, collaborative notes, task management, scripts, Control-M jobs, and audit logging are enabled.</p>
                           </AlertDescription>
                         </Alert>
 
@@ -1690,6 +1690,7 @@ export const SettingsPage = () => {
                   <ul className="text-sm space-y-1 list-disc list-inside">
                     <li><strong>Solo Mode:</strong> All data stored locally in SQLite, single user, no network required</li>
                     <li><strong>Shared Mode:</strong> Team data stored in PostgreSQL, multi-user with RBAC</li>
+                    <li>Team Projects with collaborative notes and task management</li>
                     <li>Scripts can be migrated from local to shared when switching modes</li>
                     <li>Audit logs track all changes in shared mode for compliance</li>
                     <li>User roles determine access to different features and resources</li>

@@ -30,6 +30,8 @@ import { ScriptsPage } from '@/pages/scripts-page';
 import { SettingsPage } from '@/pages/settings-page';
 import { SetupPage } from '@/pages/setup-page';
 import { TeamPage } from '@/pages/team-page';
+import { TeamProjectDetailPage } from '@/pages/team-project-detail-page';
+import { TeamProjectsPage } from '@/pages/team-projects-page';
 import { WeeklyReportPage } from '@/pages/weekly-report-page';
 import { WorkspaceDetailPage } from '@/pages/workspace-detail-page';
 import { WorkspacesPage } from '@/pages/workspaces-page';
@@ -158,6 +160,7 @@ function AppContent() {
         badge: isSoloMode ? 'Team' : undefined,
         subItems: [
           { key: 'members', label: 'Members' },
+          { key: 'team-projects', label: 'Projects' },
           { key: 'scripts', label: 'Scripts' }
         ]
       },
@@ -181,8 +184,9 @@ function AppContent() {
     const path = location.pathname;
     if (path.startsWith('/workspaces')) return 'workspaces';
     if (path.startsWith('/projects')) return 'projects';
-    // Scripts and Teams pages fall under Teams group
+    // Scripts, Team Projects, and Teams pages fall under Teams group
     if (path.startsWith('/scripts')) return 'teams';
+    if (path.startsWith('/team-projects')) return 'teams';
     if (path.startsWith('/teams')) return 'teams';
     if (path.startsWith('/journal')) return 'journal';
     if (path.startsWith('/notes')) return 'notes';
@@ -196,6 +200,7 @@ function AppContent() {
     if (path.startsWith('/tools/overtime')) return 'overtime';
     // Teams sub-navigation
     if (path.startsWith('/scripts')) return 'scripts';
+    if (path.startsWith('/team-projects')) return 'team-projects';
     if (path.startsWith('/teams')) return 'members';
     return undefined;
   };
@@ -222,6 +227,7 @@ function AppContent() {
             // Navigate to teams sub-page (members or scripts)
             const teamsRoutes: Record<string, string> = {
               members: '/teams',
+              'team-projects': '/team-projects',
               scripts: '/scripts'
             };
             navigate(teamsRoutes[subKey] || '/teams');
@@ -251,6 +257,8 @@ function AppContent() {
           <Route path="/scripts" element={<ScriptsPage />} />
           <Route path="/scripts/:scriptId" element={<ScriptsPage />} />
           <Route path="/teams" element={<TeamPage />} />
+          <Route path="/team-projects" element={<TeamProjectsPage />} />
+          <Route path="/team-projects/:projectId" element={<TeamProjectDetailPage />} />
           <Route path="/journal" element={<JournalPage />} />
           <Route path="/journal/report" element={<WeeklyReportPage />} />
           <Route path="/notes" element={<NotesPage />} />
