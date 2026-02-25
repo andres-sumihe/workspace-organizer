@@ -3,6 +3,7 @@ const path = require('path');
 const http = require('http');
 const url = require('url');
 const fs = require('fs');
+const { PassThrough } = require('stream');
 
 // Auto-updater
 const { autoUpdater } = require('electron-updater');
@@ -350,23 +351,48 @@ function setupProtocolHandler() {
             try {
               // Parse request body if present
               let body = null;
+              const contentType = request.headers.get('content-type') || '';
+              const isMultipart = contentType.includes('multipart/');
+              let rawBodyBuffer = null;
+
               if (request.method !== 'GET' && request.method !== 'HEAD' && request.body) {
-                try {
-                  const text = await request.text();
-                  if (text) {
-                    try {
-                      body = JSON.parse(text);
-                    } catch {
-                      body = text;
-                    }
+                if (isMultipart) {
+                  // Preserve raw body for multer/busboy — do NOT parse as text
+                  try {
+                    rawBodyBuffer = Buffer.from(await request.arrayBuffer());
+                  } catch (e) {
+                    console.error('[Protocol] Failed to read multipart body:', e);
                   }
-                } catch (e) {
-                  console.error('[Protocol] Failed to read request body:', e);
+                } else {
+                  try {
+                    const text = await request.text();
+                    if (text) {
+                      try {
+                        body = JSON.parse(text);
+                      } catch {
+                        body = text;
+                      }
+                    }
+                  } catch (e) {
+                    console.error('[Protocol] Failed to read request body:', e);
+                  }
                 }
               }
-              
-              // Create mock req object with all properties Express middleware needs
-              const mockReq = {
+
+              // For multipart requests, create a PassThrough stream so multer
+              // can pipe it through busboy.  For regular requests, use a plain
+              // object (existing behaviour).
+              let mockReq;
+              if (rawBodyBuffer) {
+                mockReq = new PassThrough();
+                mockReq.end(rawBodyBuffer);
+              } else {
+                mockReq = new PassThrough();
+                mockReq.end();
+              }
+
+              // Attach all Express-required properties
+              Object.assign(mockReq, {
                 method: request.method,
                 url: pathname + requestUrl.search,
                 originalUrl: pathname + requestUrl.search,
@@ -391,10 +417,15 @@ function setupProtocolHandler() {
                 acceptsEncodings: function() { return true; },
                 acceptsCharsets: function() { return true; },
                 acceptsLanguages: function() { return true; },
-                is: function() { return false; },
+                is: function(type) {
+                  if (!type) return false;
+                  const ct = this.headers['content-type'] || '';
+                  if (typeof type === 'string') return ct.includes(type) ? type : false;
+                  return false;
+                },
                 socket: { remoteAddress: '127.0.0.1' },
                 connection: { remoteAddress: '127.0.0.1' }
-              };
+              });
               
               // Create mock res object
               let responseBody = '';
@@ -485,6 +516,47 @@ function setupProtocolHandler() {
                   responseStatus = statusOrUrl;
                   responseHeaders['Location'] = url;
                   return this.end();
+                },
+                sendFile: function(filePath, optionsOrCallback, callback) {
+                  if (headersSent) return this;
+                  // sendFile(path, cb) or sendFile(path, opts, cb)
+                  const cb = typeof optionsOrCallback === 'function' ? optionsOrCallback : callback;
+                  fs.readFile(filePath, (err, data) => {
+                    if (err) {
+                      if (cb) return cb(err);
+                      responseStatus = 404;
+                      headersSent = true;
+                      this.headersSent = true;
+                      finishResponse(buildResponse(
+                        JSON.stringify({ code: 'NOT_FOUND', message: 'File not found' }),
+                        404,
+                        { 'Content-Type': 'application/json' }
+                      ));
+                      return;
+                    }
+                    headersSent = true;
+                    this.headersSent = true;
+                    // Determine MIME type from extension
+                    const ext = path.extname(filePath).toLowerCase();
+                    const mimeTypes = {
+                      '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+                      '.png': 'image/png', '.gif': 'image/gif',
+                      '.webp': 'image/webp', '.svg': 'image/svg+xml',
+                      '.ico': 'image/x-icon', '.bmp': 'image/bmp',
+                      '.pdf': 'application/pdf', '.json': 'application/json',
+                      '.html': 'text/html', '.css': 'text/css',
+                      '.js': 'application/javascript', '.txt': 'text/plain',
+                    };
+                    responseHeaders['Content-Type'] = mimeTypes[ext] || 'application/octet-stream';
+                    responseHeaders['Content-Length'] = String(data.length);
+                    log(`[Protocol] API response (sendFile): ${responseStatus} ${pathname}`);
+                    finishResponse(new Response(data, {
+                      status: responseStatus,
+                      headers: responseHeaders
+                    }));
+                    if (cb) cb();
+                  });
+                  return this;
                 }
               };
               
