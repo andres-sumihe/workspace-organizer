@@ -13,6 +13,7 @@ import * as migration0011 from './0011-create-team-projects.js';
 import * as migration0012 from './0012-create-team-notes.js';
 import * as migration0013 from './0013-create-team-tasks.js';
 import * as migration0014 from './0014-create-team-task-updates.js';
+import * as migration0015 from './0015-create-team-yjs-updates.js';
 import { SHARED_SCHEMA, getSearchPath, qualifyTable } from '../shared-schema.js';
 
 import type { Pool, PoolClient } from 'pg';
@@ -49,7 +50,8 @@ const migrations: SharedMigration[] = [
   { id: migration0011.id, up: migration0011.up },
   { id: migration0012.id, up: migration0012.up },
   { id: migration0013.id, up: migration0013.up },
-  { id: migration0014.id, up: migration0014.up }
+  { id: migration0014.id, up: migration0014.up },
+  { id: migration0015.id, up: migration0015.up }
 ];
 
 // Re-export schema utilities

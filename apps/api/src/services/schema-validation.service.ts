@@ -197,6 +197,13 @@ const EXPECTED_SCHEMAS: Record<string, string[]> = {
     'email',
     'display_name',
     'assigned_at'
+  ],
+  team_yjs_updates: [
+    'id',
+    'document_name',
+    'state',
+    'created_at',
+    'updated_at'
   ]
 };
 

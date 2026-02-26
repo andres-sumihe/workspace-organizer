@@ -75,6 +75,11 @@ export interface MentionInputProps {
   maxHeight?: string;
   /** Enable rich text toolbar and formatting (heading, blockquote, code block, lists, image). @default false */
   richText?: boolean;
+  /** Custom image handler. Receives a File and must return the image URL
+   *  (e.g. a data: base64 URL for shared/team contexts, or a server-uploaded
+   *  URL for local/personal contexts). When omitted, images are uploaded to
+   *  the local server via /api/v1/uploads/images. */
+  imageHandler?: (file: File) => Promise<string>;
   /** Additional className merged onto the outer wrapper */
   className?: string;
   /** Disable editing */
@@ -574,9 +579,13 @@ export function MentionInput({
   onBlur,
   onFocus,
   startAdornment,
+  imageHandler,
 }: MentionInputProps) {
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+
+  const imageHandlerRef = useRef(imageHandler);
+  imageHandlerRef.current = imageHandler;
 
   const itemsRef = useRef(items);
   itemsRef.current = items;
@@ -614,8 +623,9 @@ export function MentionInput({
     isUploadingRef.current = true;
     setIsUploading(true);
     try {
+      const handler = imageHandlerRef.current ?? uploadImageFile;
       for (const file of imageFiles) {
-        const url = await uploadImageFile(file);
+        const url = await handler(file);
         editorInstance.chain().focus().setImage({ src: url }).run();
       }
     } catch (err) {
@@ -643,7 +653,7 @@ export function MentionInput({
         ? [
             Image.configure({
               inline: false,
-              allowBase64: false,
+              allowBase64: !!imageHandler,
               HTMLAttributes: {
                 class: 'rounded-md max-w-full h-auto my-1',
               },

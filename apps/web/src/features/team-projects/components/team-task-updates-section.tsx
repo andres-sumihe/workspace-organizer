@@ -1,7 +1,8 @@
 import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { MentionTextarea } from '@/components/ui/mention-input';
+import { MentionContentView, extractPlainText } from '@/components/ui/mention-content-view';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +24,7 @@ import {
 
 import { useTeamTaskUpdates, useCreateTeamTaskUpdate, useUpdateTeamTaskUpdate, useDeleteTeamTaskUpdate } from '@/features/team-projects';
 import { useAuth } from '@/contexts/auth-context';
+import { readFileAsBase64 } from '@/lib/base64-image';
 import { formatRelativeTime, formatTimestampDisplay } from '@/features/journal/utils/journal-parser';
 
 import type { TeamTaskUpdate } from '@workspace/shared';
@@ -43,13 +45,17 @@ function getDisplayName(update: TeamTaskUpdate): string {
 export function TeamTaskUpdatesSection({ teamId, projectId, taskId }: TeamTaskUpdatesSectionProps) {
   const { user } = useAuth();
   const currentEmail = user?.email ?? '';
+  const emptyItems: never[] = [];
 
   const [isAdding, setIsAdding] = useState(false);
   const [newContent, setNewContent] = useState('');
+  const [newContentText, setNewContentText] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState('');
+  const [editingContentText, setEditingContentText] = useState('');
   const [replyingToId, setReplyingToId] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState('');
+  const [replyContentText, setReplyContentText] = useState('');
 
   const { data: updatesRes, isLoading } = useTeamTaskUpdates(teamId, projectId, taskId);
   const createMutation = useCreateTeamTaskUpdate(teamId, projectId, taskId);
@@ -60,12 +66,13 @@ export function TeamTaskUpdatesSection({ teamId, projectId, taskId }: TeamTaskUp
   const updates = [...(updatesRes?.items ?? [])].reverse();
 
   const handleAdd = useCallback(() => {
-    if (!newContent.trim()) return;
+    if (!extractPlainText(newContent).trim()) return;
     createMutation.mutate(
-      { content: newContent.trim() },
+      { content: newContent },
       {
         onSuccess: () => {
           setNewContent('');
+          setNewContentText('');
           setIsAdding(false);
         },
       }
@@ -75,16 +82,18 @@ export function TeamTaskUpdatesSection({ teamId, projectId, taskId }: TeamTaskUp
   const handleEdit = useCallback((update: TeamTaskUpdate) => {
     setEditingId(update.id);
     setEditingContent(update.content);
+    setEditingContentText(extractPlainText(update.content));
   }, []);
 
   const handleSaveEdit = useCallback(() => {
-    if (!editingId || !editingContent.trim()) return;
+    if (!editingId || !extractPlainText(editingContent).trim()) return;
     updateMutation.mutate(
-      { updateId: editingId, payload: { content: editingContent.trim() } },
+      { updateId: editingId, payload: { content: editingContent } },
       {
         onSuccess: () => {
           setEditingId(null);
           setEditingContent('');
+          setEditingContentText('');
         },
       }
     );
@@ -93,6 +102,7 @@ export function TeamTaskUpdatesSection({ teamId, projectId, taskId }: TeamTaskUp
   const handleCancelEdit = useCallback(() => {
     setEditingId(null);
     setEditingContent('');
+    setEditingContentText('');
   }, []);
 
   const handleDelete = useCallback(
@@ -105,21 +115,24 @@ export function TeamTaskUpdatesSection({ teamId, projectId, taskId }: TeamTaskUp
   const handleReply = useCallback((parentId: string) => {
     setReplyingToId(parentId);
     setReplyContent('');
+    setReplyContentText('');
   }, []);
 
   const handleCancelReply = useCallback(() => {
     setReplyingToId(null);
     setReplyContent('');
+    setReplyContentText('');
   }, []);
 
   const handleSubmitReply = useCallback(() => {
-    if (!replyingToId || !replyContent.trim()) return;
+    if (!replyingToId || !extractPlainText(replyContent).trim()) return;
     createMutation.mutate(
-      { parentId: replyingToId, content: replyContent.trim() },
+      { parentId: replyingToId, content: replyContent },
       {
         onSuccess: () => {
           setReplyingToId(null);
           setReplyContent('');
+          setReplyContentText('');
         },
       }
     );
@@ -160,12 +173,18 @@ export function TeamTaskUpdatesSection({ teamId, projectId, taskId }: TeamTaskUp
       {/* Add new update form */}
       {isAdding && (
         <div className="space-y-2 p-3 bg-muted/50 rounded-lg">
-          <Textarea
+          <MentionTextarea
             placeholder="What's the latest on this task?"
-            value={newContent}
-            onChange={(e) => setNewContent(e.target.value)}
+            onChange={({ text, json }) => {
+              setNewContentText(text);
+              setNewContent(JSON.stringify(json));
+            }}
+            items={emptyItems}
+            triggerChar="/"
             className="min-h-15 text-sm"
-            rows={3}
+            richText
+            imageHandler={readFileAsBase64}
+            maxHeight="300px"
           />
           <div className="flex justify-end gap-2">
             <Button
@@ -174,6 +193,7 @@ export function TeamTaskUpdatesSection({ teamId, projectId, taskId }: TeamTaskUp
               onClick={() => {
                 setIsAdding(false);
                 setNewContent('');
+                setNewContentText('');
               }}
             >
               <X className="h-4 w-4 mr-1" />
@@ -182,7 +202,7 @@ export function TeamTaskUpdatesSection({ teamId, projectId, taskId }: TeamTaskUp
             <Button
               size="sm"
               onClick={handleAdd}
-              disabled={!newContent.trim() || createMutation.isPending}
+              disabled={!newContentText.trim() || createMutation.isPending}
             >
               <Send className="h-4 w-4 mr-1" />
               {createMutation.isPending ? 'Adding...' : 'Add Update'}
@@ -207,11 +227,18 @@ export function TeamTaskUpdatesSection({ teamId, projectId, taskId }: TeamTaskUp
                 {editingId === update.id ? (
                   /* Edit mode */
                   <div className="space-y-2">
-                    <Textarea
+                    <MentionTextarea
                       value={editingContent}
-                      onChange={(e) => setEditingContent(e.target.value)}
+                      onChange={({ text, json }) => {
+                        setEditingContentText(text);
+                        setEditingContent(JSON.stringify(json));
+                      }}
+                      items={emptyItems}
+                      triggerChar="/"
                       className="min-h-15 text-sm"
-                      rows={3}
+                      richText
+                      imageHandler={readFileAsBase64}
+                      maxHeight="300px"
                     />
                     <div className="flex justify-end gap-2">
                       <Button variant="ghost" size="sm" onClick={handleCancelEdit}>
@@ -220,7 +247,7 @@ export function TeamTaskUpdatesSection({ teamId, projectId, taskId }: TeamTaskUp
                       <Button
                         size="sm"
                         onClick={handleSaveEdit}
-                        disabled={!editingContent.trim() || updateMutation.isPending}
+                        disabled={!editingContentText.trim() || updateMutation.isPending}
                       >
                         {updateMutation.isPending ? 'Saving...' : 'Save'}
                       </Button>
@@ -235,7 +262,7 @@ export function TeamTaskUpdatesSection({ teamId, projectId, taskId }: TeamTaskUp
                       <span className="text-xs font-medium">{getDisplayName(update)}</span>
                     </div>
 
-                    <p className="text-sm whitespace-pre-wrap pr-8">{update.content}</p>
+                    <MentionContentView content={update.content} className="pr-8" />
 
                     <p
                       className="text-xs text-muted-foreground mt-2"
@@ -292,11 +319,18 @@ export function TeamTaskUpdatesSection({ teamId, projectId, taskId }: TeamTaskUp
                     >
                       {editingId === reply.id ? (
                         <div className="space-y-2">
-                          <Textarea
+                          <MentionTextarea
                             value={editingContent}
-                            onChange={(e) => setEditingContent(e.target.value)}
+                            onChange={({ text, json }) => {
+                              setEditingContentText(text);
+                              setEditingContent(JSON.stringify(json));
+                            }}
+                            items={emptyItems}
+                            triggerChar="/"
                             className="min-h-10 text-sm"
-                            rows={2}
+                            richText
+                            imageHandler={readFileAsBase64}
+                            maxHeight="300px"
                           />
                           <div className="flex justify-end gap-2">
                             <Button variant="ghost" size="sm" onClick={handleCancelEdit}>
@@ -305,7 +339,7 @@ export function TeamTaskUpdatesSection({ teamId, projectId, taskId }: TeamTaskUp
                             <Button
                               size="sm"
                               onClick={handleSaveEdit}
-                              disabled={!editingContent.trim() || updateMutation.isPending}
+                              disabled={!editingContentText.trim() || updateMutation.isPending}
                             >
                               {updateMutation.isPending ? 'Saving...' : 'Save'}
                             </Button>
@@ -320,7 +354,7 @@ export function TeamTaskUpdatesSection({ teamId, projectId, taskId }: TeamTaskUp
                                 <User className="h-3 w-3 text-muted-foreground" />
                                 <span className="text-xs font-medium">{getDisplayName(reply)}</span>
                               </div>
-                              <p className="text-sm whitespace-pre-wrap">{reply.content}</p>
+                              <MentionContentView content={reply.content} className="pr-6" />
                             </div>
                           </div>
                           <p
@@ -370,12 +404,18 @@ export function TeamTaskUpdatesSection({ teamId, projectId, taskId }: TeamTaskUp
                 <div className="ml-4 space-y-2 p-2 bg-muted/30 rounded-lg border-l-2 border-primary">
                   <div className="flex items-start gap-2">
                     <CornerDownRight className="h-4 w-4 text-primary mt-2 shrink-0" />
-                    <Textarea
+                    <MentionTextarea
                       placeholder="Write a reply..."
-                      value={replyContent}
-                      onChange={(e) => setReplyContent(e.target.value)}
+                      onChange={({ text, json }) => {
+                        setReplyContentText(text);
+                        setReplyContent(JSON.stringify(json));
+                      }}
+                      items={emptyItems}
+                      triggerChar="/"
                       className="min-h-10 text-sm flex-1"
-                      rows={2}
+                      richText
+                      imageHandler={readFileAsBase64}
+                      maxHeight="300px"
                     />
                   </div>
                   <div className="flex justify-end gap-2">
@@ -385,7 +425,7 @@ export function TeamTaskUpdatesSection({ teamId, projectId, taskId }: TeamTaskUp
                     <Button
                       size="sm"
                       onClick={handleSubmitReply}
-                      disabled={!replyContent.trim() || createMutation.isPending}
+                      disabled={!replyContentText.trim() || createMutation.isPending}
                     >
                       <Send className="h-3 w-3 mr-1" />
                       {createMutation.isPending ? 'Sending...' : 'Reply'}

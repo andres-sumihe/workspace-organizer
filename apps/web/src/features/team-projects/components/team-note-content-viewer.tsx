@@ -1,0 +1,356 @@
+import { EditorContent, useEditor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import { Markdown as TiptapMarkdown } from 'tiptap-markdown';
+import Image from '@tiptap/extension-image';
+import TaskList from '@tiptap/extension-task-list';
+import TaskItem from '@tiptap/extension-task-item';
+import LinkExtension from '@tiptap/extension-link';
+import UnderlineExtension from '@tiptap/extension-underline';
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import { Table } from '@tiptap/extension-table/table';
+import { TableRow } from '@tiptap/extension-table/row';
+import { TableCell } from '@tiptap/extension-table/cell';
+import { TableHeader } from '@tiptap/extension-table/header';
+import {
+  MarkdownSuperscript,
+  MarkdownSubscript,
+  MarkdownHighlight,
+  MarkdownInlineMath,
+  MarkdownBlockMath,
+} from '@/features/notes/components/markdown-extensions';
+import { Admonition } from '@/features/notes/components/admonition-extension';
+import 'katex/dist/katex.min.css';
+import { common, createLowlight } from 'lowlight';
+import { ExternalLink, Pencil, Pin, Search, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+import type { TeamNote } from '@workspace/shared';
+
+import { Button } from '@/components/ui/button';
+import { ContentSearchBar, type ContentSearchBarRef } from '@/components/ui/content-search-bar';
+import { useImageClickPreview } from '@/components/ui/image-preview';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
+const lowlight = createLowlight(common);
+
+function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debouncedValue;
+}
+
+interface TeamNoteContentViewerProps {
+  note: TeamNote;
+  onEdit: () => void;
+  onDelete: (id: string) => void;
+  teamId?: string;
+  projectId?: string;
+}
+
+export function TeamNoteContentViewer({ note, onEdit, onDelete, teamId, projectId }: TeamNoteContentViewerProps) {
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [caseSensitive, setCaseSensitive] = useState(false);
+  const [currentMatch, setCurrentMatch] = useState(0);
+  const [matchCount, setMatchCount] = useState(0);
+  const searchBarRef = useRef<ContentSearchBarRef>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const imagePreviewDialog = useImageClickPreview(contentRef);
+  const debouncedQuery = useDebouncedValue(searchQuery, 150);
+
+  const editor = useEditor(
+    {
+      extensions: [
+        StarterKit.configure({ codeBlock: false }),
+        TiptapMarkdown.configure({ html: false, linkify: true }),
+        Image.configure({ inline: false }),
+        TaskList,
+        TaskItem.configure({ nested: true }),
+        LinkExtension.configure({ openOnClick: false, autolink: true }),
+        MarkdownHighlight,
+        UnderlineExtension,
+        CodeBlockLowlight.configure({ lowlight }),
+        Table,
+        TableRow,
+        TableCell,
+        TableHeader,
+        MarkdownSuperscript,
+        MarkdownSubscript,
+        MarkdownInlineMath.configure({ katexOptions: { throwOnError: false } }),
+        MarkdownBlockMath.configure({ katexOptions: { throwOnError: false } }),
+        Admonition,
+      ],
+      content: note.content ?? '',
+      editable: false,
+      editorProps: {
+        attributes: {
+          class: 'tiptap-note-viewer tiptap-rich-text outline-none p-6',
+        },
+      },
+    },
+    [note.id, note.content],
+  );
+
+  // Handle link clicks
+  useEffect(() => {
+    const dom = editor?.view?.dom;
+    if (!dom) return;
+    function handleClick(event: MouseEvent) {
+      const anchor = (event.target as HTMLElement).closest('a');
+      if (!anchor) return;
+      const href = anchor.getAttribute('href');
+      if (!href) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (href.startsWith('#')) {
+        const slug = href.slice(1).toLowerCase();
+        const container = contentRef.current;
+        if (!container) return;
+        const headings = container.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        for (const heading of headings) {
+          const text = (heading.textContent ?? '').trim();
+          const headingSlug = text.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-');
+          if (headingSlug === slug) {
+            heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+          }
+        }
+      } else {
+        window.open(href, '_blank', 'noopener,noreferrer');
+      }
+    }
+    dom.addEventListener('click', handleClick);
+    return () => dom.removeEventListener('click', handleClick);
+  }, [editor]);
+
+  // Ctrl+F to open search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        setShowSearch(true);
+        setTimeout(() => searchBarRef.current?.focus(), 0);
+      }
+      if (e.key === 'Escape' && showSearch) {
+        setShowSearch(false);
+        setSearchQuery('');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showSearch]);
+
+  // DOM-based search highlighting
+  useEffect(() => {
+    if (!contentRef.current) {
+      setMatchCount(0);
+      setCurrentMatch(0);
+      return;
+    }
+    const container = contentRef.current;
+
+    // Clear existing highlights
+    const marks = container.querySelectorAll('mark[data-search-highlight]');
+    marks.forEach((mark) => {
+      const parent = mark.parentNode;
+      if (parent) {
+        parent.replaceChild(document.createTextNode(mark.textContent || ''), mark);
+        parent.normalize();
+      }
+    });
+
+    if (!debouncedQuery.trim()) {
+      setMatchCount(0);
+      setCurrentMatch(0);
+      return;
+    }
+
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+    const textNodes: Text[] = [];
+    let node;
+    while ((node = walker.nextNode())) textNodes.push(node as Text);
+
+    const flags = caseSensitive ? 'g' : 'gi';
+    const regex = new RegExp(
+      `(${debouncedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`,
+      flags,
+    );
+    let totalMatches = 0;
+
+    textNodes.forEach((textNode) => {
+      const text = textNode.textContent || '';
+      const testText = caseSensitive ? text : text.toLowerCase();
+      const testQuery = caseSensitive ? debouncedQuery : debouncedQuery.toLowerCase();
+
+      if (testText.includes(testQuery)) {
+        const fragment = document.createDocumentFragment();
+        let lastIndex = 0;
+        text.replace(regex, (match, _p1, offset) => {
+          if (offset > lastIndex)
+            fragment.appendChild(document.createTextNode(text.slice(lastIndex, offset)));
+          const mark = document.createElement('mark');
+          mark.setAttribute('data-search-highlight', 'true');
+          mark.setAttribute('data-match-index', String(totalMatches));
+          mark.className = 'bg-blue-200/50 dark:bg-blue-500/30 text-inherit';
+          mark.textContent = match;
+          fragment.appendChild(mark);
+          totalMatches++;
+          lastIndex = offset + match.length;
+          return match;
+        });
+        if (lastIndex < text.length)
+          fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
+        textNode.parentNode?.replaceChild(fragment, textNode);
+      }
+    });
+
+    setMatchCount(totalMatches);
+    setCurrentMatch((prev) => (totalMatches > 0 && prev >= totalMatches ? 0 : prev));
+  }, [debouncedQuery, caseSensitive, note.content]);
+
+  // Scroll to current match
+  useEffect(() => {
+    if (!contentRef.current || matchCount === 0) return;
+    const marks = contentRef.current.querySelectorAll('mark[data-search-highlight]');
+    marks.forEach((mark, idx) => {
+      const el = mark as HTMLElement;
+      if (idx === currentMatch) {
+        el.className = 'bg-blue-300/70 dark:bg-blue-400/50 text-inherit';
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else {
+        el.className = 'bg-blue-200/50 dark:bg-blue-500/30 text-inherit';
+      }
+    });
+  }, [currentMatch, matchCount]);
+
+  const goToNextMatch = useCallback(() => {
+    if (matchCount === 0) return;
+    setCurrentMatch((prev) => (prev + 1) % matchCount);
+  }, [matchCount]);
+
+  const goToPrevMatch = useCallback(() => {
+    if (matchCount === 0) return;
+    setCurrentMatch((prev) => (prev - 1 + matchCount) % matchCount);
+  }, [matchCount]);
+
+  const closeSearch = useCallback(() => {
+    setShowSearch(false);
+    setSearchQuery('');
+    setCaseSensitive(false);
+  }, []);
+
+  // Reset search when note changes
+  useEffect(() => {
+    setSearchQuery('');
+    setShowSearch(false);
+    setCurrentMatch(0);
+    setMatchCount(0);
+    setCaseSensitive(false);
+  }, [note.id]);
+
+  // Open in new window
+  const handleOpenInNewWindow = useCallback(() => {
+    if (!teamId || !projectId) return;
+    const url = `/popout/team-notes/${teamId}/${projectId}/${note.id}`;
+    const screen = window.screen as Screen & { availLeft?: number; availTop?: number };
+    const width = 800;
+    const height = Math.min(900, screen.availHeight - 40);
+    const left = (screen.availLeft ?? 0) + (screen.availWidth - width) / 2;
+    const top = (screen.availTop ?? 0) + Math.max(0, (screen.availHeight - height) / 2);
+
+    const electronApi = (window as { api?: { openPopoutWindow?: (url: string, opts: unknown) => void } }).api;
+    if (electronApi?.openPopoutWindow) {
+      electronApi.openPopoutWindow(url, { width, height });
+    } else {
+      window.open(
+        url,
+        `team_note_${note.id}`,
+        `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no`,
+      );
+    }
+  }, [note.id, teamId, projectId]);
+
+  if (!editor) return null;
+
+  return (
+    <div className="flex flex-col h-full bg-background">
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b">
+        <div className="flex items-center gap-2">
+          {note.isPinned && <Pin className="h-4 w-4 text-primary" />}
+          <h2 className="text-[14px] font-semibold">{note.title}</h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              setShowSearch(true);
+              setTimeout(() => searchBarRef.current?.focus(), 0);
+            }}
+            title="Search (Ctrl+F)"
+          >
+            <Search className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleOpenInNewWindow}
+            title="Open in new window"
+          >
+            <ExternalLink className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={onEdit} title="Edit">
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onDelete(note.id)}
+            title="Delete"
+          >
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Meta */}
+      <div className="px-4 pt-2">
+        <p className="text-xs text-muted-foreground">
+          by {note.createdByEmail} · Updated{' '}
+          {new Date(note.updatedAt).toLocaleDateString()}
+        </p>
+      </div>
+
+      {/* Content */}
+      <div className="relative flex-1 overflow-hidden">
+        {showSearch && (
+          <ContentSearchBar
+            ref={searchBarRef}
+            query={searchQuery}
+            onQueryChange={setSearchQuery}
+            caseSensitive={caseSensitive}
+            onCaseSensitiveChange={setCaseSensitive}
+            onNext={goToNextMatch}
+            onPrevious={goToPrevMatch}
+            onClose={closeSearch}
+            currentMatch={currentMatch}
+            totalMatches={matchCount}
+            placeholder="Find"
+          />
+        )}
+        <ScrollArea className="h-full">
+          <div ref={contentRef}>
+            <EditorContent editor={editor} />
+          </div>
+        </ScrollArea>
+      </div>
+
+      {imagePreviewDialog}
+    </div>
+  );
+}

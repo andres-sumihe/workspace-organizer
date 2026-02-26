@@ -1,6 +1,8 @@
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown as TiptapMarkdown } from 'tiptap-markdown';
+import Collaboration from '@tiptap/extension-collaboration';
+import CollaborationCaret from '@tiptap/extension-collaboration-caret';
 import Image from '@tiptap/extension-image';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
@@ -25,15 +27,19 @@ import 'katex/dist/katex.min.css';
 import { PasteMarkdown } from '@/features/notes/components/paste-markdown';
 import { common, createLowlight } from 'lowlight';
 import { CustomGlobalDragHandle } from '@/features/notes/components/custom-drag-handle';
-import { Loader2, Pin, PinOff } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Circle, Loader2, Pin, PinOff, Users } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import type { TeamNote } from '@workspace/shared';
+import type { HocuspocusProvider } from '@hocuspocus/provider';
+import type { Doc as YDoc } from 'yjs';
+import type { TeamNote, CollaborationUser } from '@workspace/shared';
 
 import { Button } from '@/components/ui/button';
 import { useImageClickPreview } from '@/components/ui/image-preview';
 import { Input } from '@/components/ui/input';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
+import { useAuth } from '@/contexts/auth-context';
 import { NoteBubbleMenu } from '@/features/notes/components/bubble-menu';
 import { TableContextMenu } from '@/features/notes/components/table-bubble-menu';
 import { MathContextMenu } from '@/features/notes/components/math-context-menu';
@@ -105,20 +111,43 @@ function insertImageAtCursor(
 // Props
 // ---------------------------------------------------------------------------
 
+/**
+ * Deterministic color from a string (e.g. user ID).
+ */
+function stringToColor(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue = Math.abs(hash) % 360;
+  return `hsl(${hue}, 70%, 50%)`;
+}
+
 interface TeamNoteEditorProps {
   note: TeamNote | null;
   onSave: (id: string | null, data: { title: string; content: string; isPinned: boolean }) => Promise<void>;
   onClose: () => void;
+  /** Collaboration props — when provided, editor runs in collaborative mode */
+  collaboration?: {
+    provider: HocuspocusProvider;
+    ydoc: YDoc;
+    isConnected: boolean;
+    isSynced: boolean;
+    connectedUsers: CollaborationUser[];
+  };
 }
 
-export function TeamNoteEditor({ note, onSave, onClose }: TeamNoteEditorProps) {
+export function TeamNoteEditor({ note, onSave, onClose, collaboration }: TeamNoteEditorProps) {
   const [title, setTitle] = useState(note?.title ?? '');
   const [isPinned, setIsPinned] = useState(note?.isPinned ?? false);
   const [isSaving, setIsSaving] = useState(false);
 
+  const { user: authUser } = useAuth();
+
   const editorRef = useRef<ReturnType<typeof useEditor>>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const imagePreviewDialog = useImageClickPreview(editorContainerRef);
+  const initialContentLoadedRef = useRef(false);
 
   // Math dialog state
   const [mathDialog, setMathDialog] = useState<{
@@ -204,9 +233,24 @@ export function TeamNoteEditor({ note, onSave, onClose }: TeamNoteEditorProps) {
     input.click();
   }, [handleImageInsert]);
 
+  // Build the user identity for collaboration caret
+  const collabUser = useMemo(() => {
+    if (!authUser) return { name: 'Anonymous', color: '#888888' };
+    return {
+      name: authUser.displayName || authUser.username,
+      color: stringToColor(authUser.id),
+    };
+  }, [authUser]);
+
+  const isCollaborative = !!collaboration?.provider;
+
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ codeBlock: false }),
+      StarterKit.configure({
+        codeBlock: false,
+        // Disable built-in history when collaboration is active
+        ...(isCollaborative ? { undoRedo: false } : {}),
+      }),
       TiptapMarkdown.configure({
         html: false,
         linkify: true,
@@ -240,8 +284,19 @@ export function TeamNoteEditor({ note, onSave, onClose }: TeamNoteEditorProps) {
           onMathInsert: openMathDialog,
         }),
       }),
+      // Collaboration extensions (only when provider is available)
+      ...(isCollaborative
+        ? [
+            Collaboration.configure({ document: collaboration.ydoc }),
+            CollaborationCaret.configure({
+              provider: collaboration.provider,
+              user: collabUser,
+            }),
+          ]
+        : []),
     ],
-    content: note?.content ?? '',
+    // In collaborative mode, content comes from Yjs; otherwise use note.content
+    content: isCollaborative ? '' : (note?.content ?? ''),
     editorProps: {
       attributes: {
         class: 'tiptap-note-editor tiptap-rich-text outline-none min-h-full p-6',
@@ -277,6 +332,27 @@ export function TeamNoteEditor({ note, onSave, onClose }: TeamNoteEditorProps) {
     if (editor) editorRef.current = editor;
   }, [editor]);
 
+  // Seed initial content into the Yjs document on first sync when the doc is empty
+  useEffect(() => {
+    if (
+      !isCollaborative ||
+      !collaboration?.isSynced ||
+      !editor ||
+      initialContentLoadedRef.current
+    )
+      return;
+
+    initialContentLoadedRef.current = true;
+
+    // Check if the Yjs doc already has content (from another client or persistence)
+    const ydoc = collaboration.ydoc;
+    const xmlFragment = ydoc.getXmlFragment('default');
+    if (xmlFragment.length === 0 && note?.content) {
+      // First time — seed with existing markdown content
+      editor.commands.setContent(note.content);
+    }
+  }, [isCollaborative, collaboration?.isSynced, collaboration?.ydoc, editor, note?.content]);
+
   const getMarkdownContent = useCallback(() => {
     if (!editor) return '';
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -307,6 +383,53 @@ export function TeamNoteEditor({ note, onSave, onClose }: TeamNoteEditorProps) {
           />
         </div>
         <div className="flex items-center gap-2">
+          {/* Collaboration status & connected users */}
+          {isCollaborative && (
+            <div className="flex items-center gap-1.5 mr-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Circle
+                    className="h-2.5 w-2.5"
+                    fill={collaboration?.isConnected ? '#22c55e' : '#ef4444'}
+                    stroke="none"
+                  />
+                </TooltipTrigger>
+                <TooltipContent>
+                  {collaboration?.isConnected
+                    ? collaboration?.isSynced
+                      ? 'Connected & synced'
+                      : 'Connected, syncing...'
+                    : 'Disconnected'}
+                </TooltipContent>
+              </Tooltip>
+
+              {(collaboration?.connectedUsers?.length ?? 0) > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground cursor-default">
+                      <Users className="h-3.5 w-3.5" />
+                      <span>{collaboration!.connectedUsers.length}</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <div className="flex flex-col gap-1">
+                      {collaboration!.connectedUsers.map((u, i) => (
+                        <div key={i} className="flex items-center gap-1.5">
+                          <Circle
+                            className="h-2 w-2"
+                            fill={u.color}
+                            stroke="none"
+                          />
+                          <span>{u.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          )}
+
           <Button
             variant="ghost"
             size="icon"

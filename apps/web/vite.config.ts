@@ -19,6 +19,7 @@ export default defineConfig({
       '/api': {
         target: API_PROXY_TARGET,
         changeOrigin: true,
+        ws: true,
         // Keep the original path when proxying so requests like
         // /api/v1/workspaces are forwarded to the backend as
         // http://localhost:4000/api/v1/workspaces (no path stripping).

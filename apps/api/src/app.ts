@@ -6,6 +6,7 @@ import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 import { apiRouter } from './routes/index.js';
 import { installationService } from './services/installation.service.js';
 import { sessionService } from './services/session.service.js';
+import { startCollaborationServer } from './services/collaboration.service.js';
 import { dbLogger, sessionLogger, requestLogger } from './utils/logger.js';
 
 import type { Express } from 'express';
@@ -78,6 +79,13 @@ export const createApp = async (): Promise<Express> => {
     await installationService.initializeOnStartup();
   } catch (error) {
     dbLogger.error({ err: error }, 'Failed to initialize shared database');
+  }
+
+  // Start collaboration server if shared DB is available
+  try {
+    await startCollaborationServer();
+  } catch (error) {
+    dbLogger.error({ err: error }, 'Failed to start collaboration server');
   }
 
   app.use('/api', apiRouter);
