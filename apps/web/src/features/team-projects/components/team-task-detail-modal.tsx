@@ -104,7 +104,7 @@ export function TeamTaskDetailModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
         {/* Header */}
-        <DialogHeader className="px-6 py-4 border-b shrink-0">
+        <DialogHeader className="px-6 py-4 border-b shrink-0 pr-12">
           <div className="flex items-center justify-between">
             <DialogTitle className="text-lg font-semibold truncate">{task.title}</DialogTitle>
           </div>

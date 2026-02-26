@@ -185,7 +185,7 @@ export const RecentActivityCard = () => {
       type: 'task' as const,
       id: l.id,
       date: l.updatedAt,
-      title: l.content,
+      title: extractPlainText(l.content),
       meta: l.date
     }));
     const notes = recentNotes.map(n => ({
