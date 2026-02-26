@@ -21,6 +21,7 @@ import {
   Pencil,
   Pin,
   Plus,
+  Search,
   StickyNote,
   Trash2,
   Users as UsersIcon,
@@ -28,6 +29,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import type {
@@ -55,7 +57,12 @@ import {
   useDeleteTeamTask,
 } from '@/features/team-projects';
 import { TeamNoteEditor } from '@/features/team-projects/components/team-note-editor';
+import { TeamNoteContentViewer } from '@/features/team-projects/components/team-note-content-viewer';
 import { TeamTaskDetailModal } from '@/features/team-projects/components/team-task-detail-modal';
+import {
+  useCollaborationStatus,
+  useCollaborationProvider,
+} from '@/features/team-projects/hooks/use-collaboration';
 import { AppPage, AppPageTabs } from '@/components/layout/app-page';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -99,7 +106,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
+import { MentionTextarea } from '@/components/ui/mention-input';
+import { extractPlainText } from '@/components/ui/mention-content-view';
+import { readFileAsBase64 } from '@/lib/base64-image';
+import { parseContentForSuggestions } from '@/features/journal/utils/journal-parser';
 
 // ============================================================================
 // Types & Constants
@@ -142,7 +152,7 @@ const TASK_STATUS_CONFIG: Record<
   { label: string; icon: typeof Circle; color: string; bgColor: string; accent: string }
 > = {
   pending: {
-    label: 'Pending',
+    label: 'Todo',
     icon: Circle,
     color: 'text-gray-500',
     bgColor: 'bg-gray-50 dark:bg-gray-900/20',
@@ -181,8 +191,7 @@ const TASK_PRIORITY_CONFIG: Record<
   urgent: { label: 'URG', variant: 'destructive' }
 };
 
-// Kanban columns (excluding cancelled, which would go to its own lane)
-const KANBAN_COLUMNS: TeamTaskStatus[] = ['pending', 'in_progress', 'completed'];
+const KANBAN_COLUMNS: TeamTaskStatus[] = ['pending', 'in_progress', 'completed', 'cancelled'];
 
 // Priority weight for sorting (higher = more important)
 const PRIORITY_WEIGHT: Record<TeamTaskPriority, number> = {
@@ -401,30 +410,65 @@ function KanbanColumn({ status, index, tasks, onDeleteTask, onViewTask }: Kanban
 interface NotesTabProps {
   teamId: string;
   projectId: string;
+  searchQuery: string;
 }
 
-function NotesTab({ teamId, projectId }: NotesTabProps) {
+function NotesTab({ teamId, projectId, searchQuery }: NotesTabProps) {
   const [selectedNote, setSelectedNote] = useState<TeamNote | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [deleteNoteId, setDeleteNoteId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const { data: notesData, isLoading } = useTeamNoteList(teamId, projectId);
+  const queryClient = useQueryClient();
   const createMutation = useCreateTeamNote(teamId, projectId);
   const updateMutation = useUpdateTeamNote(teamId, projectId);
   const deleteMutation = useDeleteTeamNote(teamId, projectId);
 
+  // Collaboration hooks
+  const { data: collabStatus } = useCollaborationStatus();
+  const collabAvailable = collabStatus?.available ?? false;
+  const documentName = selectedNote
+    ? `team-note:${teamId}:${selectedNote.id}`
+    : '';
+  const collabResult = useCollaborationProvider({
+    documentName,
+    enabled: collabAvailable && isEditing && !!selectedNote,
+  });
+
   const notes = notesData?.items ?? [];
 
-  // Sort: pinned first, then by updatedAt desc
-  const sortedNotes = useMemo(
-    () =>
-      [...notes].sort((a, b) => {
-        if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
-        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-      }),
-    [notes]
-  );
+  // Listen for BroadcastChannel messages from popout windows
+  useEffect(() => {
+    const channel = new BroadcastChannel('team-note-pip-channel');
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data.type === 'note-updated') {
+        queryClient.invalidateQueries({ queryKey: ['teamNotes'] });
+      }
+    };
+    channel.addEventListener('message', handleMessage);
+    return () => {
+      channel.removeEventListener('message', handleMessage);
+      channel.close();
+    };
+  }, [queryClient]);
+
+  // Filter by search, then sort: pinned first, then by updatedAt desc
+  const sortedNotes = useMemo(() => {
+    let filtered = notes;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      filtered = notes.filter(
+        (n) =>
+          n.title.toLowerCase().includes(q) ||
+          n.createdByEmail?.toLowerCase().includes(q),
+      );
+    }
+    return [...filtered].sort((a, b) => {
+      if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    });
+  }, [notes, searchQuery]);
 
   const handleSaveNote = useCallback(
     async (
@@ -555,40 +599,26 @@ function NotesTab({ teamId, projectId }: NotesTabProps) {
               setIsEditing(false);
               if (!selectedNote) setSelectedNote(null);
             }}
+            collaboration={
+              collabResult.provider
+                ? {
+                    provider: collabResult.provider,
+                    ydoc: collabResult.ydoc,
+                    isConnected: collabResult.isConnected,
+                    isSynced: collabResult.isSynced,
+                    connectedUsers: collabResult.connectedUsers,
+                  }
+                : undefined
+            }
           />
         ) : selectedNote ? (
-          <div className="p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {selectedNote.isPinned && <Pin className="h-4 w-4 text-primary" />}
-                <h2 className="text-xl font-semibold">{selectedNote.title}</h2>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Edit
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-destructive"
-                  onClick={() => setDeleteNoteId(selectedNote.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              by {selectedNote.createdByEmail} · Updated {new Date(selectedNote.updatedAt).toLocaleDateString()}
-            </p>
-            {selectedNote.content ? (
-              <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
-                {selectedNote.content}
-              </div>
-            ) : (
-              <p className="text-muted-foreground italic">No content</p>
-            )}
-          </div>
+          <TeamNoteContentViewer
+            note={selectedNote}
+            onEdit={() => setIsEditing(true)}
+            onDelete={(id) => setDeleteNoteId(id)}
+            teamId={teamId}
+            projectId={projectId}
+          />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
             <FileText className="h-12 w-12 opacity-50 mb-3" />
@@ -629,38 +659,100 @@ interface TaskFormDialogProps {
 
 function TaskFormDialog({ open, onOpenChange, task, onSave }: TaskFormDialogProps) {
   const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
+  const [description, setDescription] = useState('');        // plain text for NLP parsing
+  const [descriptionJson, setDescriptionJson] = useState(''); // Tiptap JSON for persistence
   const [status, setStatus] = useState<TeamTaskStatus>('pending');
   const [priority, setPriority] = useState<TeamTaskPriority>('medium');
   const [dueDate, setDueDate] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
+  // NLP auto-detection state
+  const [lastAppliedPriority, setLastAppliedPriority] = useState<string | undefined>(undefined);
+  const [lastAppliedDueDate, setLastAppliedDueDate] = useState<string | undefined>(undefined);
+  const [userOverridePriority, setUserOverridePriority] = useState(false);
+  const [userOverrideDueDate, setUserOverrideDueDate] = useState(false);
+  const emptyItems: never[] = [];
+
   useEffect(() => {
     if (open) {
       if (task) {
         setTitle(task.title);
-        setDescription(task.description ?? '');
+        setDescription(extractPlainText(task.description ?? ''));
+        setDescriptionJson(task.description ?? '');
         setStatus(task.status);
         setPriority(task.priority);
         setDueDate(task.dueDate ?? '');
       } else {
         setTitle('');
         setDescription('');
+        setDescriptionJson('');
         setStatus('pending');
         setPriority('medium');
         setDueDate('');
       }
+      setLastAppliedPriority(undefined);
+      setLastAppliedDueDate(undefined);
+      setUserOverridePriority(false);
+      setUserOverrideDueDate(false);
     }
   }, [open, task]);
+
+  // NLP auto-detection from description text
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (description) {
+        const parsed = parseContentForSuggestions(description);
+
+        if (parsed.suggestedPriority) {
+          if (!userOverridePriority && parsed.suggestedPriority !== lastAppliedPriority) {
+            setPriority(parsed.suggestedPriority as TeamTaskPriority);
+            setLastAppliedPriority(parsed.suggestedPriority);
+          }
+        } else if (lastAppliedPriority) {
+          setLastAppliedPriority(undefined);
+          setUserOverridePriority(false);
+        }
+
+        if (parsed.suggestedDueDate) {
+          if (!userOverrideDueDate && parsed.suggestedDueDate !== lastAppliedDueDate) {
+            setDueDate(parsed.suggestedDueDate);
+            setLastAppliedDueDate(parsed.suggestedDueDate);
+          }
+        } else if (lastAppliedDueDate) {
+          setLastAppliedDueDate(undefined);
+          setUserOverrideDueDate(false);
+        }
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [description, lastAppliedPriority, lastAppliedDueDate, userOverridePriority, userOverrideDueDate]);
+
+  const handlePriorityChange = (v: string) => {
+    setPriority(v as TeamTaskPriority);
+    setUserOverridePriority(true);
+  };
+
+  const handleDueDateChange = (v: string) => {
+    setDueDate(v);
+    setUserOverrideDueDate(true);
+  };
 
   const handleSave = async () => {
     if (!title.trim()) return;
     setIsSaving(true);
     try {
+      // Clean description: strip NLP directives from plain text
+      const parsed = parseContentForSuggestions(description);
+      let finalDescription = descriptionJson;
+      // If the description is plain text (not TipTap JSON), use cleaned version
+      if (!descriptionJson.startsWith('{"type":"doc"')) {
+        finalDescription = parsed.cleanedContent.trim();
+      }
+
       await onSave(
         {
           title: title.trim(),
-          description: description.trim() || undefined,
+          description: finalDescription || undefined,
           status,
           priority,
           dueDate: dueDate || undefined,
@@ -675,7 +767,7 @@ function TaskFormDialog({ open, onOpenChange, task, onSave }: TaskFormDialogProp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{task ? 'Edit Task' : 'Create Task'}</DialogTitle>
           <DialogDescription>{task ? 'Update the task details.' : 'Add a new task to this project.'}</DialogDescription>
@@ -695,12 +787,18 @@ function TaskFormDialog({ open, onOpenChange, task, onSave }: TaskFormDialogProp
           </div>
           <div className="space-y-2">
             <Label htmlFor="taskDescription">Description</Label>
-            <Textarea
-              id="taskDescription"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Task description"
-              rows={3}
+            <MentionTextarea
+              placeholder="Describe the task... Type priority: high or due: tomorrow for auto-detection"
+              value={descriptionJson}
+              onChange={({ text, json }) => {
+                setDescription(text);
+                setDescriptionJson(JSON.stringify(json));
+              }}
+              items={emptyItems}
+              triggerChar="/"
+              minHeight="80px"
+              richText
+              imageHandler={readFileAsBase64}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -724,7 +822,7 @@ function TaskFormDialog({ open, onOpenChange, task, onSave }: TaskFormDialogProp
             </div>
             <div className="space-y-2">
               <Label>Priority</Label>
-              <Select value={priority} onValueChange={(v) => setPriority(v as TeamTaskPriority)}>
+              <Select value={priority} onValueChange={handlePriorityChange}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -739,7 +837,7 @@ function TaskFormDialog({ open, onOpenChange, task, onSave }: TaskFormDialogProp
           </div>
           <div className="space-y-2">
             <Label>Due Date</Label>
-            <DatePicker value={dueDate} onChange={setDueDate} placeholder="Pick date" />
+            <DatePicker value={dueDate} onChange={handleDueDateChange} placeholder="Pick date" />
           </div>
         </div>
 
@@ -765,6 +863,7 @@ export const TeamProjectDetailPage = () => {
   const [searchParams] = useSearchParams();
   const teamId = searchParams.get('teamId') ?? '';
   const [activeTab, setActiveTab] = useState<TabValue>('overview');
+  const [noteSearchQuery, setNoteSearchQuery] = useState('');
 
   // Project data
   const { data: projectData, isLoading, error } = useTeamProjectDetail(teamId, projectId ?? null);
@@ -966,7 +1065,8 @@ export const TeamProjectDetailPage = () => {
       >
         <AppPageTabs
           tabs={
-            <TabsList className="h-12 bg-transparent">
+            <div className="flex items-center justify-between gap-4">
+              <TabsList className="h-12 bg-transparent">
               <TabsTrigger value="overview" className="gap-2">
                 <FileText className="h-4 w-4" />
                 Overview
@@ -985,6 +1085,18 @@ export const TeamProjectDetailPage = () => {
                 Notes
               </TabsTrigger>
             </TabsList>
+            {activeTab === 'notes' && (
+              <div className="relative ml-auto">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={noteSearchQuery}
+                  onChange={(e) => setNoteSearchQuery(e.target.value)}
+                  placeholder="Search notes..."
+                  className="pl-8 w-64 h-8"
+                />
+              </div>
+            )}
+            </div>
           }
         >
           {/* Overview Tab */}
@@ -1302,7 +1414,7 @@ export const TeamProjectDetailPage = () => {
 
           {/* Notes Tab */}
           <TabsContent value="notes" className="flex-1 m-0 min-h-0 h-full overflow-auto p-6">
-            <NotesTab teamId={teamId} projectId={projectId} />
+            <NotesTab teamId={teamId} projectId={projectId} searchQuery={noteSearchQuery} />
           </TabsContent>
         </AppPageTabs>
       </Tabs>

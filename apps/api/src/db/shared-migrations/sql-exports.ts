@@ -711,6 +711,36 @@ EXECUTE FUNCTION update_updated_at_column();
 -- Record migration
 INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0014-create-team-task-updates', current_user);
 `
+  },
+  {
+    id: '0015-create-team-yjs-updates',
+    description: 'Create team_yjs_updates table for Yjs collaborative document persistence',
+    sql: `
+-- Migration: 0015-create-team-yjs-updates
+-- Description: Create team_yjs_updates table for Yjs collaborative document persistence
+
+SET search_path TO workspace_organizer, public;
+
+-- Yjs document state table
+CREATE TABLE IF NOT EXISTS team_yjs_updates (
+  id SERIAL PRIMARY KEY,
+  document_name VARCHAR(500) NOT NULL UNIQUE,
+  state BYTEA NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_team_yjs_updates_doc ON team_yjs_updates (document_name);
+
+DROP TRIGGER IF EXISTS trg_team_yjs_updates_updated_at ON team_yjs_updates;
+CREATE TRIGGER trg_team_yjs_updates_updated_at
+BEFORE UPDATE ON team_yjs_updates
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0015-create-team-yjs-updates', current_user);
+`
   }
 ];
 

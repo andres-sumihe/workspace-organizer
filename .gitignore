@@ -42,4 +42,3 @@ scripts/Activate-LocalNode.ps1
 scripts/setup-local-node.js
 .node-local
 .yarnrc.yml
-.gitignore

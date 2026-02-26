@@ -2024,6 +2024,29 @@ export interface TeamNoteRevisionListResponse {
 }
 
 // ============================================================================
+// Collaboration Types
+// ============================================================================
+
+/**
+ * Response from the collaboration status endpoint.
+ */
+export interface CollaborationStatusResponse {
+  available: boolean;
+  sharedDbConnected: boolean;
+  hocuspocusRunning: boolean;
+}
+
+/**
+ * Collaboration user awareness data.
+ */
+export interface CollaborationUser {
+  id: string;
+  name: string;
+  email: string;
+  color: string;
+}
+
+// ============================================================================
 // Team Tasks Types
 // ============================================================================
 

@@ -21,6 +21,7 @@ import { InstallationPage } from '@/pages/installation-page';
 import { JournalPage } from '@/pages/journal-page';
 import { LoginPage } from '@/pages/login-page';
 import { NotePopoutPage } from '@/pages/note-popout-page';
+import { TeamNotePopoutPage } from '@/pages/team-note-popout-page';
 import { NotesPage } from '@/pages/notes-page';
 import { OvertimePage } from '@/pages/overtime-page';
 import { ProjectDetailPage } from '@/pages/project-detail-page';
@@ -284,6 +285,7 @@ export function App() {
         {/* Protected routes - require installation and authentication */}
         <Route element={<ProtectedRoutes />}>
           <Route path="/popout/notes/:noteId" element={<NotePopoutPage />} />
+          <Route path="/popout/team-notes/:teamId/:projectId/:noteId" element={<TeamNotePopoutPage />} />
           <Route path="/*" element={<AppContent />} />
         </Route>
       </Routes>

@@ -12,6 +12,7 @@ import {
 
 import type { TaskUpdateFlag, TeamTask, TeamTaskStatus } from '@workspace/shared';
 
+import { MentionContentView } from '@/components/ui/mention-content-view';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -40,7 +41,7 @@ const TASK_STATUS_CONFIG: Record<
   { label: string; icon: typeof Circle; color: string }
 > = {
   pending: {
-    label: 'Pending',
+    label: 'Todo',
     icon: Circle,
     color: 'text-gray-500'
   },
@@ -105,7 +106,7 @@ export function TeamTaskDetailModal({
         {/* Header */}
         <DialogHeader className="px-6 py-4 border-b shrink-0">
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-lg font-semibold">Task Details</DialogTitle>
+            <DialogTitle className="text-lg font-semibold truncate">{task.title}</DialogTitle>
           </div>
           <DialogDescription className="sr-only">
             View and manage team task details, status, and updates
@@ -116,15 +117,12 @@ export function TeamTaskDetailModal({
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
           {/* ── Top Section: Task Info ── */}
           <div className="space-y-5">
-            {/* Title & Description */}
-            <div className="space-y-3">
-              <h3 className="text-base font-semibold">{task.title}</h3>
-              {task.description && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground uppercase">Description</Label>
-                  <p className="text-sm whitespace-pre-wrap text-foreground/80">{task.description}</p>
-                </div>
-              )}
+            {/* Description */}
+            <div className="flex items-start gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground uppercase">Description</Label>
+                <MentionContentView content={task.description || task.title} className="whitespace-pre-wrap" />
+              </div>
             </div>
 
             <hr />

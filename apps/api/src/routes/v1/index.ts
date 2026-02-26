@@ -2,6 +2,7 @@ import { Router } from 'express';
 
 import { auditRouter } from './audit.js';
 import { authRouter } from './auth.js';
+import { collaborationRouter } from './collaboration.js';
 import { controlmJobsRouter } from './controlm-jobs.js';
 import { credentialsRouter, vaultRouter } from './credentials.js';
 import { installationRouter } from './installation.js';
@@ -90,6 +91,7 @@ v1Router.use('/scripts', requireSharedDb, scriptsRouter);
 v1Router.use('/controlm-jobs', requireSharedDb, controlmJobsRouter);
 v1Router.use('/audit', requireSharedDb, auditRouter);
 v1Router.use('/schema-validation', requireSharedDb, schemaValidationRouter);
+v1Router.use('/collaboration', requireSharedDb, collaborationRouter);
 
 // Team-scoped routes - require shared DB and team membership
 v1Router.use('/teams', requireSharedDb, teamsRouter);

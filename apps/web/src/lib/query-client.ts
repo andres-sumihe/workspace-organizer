@@ -181,4 +181,10 @@ export const queryKeys = {
     lists: () => [...queryKeys.teamTaskUpdates.all, 'list'] as const,
     list: (teamId: string, projectId: string, taskId: string) => [...queryKeys.teamTaskUpdates.lists(), teamId, projectId, taskId] as const,
   },
+
+  // Collaboration domain
+  collaboration: {
+    all: ['collaboration'] as const,
+    status: () => [...queryKeys.collaboration.all, 'status'] as const,
+  },
 };
