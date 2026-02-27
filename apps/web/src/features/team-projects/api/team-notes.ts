@@ -9,6 +9,7 @@ import type {
   TeamNoteListResponse,
   TeamNoteResponse,
   TeamNoteRevisionListResponse,
+  TeamNoteRevisionDetailResponse,
   CreateTeamNoteRequest,
   UpdateTeamNoteRequest,
 } from '@workspace/shared';
@@ -46,4 +47,16 @@ export const deleteTeamNote = (teamId: string, projectId: string, noteId: string
 
 export const fetchTeamNoteRevisions = (teamId: string, projectId: string, noteId: string) => {
   return apiClient.get<TeamNoteRevisionListResponse>(`${basePath(teamId, projectId)}/${noteId}/revisions`);
+};
+
+export const fetchTeamNoteRevisionDetail = (teamId: string, projectId: string, noteId: string, revisionId: string) => {
+  return apiClient.get<TeamNoteRevisionDetailResponse>(`${basePath(teamId, projectId)}/${noteId}/revisions/${revisionId}`);
+};
+
+export const createManualSnapshot = (teamId: string, projectId: string, noteId: string, trigger: 'manual' | 'session_end' = 'manual') => {
+  return apiClient.post<TeamNoteRevisionDetailResponse>(`${basePath(teamId, projectId)}/${noteId}/revisions`, { trigger });
+};
+
+export const restoreNoteRevision = (teamId: string, projectId: string, noteId: string, revisionId: string) => {
+  return apiClient.post<TeamNoteResponse>(`${basePath(teamId, projectId)}/${noteId}/revisions/${revisionId}/restore`, {});
 };

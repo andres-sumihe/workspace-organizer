@@ -55,6 +55,7 @@ import {
   useCreateTeamTask,
   useUpdateTeamTask,
   useDeleteTeamTask,
+  useTeamEventStream,
 } from '@/features/team-projects';
 import { TeamNoteEditor } from '@/features/team-projects/components/team-note-editor';
 import { TeamNoteContentViewer } from '@/features/team-projects/components/team-note-content-viewer';
@@ -481,27 +482,35 @@ function NotesTab({ teamId, projectId, searchQuery }: NotesTabProps) {
         isPinned: data.isPinned,
       };
       if (id) {
+        // Existing note — auto-save, don't exit editing
         const result = await updateMutation.mutateAsync({ noteId: id, payload: payload as UpdateTeamNoteRequest });
         const updatedNote = (result as { note?: TeamNote })?.note;
         if (updatedNote) setSelectedNote(updatedNote);
       } else {
+        // New note — create then exit editing
         const result = await createMutation.mutateAsync(payload as CreateTeamNoteRequest);
         const newNote = (result as { note?: TeamNote })?.note;
         if (newNote) setSelectedNote(newNote);
+        setIsEditing(false);
       }
-      setIsEditing(false);
     },
     [createMutation, updateMutation]
   );
 
   const handleDeleteNote = useCallback(async () => {
     if (!deleteNoteId) return;
-    await deleteMutation.mutateAsync(deleteNoteId);
-    if (selectedNote?.id === deleteNoteId) {
-      setSelectedNote(null);
-      setIsEditing(false);
+    try {
+      await deleteMutation.mutateAsync(deleteNoteId);
+      if (selectedNote?.id === deleteNoteId) {
+        setSelectedNote(null);
+        setIsEditing(false);
+      }
+      setDeleteNoteId(null);
+      toast.success('Note deleted');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete note';
+      toast.error(message);
     }
-    setDeleteNoteId(null);
   }, [deleteNoteId, selectedNote, deleteMutation]);
 
   return (
@@ -591,9 +600,19 @@ function NotesTab({ teamId, projectId, searchQuery }: NotesTabProps) {
 
       {/* Main Content Area */}
       <div className="flex-1 min-w-0">
-        {isEditing ? (
+        {isEditing && collabAvailable && !!selectedNote && !collabResult.provider ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Connecting to collaboration server…</span>
+            </div>
+          </div>
+        ) : isEditing ? (
           <TeamNoteEditor
+            key={collabResult.provider ? `collab-${documentName}` : `solo-${selectedNote?.id ?? 'new'}`}
             note={selectedNote}
+            teamId={teamId}
+            projectId={projectId}
             onSave={handleSaveNote}
             onClose={() => {
               setIsEditing(false);
@@ -864,6 +883,9 @@ export const TeamProjectDetailPage = () => {
   const teamId = searchParams.get('teamId') ?? '';
   const [activeTab, setActiveTab] = useState<TabValue>('overview');
   const [noteSearchQuery, setNoteSearchQuery] = useState('');
+
+  // Real-time SSE for team events
+  useTeamEventStream(teamId || undefined);
 
   // Project data
   const { data: projectData, isLoading, error } = useTeamProjectDetail(teamId, projectId ?? null);

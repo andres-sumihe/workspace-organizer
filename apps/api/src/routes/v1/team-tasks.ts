@@ -13,6 +13,7 @@ import { requireAuth } from '../../middleware/auth.middleware.js';
 import { requireTeamRole } from '../../middleware/team-rbac.middleware.js';
 import { parsePaginationQuery } from '../../schemas/pagination.js';
 import { auditService } from '../../services/audit.service.js';
+import { teamEventsService } from '../../services/team-events.service.js';
 import { asyncHandler } from '../../utils/async-handler.js';
 
 import type { TeamAuthenticatedRequest } from '../../middleware/team-rbac.middleware.js';
@@ -282,6 +283,8 @@ teamTasksRouter.post('/', requireTeamRole('member'), asyncHandler(async (req: Te
     metadata: { title: task.title, projectId }
   });
 
+  void teamEventsService.broadcast({ teamId: teamId!, resource: 'task', action: 'created', resourceId: task.id, parentId: projectId, actorEmail: memberEmail });
+
   res.status(201).json({ task: mapTaskRow(task, assigneesMap.get(task.id) ?? []) });
 }));
 
@@ -290,7 +293,7 @@ teamTasksRouter.post('/', requireTeamRole('member'), asyncHandler(async (req: Te
  * Update a team task
  */
 teamTasksRouter.patch('/:taskId', requireTeamRole('member'), asyncHandler(async (req: TeamAuthenticatedRequest, res: Response) => {
-  const { teamId, teamRole, memberEmail } = req;
+  const { teamId, memberEmail } = req;
   const projectId = req.params.projectId as string;
   const taskId = req.params.taskId as string;
   const body = (req.body ?? {}) as Record<string, unknown>;
@@ -306,17 +309,8 @@ teamTasksRouter.patch('/:taskId', requireTeamRole('member'), asyncHandler(async 
     throw new AppError('Team task not found', 404, 'TEAM_TASK_NOT_FOUND');
   }
 
-  // Members can only update tasks they created or are assigned to
-  if (teamRole === 'member') {
-    const isCreator = existing.created_by_email === memberEmail;
-    const isAssignee = await queryOne<{ email: string }>(
-      'SELECT email FROM team_task_assignments WHERE task_id = $1 AND email = $2',
-      [taskId, memberEmail]
-    );
-    if (!isCreator && !isAssignee) {
-      throw new AppError('You can only update tasks you created or are assigned to', 403, 'FORBIDDEN');
-    }
-  }
+  // Any team member can update tasks (status moves, etc.) within their team projects.
+  // Team membership is already enforced by requireTeamRole('member').
 
   const updates: string[] = [];
   const values: unknown[] = [];
@@ -370,6 +364,8 @@ teamTasksRouter.patch('/:taskId', requireTeamRole('member'), asyncHandler(async 
     metadata: { title: updated?.title ?? existing.title, projectId }
   });
 
+  void teamEventsService.broadcast({ teamId: teamId!, resource: 'task', action: 'updated', resourceId: taskId, parentId: projectId, actorEmail: memberEmail });
+
   res.json({ task: mapTaskRow(updated ?? existing, assigneesMap.get(taskId) ?? []) });
 }));
 
@@ -412,6 +408,8 @@ teamTasksRouter.delete('/:taskId', requireTeamRole('member'), asyncHandler(async
     resourceId: taskId,
     metadata: { title: existing.title, projectId }
   });
+
+  void teamEventsService.broadcast({ teamId: teamId!, resource: 'task', action: 'deleted', resourceId: taskId, parentId: projectId, actorEmail: memberEmail });
 
   res.status(204).send();
 }));

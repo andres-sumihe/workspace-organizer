@@ -854,6 +854,7 @@ export type AuditAction =
   | 'TEAM_NOTE_CREATE'
   | 'TEAM_NOTE_UPDATE'
   | 'TEAM_NOTE_DELETE'
+  | 'TEAM_NOTE_RESTORE'
   | 'TEAM_TASK_CREATE'
   | 'TEAM_TASK_UPDATE'
   | 'TEAM_TASK_DELETE';
@@ -2010,17 +2011,44 @@ export interface TeamNoteListResponse {
 export interface TeamNoteRevision {
   id: string;
   noteId: string;
+  title?: string;
   content: string;
   savedByEmail: string;
+  /** Other editors who contributed to this version */
+  editors: string[];
   revisionNumber: number;
+  /** What triggered the snapshot: auto, disconnect, manual, session_end, restore */
+  snapshotTrigger: 'auto' | 'disconnect' | 'manual' | 'session_end' | 'restore';
   createdAt: string;
 }
 
 /**
- * Response containing a list of note revisions.
+ * Response containing a list of note revisions (history timeline).
+ * Items omit full content for the list view.
  */
 export interface TeamNoteRevisionListResponse {
-  items: TeamNoteRevision[];
+  items: TeamNoteRevisionSummary[];
+}
+
+/**
+ * Lightweight revision summary for the history timeline (no content).
+ */
+export interface TeamNoteRevisionSummary {
+  id: string;
+  noteId: string;
+  title?: string;
+  savedByEmail: string;
+  editors: string[];
+  revisionNumber: number;
+  snapshotTrigger: 'auto' | 'disconnect' | 'manual' | 'session_end' | 'restore';
+  createdAt: string;
+}
+
+/**
+ * Full revision detail (includes content for preview/restore).
+ */
+export interface TeamNoteRevisionDetailResponse {
+  revision: TeamNoteRevision;
 }
 
 // ============================================================================

@@ -27,7 +27,7 @@ import 'katex/dist/katex.min.css';
 import { PasteMarkdown } from '@/features/notes/components/paste-markdown';
 import { common, createLowlight } from 'lowlight';
 import { CustomGlobalDragHandle } from '@/features/notes/components/custom-drag-handle';
-import { Circle, Loader2, Pin, PinOff, Users } from 'lucide-react';
+import { Circle, Check, Clock, Loader2, Pin, PinOff, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { HocuspocusProvider } from '@hocuspocus/provider';
@@ -47,6 +47,8 @@ import { AdmonitionContextMenu } from '@/features/notes/components/admonition-co
 import { MathInputDialog, type MathMode } from '@/features/notes/components/math-input-dialog';
 import { SlashCommands, createSlashCommandSuggestion } from '@/features/notes/components/slash-command';
 import { Admonition } from '@/features/notes/components/admonition-extension';
+import { NoteHistoryPanel } from './note-history-panel';
+import { createManualSnapshot } from '@/features/team-projects/api/team-notes';
 
 // ---------------------------------------------------------------------------
 // lowlight instance
@@ -112,19 +114,34 @@ function insertImageAtCursor(
 // ---------------------------------------------------------------------------
 
 /**
- * Deterministic color from a string (e.g. user ID).
+ * Deterministic hex color from a string (e.g. user ID).
+ * Returns #RRGGBB — Tiptap CollaborationCaret doesn't support HSL.
  */
 function stringToColor(str: string): string {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     hash = str.charCodeAt(i) + ((hash << 5) - hash);
   }
-  const hue = Math.abs(hash) % 360;
-  return `hsl(${hue}, 70%, 50%)`;
+  const h = Math.abs(hash) % 360;
+  const s = 0.7, l = 0.5;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  let r = 0, g = 0, b = 0;
+  if (h < 60)       { r = c; g = x; b = 0; }
+  else if (h < 120) { r = x; g = c; b = 0; }
+  else if (h < 180) { r = 0; g = c; b = x; }
+  else if (h < 240) { r = 0; g = x; b = c; }
+  else if (h < 300) { r = x; g = 0; b = c; }
+  else              { r = c; g = 0; b = x; }
+  const toHex = (v: number) => Math.round((v + m) * 255).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
 interface TeamNoteEditorProps {
   note: TeamNote | null;
+  teamId: string;
+  projectId: string;
   onSave: (id: string | null, data: { title: string; content: string; isPinned: boolean }) => Promise<void>;
   onClose: () => void;
   /** Collaboration props — when provided, editor runs in collaborative mode */
@@ -137,10 +154,12 @@ interface TeamNoteEditorProps {
   };
 }
 
-export function TeamNoteEditor({ note, onSave, onClose, collaboration }: TeamNoteEditorProps) {
+export function TeamNoteEditor({ note, teamId, projectId, onSave, onClose, collaboration }: TeamNoteEditorProps) {
   const [title, setTitle] = useState(note?.title ?? '');
   const [isPinned, setIsPinned] = useState(note?.isPinned ?? false);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const { user: authUser } = useAuth();
 
@@ -148,6 +167,10 @@ export function TeamNoteEditor({ note, onSave, onClose, collaboration }: TeamNot
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const imagePreviewDialog = useImageClickPreview(editorContainerRef);
   const initialContentLoadedRef = useRef(false);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savedIndicatorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track whether content has been modified since last save
+  const isDirtyRef = useRef(false);
 
   // Math dialog state
   const [mathDialog, setMathDialog] = useState<{
@@ -325,6 +348,8 @@ export function TeamNoteEditor({ note, onSave, onClose, collaboration }: TeamNot
     },
     onUpdate: ({ editor: e }) => {
       editorRef.current = e as ReturnType<typeof useEditor>;
+      // Schedule auto-save on content changes (existing notes only)
+      if (note?.id) scheduleAutoSave();
     },
   });
 
@@ -359,6 +384,80 @@ export function TeamNoteEditor({ note, onSave, onClose, collaboration }: TeamNot
     return ((editor.storage as any).markdown as { getMarkdown?: () => string })?.getMarkdown?.() ?? '';
   }, [editor]);
 
+  // Auto-save: debounced save that persists markdown content
+  const performAutoSave = useCallback(async () => {
+    if (!note?.id || !title.trim()) return;
+    if (!isDirtyRef.current) return;
+    isDirtyRef.current = false;
+    setSaveStatus('saving');
+    try {
+      const content = getMarkdownContent();
+      await onSave(note.id, { title: title.trim(), content, isPinned });
+      setSaveStatus('saved');
+      // Clear "saved" indicator after 2s
+      if (savedIndicatorTimerRef.current) clearTimeout(savedIndicatorTimerRef.current);
+      savedIndicatorTimerRef.current = setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch {
+      setSaveStatus('idle');
+    }
+  }, [note?.id, title, isPinned, getMarkdownContent, onSave]);
+
+  const scheduleAutoSave = useCallback(() => {
+    // Only auto-save existing notes (not new unsaved notes)
+    if (!note?.id) return;
+    isDirtyRef.current = true;
+    setSaveStatus('idle');
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => {
+      performAutoSave();
+    }, 2000);
+  }, [note?.id, performAutoSave]);
+
+  // Auto-save on title or pin changes (for existing notes)
+  useEffect(() => {
+    if (!note?.id) return;
+    // Skip initial render
+    if (title === (note?.title ?? '') && isPinned === (note?.isPinned ?? false)) return;
+    scheduleAutoSave();
+  }, [title, isPinned]); // intentionally narrow deps — scheduleAutoSave is stable per note
+
+  // --- Session-end snapshot on TRUE unmount only ---
+  // We store the cleanup logic in a ref so the empty-deps useEffect always
+  // calls the latest version (avoids stale closures). This ensures we only
+  // create a session_end snapshot when the component is truly destroyed
+  // (editor closed / navigated away), NOT on every title keystroke or
+  // dependency change — which was the previous bug.
+  const unmountCleanupRef = useRef<() => void>(() => {});
+  unmountCleanupRef.current = () => {
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+    if (savedIndicatorTimerRef.current) {
+      clearTimeout(savedIndicatorTimerRef.current);
+      savedIndicatorTimerRef.current = null;
+    }
+
+    // In collaborative mode the Hocuspocus server creates a "disconnect"
+    // snapshot when the last client leaves — no need to duplicate from here.
+    if (isCollaborative) return;
+
+    const noteId = note?.id;
+    const trimmedTitle = title.trim();
+    if (noteId && trimmedTitle) {
+      const flush = isDirtyRef.current
+        ? (() => { isDirtyRef.current = false; return onSave(noteId, { title: trimmedTitle, content: getMarkdownContent(), isPinned }); })()
+        : Promise.resolve();
+      flush
+        .then(() => createManualSnapshot(teamId, projectId, noteId, 'session_end'))
+        .catch(() => {});
+    }
+  };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally empty: cleanup must only run on true unmount
+  useEffect(() => () => unmountCleanupRef.current(), []);
+
+  // Manual save for new notes (no id yet)
   const handleSave = useCallback(async () => {
     if (!title.trim()) return;
     setIsSaving(true);
@@ -430,6 +529,22 @@ export function TeamNoteEditor({ note, onSave, onClose, collaboration }: TeamNot
             </div>
           )}
 
+          {/* History button (only for existing notes) */}
+          {note?.id && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setHistoryOpen(true)}
+                >
+                  <Clock className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Version History</TooltipContent>
+            </Tooltip>
+          )}
+
           <Button
             variant="ghost"
             size="icon"
@@ -461,15 +576,46 @@ export function TeamNoteEditor({ note, onSave, onClose, collaboration }: TeamNot
       />
 
       {/* Footer */}
-      <div className="flex items-center justify-end gap-2 p-4 border-t">
-        <Button variant="outline" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button onClick={handleSave} disabled={isSaving || !title.trim()}>
-          {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-          Save
-        </Button>
+      <div className="flex items-center justify-between gap-2 p-4 border-t">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          {note?.id && saveStatus === 'saving' && (
+            <>
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>Saving...</span>
+            </>
+          )}
+          {note?.id && saveStatus === 'saved' && (
+            <>
+              <Check className="h-3 w-3 text-green-500" />
+              <span>Saved</span>
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={onClose} title="Close">
+            <X className="h-4 w-4" />
+          </Button>
+          {/* Show Save button only for new (unsaved) notes */}
+          {!note?.id && (
+            <Button onClick={handleSave} disabled={isSaving || !title.trim()}>
+              {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Save
+            </Button>
+          )}
+        </div>
       </div>
+
+      {/* History Panel */}
+      {note?.id && (
+        <NoteHistoryPanel
+          open={historyOpen}
+          onOpenChange={setHistoryOpen}
+          teamId={teamId}
+          projectId={projectId}
+          noteId={note.id}
+          currentContent={getMarkdownContent()}
+        />
+      )}
     </div>
   );
 }

@@ -14,11 +14,15 @@
 import { Hocuspocus } from '@hocuspocus/server';
 import { Database } from '@hocuspocus/extension-database';
 import { WebSocketServer } from 'ws';
+import { applyUpdate } from 'yjs';
+import { encodeAwarenessUpdate, applyAwarenessUpdate } from 'y-protocols/awareness';
 
 import { isSharedDbConnected, getSharedPool } from '../db/shared-client.js';
+import { NoteHistoryExtension } from './note-history.extension.js';
 import { pgPubSubService } from './pg-pubsub.service.js';
 import { dbLogger } from '../utils/logger.js';
 
+import type { Awareness } from 'y-protocols/awareness';
 import type { Server as HttpServer, IncomingMessage } from 'http';
 
 const log = dbLogger.child({ module: 'collab' });
@@ -77,6 +81,7 @@ function createHocuspocus(): Hocuspocus {
     },
 
     extensions: [
+      new NoteHistoryExtension(),
       new Database({
         fetch: async ({ documentName }) => {
           if (!isSharedDbConnected()) return null;
@@ -106,18 +111,69 @@ function createHocuspocus(): Hocuspocus {
             );
 
             // Notify other instances that this document has been updated
-            await pgPubSubService.notify({ documentName, serverId: SERVER_ID });
+            await pgPubSubService.notify({ type: 'sync', documentName, serverId: SERVER_ID });
           } catch (err) {
             log.error({ err, documentName }, 'Failed to store Yjs state');
           }
         },
       }),
     ],
+
+    /**
+     * After a document is loaded from DB, attach listeners for cross-instance
+     * relay of Yjs updates and awareness changes via PG NOTIFY.
+     */
+    async afterLoadDocument({ document, documentName }) {
+      // --- Direct Yjs update relay ---
+      // When a local client edits the document, relay the raw binary update
+      // to other server instances immediately (no DB round-trip).
+      document.on('update', (update: Uint8Array, origin: unknown) => {
+        if (origin === 'remote-sync') return; // Skip updates applied from remote relay
+
+        const b64 = Buffer.from(update).toString('base64');
+        // PG NOTIFY has ~8000 byte limit; skip very large updates
+        // (those will be picked up by the DB-based sync fallback)
+        if (b64.length < 6000) {
+          void pgPubSubService.notify({
+            type: 'update',
+            documentName,
+            update: b64,
+            serverId: SERVER_ID,
+          });
+        }
+      });
+
+      // --- Awareness relay (cursors, active users) ---
+      const awareness: Awareness = document.awareness;
+      awareness.on('update', (
+        changes: { added: number[]; updated: number[]; removed: number[] },
+        origin: unknown,
+      ) => {
+        if (origin === 'remote-sync') return; // Skip remote-applied awareness
+
+        const changed = [...changes.added, ...changes.updated, ...changes.removed];
+        if (changed.length === 0) return;
+
+        try {
+          const encoded = encodeAwarenessUpdate(awareness, changed);
+          const b64 = Buffer.from(encoded).toString('base64');
+          void pgPubSubService.notify({
+            type: 'awareness',
+            documentName,
+            update: b64,
+            serverId: SERVER_ID,
+          });
+        } catch {
+          // Awareness encoding can fail if clients have already disconnected
+        }
+      });
+    },
   });
 }
 
 /**
- * Deterministic color from a string (email) for cursor coloring.
+ * Deterministic hex color from a string (email) for cursor coloring.
+ * Returns #RRGGBB — Tiptap CollaborationCaret doesn't support HSL.
  */
 function stringToColor(str: string): string {
   let hash = 0;
@@ -125,7 +181,20 @@ function stringToColor(str: string): string {
     hash = str.charCodeAt(i) + ((hash << 5) - hash);
   }
   const h = Math.abs(hash) % 360;
-  return `hsl(${h}, 70%, 50%)`;
+  // HSL → RGB → hex (s=70%, l=50%)
+  const s = 0.7, l = 0.5;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  let r = 0, g = 0, b = 0;
+  if (h < 60)      { r = c; g = x; b = 0; }
+  else if (h < 120) { r = x; g = c; b = 0; }
+  else if (h < 180) { r = 0; g = c; b = x; }
+  else if (h < 240) { r = 0; g = x; b = c; }
+  else if (h < 300) { r = x; g = 0; b = c; }
+  else              { r = c; g = 0; b = x; }
+  const toHex = (v: number) => Math.round((v + m) * 255).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
 /**
@@ -152,19 +221,51 @@ export async function startCollaborationServer(): Promise<void> {
   // Start PostgreSQL Pub/Sub listener
   await pgPubSubService.start();
 
-  // When another instance notifies about a document change,
-  // reload the document from DB if it's currently open locally.
-  pgPubSubService.on('sync', async (data: { documentName: string; serverId?: string }) => {
-    if (data.serverId === SERVER_ID) return; // Ignore own notifications
+  // ---- Direct Yjs update relay (fast path) ----
+  // Applies binary Yjs updates from other instances immediately.
+  pgPubSubService.on('update', (data: { documentName: string; update: string; serverId?: string }) => {
+    if (data.serverId === SERVER_ID) return;
     if (!hocuspocus) return;
 
-    try {
-      // Get the list of open documents
-      const docs = hocuspocus.documents;
-      const doc = docs.get(data.documentName);
-      if (!doc) return; // Document not open locally — nothing to do
+    const doc = hocuspocus.documents.get(data.documentName);
+    if (!doc) return;
 
-      // Fetch latest state from DB and apply
+    try {
+      const buf = Buffer.from(data.update, 'base64');
+      applyUpdate(doc, buf, 'remote-sync');
+      log.debug({ documentName: data.documentName }, 'Applied remote Yjs update (fast)');
+    } catch (err) {
+      log.error({ err, documentName: data.documentName }, 'Failed to apply remote update');
+    }
+  });
+
+  // ---- Awareness relay (cursors, active users) ----
+  pgPubSubService.on('awareness', (data: { documentName: string; update: string; serverId?: string }) => {
+    if (data.serverId === SERVER_ID) return;
+    if (!hocuspocus) return;
+
+    const doc = hocuspocus.documents.get(data.documentName);
+    if (!doc) return;
+
+    try {
+      const buf = Buffer.from(data.update, 'base64');
+      applyAwarenessUpdate(doc.awareness, buf, 'remote-sync');
+      log.debug({ documentName: data.documentName }, 'Applied remote awareness update');
+    } catch (err) {
+      log.error({ err, documentName: data.documentName }, 'Failed to apply remote awareness');
+    }
+  });
+
+  // ---- DB-sync fallback (large updates that exceeded NOTIFY limit) ----
+  // When another instance stores to the DB and notifies, reload from DB.
+  pgPubSubService.on('sync', async (data: { documentName: string; serverId?: string }) => {
+    if (data.serverId === SERVER_ID) return;
+    if (!hocuspocus) return;
+
+    const doc = hocuspocus.documents.get(data.documentName);
+    if (!doc) return;
+
+    try {
       const pool = getSharedPool();
       const result = await pool.query<{ state: Buffer }>(
         'SELECT state FROM team_yjs_updates WHERE document_name = $1',
@@ -172,17 +273,14 @@ export async function startCollaborationServer(): Promise<void> {
       );
       if (!result.rows[0]?.state) return;
 
-      const { applyUpdate, encodeStateVector } = await import('yjs');
+      const { encodeStateVector, diffUpdate } = await import('yjs');
       const remoteState = result.rows[0].state;
       const sv = encodeStateVector(doc);
 
-      // Apply the remote state as an update
-      // We need to diff: decode what's in the DB and apply only what's new
-      const { diffUpdate } = await import('yjs');
       const missingUpdate = diffUpdate(remoteState, sv);
       if (missingUpdate.byteLength > 0) {
-        applyUpdate(doc, missingUpdate);
-        log.debug({ documentName: data.documentName }, 'Applied remote Yjs update');
+        applyUpdate(doc, missingUpdate, 'remote-sync');
+        log.debug({ documentName: data.documentName }, 'Applied remote Yjs update (DB fallback)');
       }
     } catch (err) {
       log.error({ err, documentName: data.documentName }, 'Failed to apply remote sync');

@@ -7,11 +7,12 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useRef, useEffect, useMemo, useCallback, useState } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import { HocuspocusProvider } from '@hocuspocus/provider';
 import * as Y from 'yjs';
 
 import { fetchCollaborationStatus } from '@/features/team-projects/api/collaboration';
+import { getApiWsBaseUrl } from '@/lib/api-base-url';
 import { queryKeys } from '@/lib/query-client';
 
 import type { CollaborationUser } from '@workspace/shared';
@@ -29,15 +30,13 @@ export function useCollaborationStatus() {
 }
 
 /**
- * Build the WebSocket URL for the collaboration server.
- * Points to the /api/collaboration path where the upgrade handler is registered.
+ * Resolve the WebSocket URL for the collaboration server asynchronously.
+ * Uses the shared api-base-url utility so Electron production gets the
+ * correct `ws://127.0.0.1:<port>` instead of the broken `ws://bundle:4000`.
  */
-function getCollaborationWsUrl(): string {
-  const apiUrl = import.meta.env.VITE_API_URL as string | undefined;
-  const base = apiUrl
-    ? apiUrl.replace(/^http/, 'ws')
-    : `ws://${window.location.hostname}:4000`;
-  return `${base.replace(/\/+$/, '')}/api/collaboration`;
+async function resolveCollaborationWsUrl(): Promise<string> {
+  const base = await getApiWsBaseUrl();
+  return `${base}/api/collaboration`;
 }
 
 export interface CollaborationProviderOptions {
@@ -58,16 +57,20 @@ export interface CollaborationProviderResult {
 /**
  * Manage a HocuspocusProvider for a specific Yjs document.
  * Handles lifecycle, authentication, and awareness state.
+ *
+ * Uses state (not refs) for provider/ydoc so consumers re-render
+ * when the provider becomes available.
  */
 export function useCollaborationProvider(
   options: CollaborationProviderOptions
 ): CollaborationProviderResult {
   const { documentName, enabled } = options;
-  const providerRef = useRef<HocuspocusProvider | null>(null);
-  const ydocRef = useRef<Y.Doc>(new Y.Doc());
+  const [provider, setProvider] = useState<HocuspocusProvider | null>(null);
+  const [ydoc, setYdoc] = useState<Y.Doc>(() => new Y.Doc());
   const [isConnected, setIsConnected] = useState(false);
   const [isSynced, setIsSynced] = useState(false);
   const [connectedUsers, setConnectedUsers] = useState<CollaborationUser[]>([]);
+  const providerRef = useRef<HocuspocusProvider | null>(null);
 
   const getToken = useCallback(() => {
     return localStorage.getItem('auth_access_token') ?? '';
@@ -80,68 +83,69 @@ export function useCollaborationProvider(
         providerRef.current.destroy();
         providerRef.current = null;
       }
+      setProvider(null);
       setIsConnected(false);
       setIsSynced(false);
       setConnectedUsers([]);
       return;
     }
 
-    // Create a fresh Yjs doc for the document
-    const ydoc = new Y.Doc();
-    ydocRef.current = ydoc;
+    let cancelled = false;
 
-    const wsUrl = getCollaborationWsUrl();
+    void resolveCollaborationWsUrl().then((wsUrl) => {
+      if (cancelled) return;
 
-    const provider = new HocuspocusProvider({
-      url: wsUrl,
-      name: documentName,
-      document: ydoc,
-      token: getToken(),
+      // Create a fresh Yjs doc for the document
+      const newYdoc = new Y.Doc();
+      setYdoc(newYdoc);
 
-      onStatus({ status }: { status: string }) {
-        setIsConnected(status === 'connected');
-      },
+      const newProvider = new HocuspocusProvider({
+        url: wsUrl,
+        name: documentName,
+        document: newYdoc,
+        token: getToken(),
 
-      onSynced({ state }: { state: boolean }) {
-        setIsSynced(state);
-      },
+        onStatus({ status }: { status: string }) {
+          if (!cancelled) setIsConnected(status === 'connected');
+        },
 
-      onAwarenessUpdate({ states }: { states: { clientId: number; [key: string | number]: unknown }[] }) {
-        const users: CollaborationUser[] = [];
-        for (const state of states) {
-          if (state.user) {
-            users.push(state.user as CollaborationUser);
+        onSynced({ state }: { state: boolean }) {
+          if (!cancelled) setIsSynced(state);
+        },
+
+        onAwarenessUpdate({ states }: { states: { clientId: number; [key: string | number]: unknown }[] }) {
+          if (cancelled) return;
+          const users: CollaborationUser[] = [];
+          for (const state of states) {
+            if (state.user) {
+              users.push(state.user as CollaborationUser);
+            }
           }
-        }
-        setConnectedUsers(users);
-      },
+          setConnectedUsers(users);
+        },
 
-      onAuthenticationFailed({ reason }: { reason: string }) {
-        console.error('Collaboration auth failed:', reason);
-        setIsConnected(false);
-      },
+        onAuthenticationFailed({ reason }: { reason: string }) {
+          console.error('Collaboration auth failed:', reason);
+          if (!cancelled) setIsConnected(false);
+        },
+      });
+
+      providerRef.current = newProvider;
+      setProvider(newProvider);
     });
 
-    providerRef.current = provider;
-
     return () => {
-      provider.destroy();
-      ydoc.destroy();
-      providerRef.current = null;
+      cancelled = true;
+      if (providerRef.current) {
+        providerRef.current.destroy();
+        providerRef.current = null;
+      }
+      setProvider(null);
       setIsConnected(false);
       setIsSynced(false);
       setConnectedUsers([]);
     };
   }, [documentName, enabled, getToken]);
 
-  return useMemo(
-    () => ({
-      provider: providerRef.current,
-      ydoc: ydocRef.current,
-      isConnected,
-      isSynced,
-      connectedUsers,
-    }),
-    [isConnected, isSynced, connectedUsers]
-  );
+  return { provider, ydoc, isConnected, isSynced, connectedUsers };
 }

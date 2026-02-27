@@ -16,6 +16,13 @@ import type {
   TeamTaskPriority,
 } from '@workspace/shared';
 
+// Team data is shared across users — keep staleTime short so refetches
+// triggered by SSE events pick up fresh data quickly.
+const TEAM_QUERY_OPTIONS = {
+  staleTime: 5_000,
+  refetchOnWindowFocus: true as const,
+};
+
 export interface TeamTaskListFilters {
   page?: number;
   pageSize?: number;
@@ -32,6 +39,7 @@ export function useTeamTaskList(teamId: string, projectId: string, filters: Team
     queryKey: queryKeys.teamTasks.list(teamId, projectId, { page, pageSize, ...rest }),
     queryFn: () => fetchTeamTasks(teamId, projectId, page, pageSize, rest),
     enabled: !!teamId && !!projectId,
+    ...TEAM_QUERY_OPTIONS,
   });
 }
 
@@ -40,6 +48,7 @@ export function useTeamTaskDetail(teamId: string, projectId: string, taskId: str
     queryKey: queryKeys.teamTasks.detail(teamId, projectId, taskId ?? ''),
     queryFn: () => fetchTeamTask(teamId, projectId, taskId!),
     enabled: !!teamId && !!projectId && !!taskId,
+    ...TEAM_QUERY_OPTIONS,
   });
 }
 

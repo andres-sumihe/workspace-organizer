@@ -3,3 +3,4 @@ export { useTeamProjectList, useTeamProjectDetail, useCreateTeamProject, useUpda
 export { useTeamNoteList, useTeamNoteDetail, useTeamNoteRevisions, useCreateTeamNote, useUpdateTeamNote, useDeleteTeamNote } from './hooks/use-team-notes';
 export { useTeamTaskList, useTeamTaskDetail, useCreateTeamTask, useUpdateTeamTask, useDeleteTeamTask } from './hooks/use-team-tasks';
 export { useTeamTaskUpdates, useCreateTeamTaskUpdate, useUpdateTeamTaskUpdate, useDeleteTeamTaskUpdate } from './hooks/use-team-task-updates';
+export { useTeamEventStream } from './hooks/use-team-event-stream';

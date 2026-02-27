@@ -106,5 +106,7 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.removeListener('menu-command', handler);
   },
   // allow renderer to invoke simple built-in actions if needed
-  invokeMainAction: (actionId, args) => ipcRenderer.invoke('main-action:' + actionId, args)
+  invokeMainAction: (actionId, args) => ipcRenderer.invoke('main-action:' + actionId, args),
+  // Get the actual HTTP API base URL for direct connections (SSE, WebSocket)
+  getApiBaseUrl: () => ipcRenderer.invoke('get-api-base-url'),
 });

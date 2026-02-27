@@ -63,8 +63,10 @@ class PgPubSubService extends EventEmitter {
       this.client.on('notification', (msg) => {
         if (msg.channel === CHANNEL && msg.payload) {
           try {
-            const data = JSON.parse(msg.payload);
-            this.emit('sync', data);
+            const data = JSON.parse(msg.payload) as Record<string, unknown>;
+            // Emit typed events: 'update', 'awareness', or default 'sync'
+            const type = typeof data.type === 'string' ? data.type : 'sync';
+            this.emit(type, data);
           } catch {
             log.warn('Invalid PgPubSub notification payload');
           }
@@ -99,7 +101,7 @@ class PgPubSubService extends EventEmitter {
    * Publish a collaboration event to other instances.
    * Payload must be < 8000 bytes (PostgreSQL limit).
    */
-  async notify(data: { documentName: string; serverId?: string }): Promise<void> {
+  async notify(data: Record<string, unknown>): Promise<void> {
     if (!isSharedDbConnected()) return;
 
     // Use the pool (not the listener client) for NOTIFY

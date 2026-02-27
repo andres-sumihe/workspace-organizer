@@ -13,6 +13,7 @@ import { requireAuth } from '../../middleware/auth.middleware.js';
 import { requireTeamRole } from '../../middleware/team-rbac.middleware.js';
 import { parsePaginationQuery } from '../../schemas/pagination.js';
 import { auditService } from '../../services/audit.service.js';
+import { teamEventsService } from '../../services/team-events.service.js';
 import { asyncHandler } from '../../utils/async-handler.js';
 
 import type { TeamAuthenticatedRequest } from '../../middleware/team-rbac.middleware.js';
@@ -205,6 +206,8 @@ teamProjectsRouter.post('/', requireTeamRole('admin'), asyncHandler(async (req: 
     metadata: { title: project.title }
   });
 
+  void teamEventsService.broadcast({ teamId: teamId!, resource: 'project', action: 'created', resourceId: project.id, actorEmail: memberEmail });
+
   res.status(201).json({ project });
 }));
 
@@ -265,6 +268,8 @@ teamProjectsRouter.patch('/:projectId', requireTeamRole('admin'), asyncHandler(a
     metadata: { title: project.title }
   });
 
+  void teamEventsService.broadcast({ teamId: teamId!, resource: 'project', action: 'updated', resourceId: project.id, actorEmail: memberEmail });
+
   res.json({ project });
 }));
 
@@ -299,6 +304,8 @@ teamProjectsRouter.delete('/:projectId', requireTeamRole('admin'), asyncHandler(
     resourceId: existing.id,
     metadata: { title: existing.title }
   });
+
+  void teamEventsService.broadcast({ teamId: teamId!, resource: 'project', action: 'deleted', resourceId: existing.id, actorEmail: memberEmail });
 
   res.status(204).send();
 }));

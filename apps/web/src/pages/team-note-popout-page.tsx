@@ -118,7 +118,6 @@ export function TeamNotePopoutPage() {
           isPinned: data.isPinned,
         });
         setNote(res.note);
-        setIsEditing(false);
 
         // Notify main page that note was updated
         const channel = new BroadcastChannel(TEAM_NOTE_CHANNEL_NAME);
@@ -170,9 +169,19 @@ export function TeamNotePopoutPage() {
 
   return (
     <div className="h-screen w-screen overflow-hidden">
-      {isEditing ? (
+      {isEditing && collabAvailable && !collabResult.provider ? (
+        <div className="flex items-center justify-center h-full">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Connecting to collaboration server…</span>
+          </div>
+        </div>
+      ) : isEditing ? (
         <TeamNoteEditor
+          key={collabResult.provider ? `collab-${documentName}` : `solo-${noteId}`}
           note={note}
+          teamId={teamId!}
+          projectId={projectId!}
           onSave={handleSave}
           onClose={handleCloseEditor}
           collaboration={

@@ -609,9 +609,12 @@ EXECUTE FUNCTION update_updated_at_column();
 CREATE TABLE IF NOT EXISTS team_note_revisions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   note_id UUID NOT NULL REFERENCES team_notes(id) ON DELETE CASCADE,
+  title VARCHAR(255),
   content TEXT NOT NULL,
   saved_by_email VARCHAR(255) NOT NULL,
+  editors JSONB NOT NULL DEFAULT '[]'::jsonb,
   revision_number INTEGER NOT NULL,
+  snapshot_trigger VARCHAR(50) NOT NULL DEFAULT 'auto',
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
@@ -740,6 +743,29 @@ EXECUTE FUNCTION update_updated_at_column();
 
 -- Record migration
 INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0015-create-team-yjs-updates', current_user);
+`
+  },
+  {
+    id: '0016-enhance-note-revisions',
+    description: 'Enhance team_note_revisions for collaboration-aware history',
+    sql: `
+-- Migration: 0016-enhance-note-revisions
+-- Description: Enhance team_note_revisions for collaboration-aware history
+
+SET search_path TO workspace_organizer, public;
+
+ALTER TABLE team_note_revisions ADD COLUMN IF NOT EXISTS title VARCHAR(255);
+ALTER TABLE team_note_revisions ADD COLUMN IF NOT EXISTS editors JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE team_note_revisions ADD COLUMN IF NOT EXISTS snapshot_trigger VARCHAR(50) NOT NULL DEFAULT 'auto';
+
+-- Back-fill title from the parent note for existing revisions
+UPDATE team_note_revisions r
+SET title = n.title
+FROM team_notes n
+WHERE r.note_id = n.id AND r.title IS NULL;
+
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0016-enhance-note-revisions', current_user);
 `
   }
 ];
