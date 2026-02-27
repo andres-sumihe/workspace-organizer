@@ -27,7 +27,8 @@ import {
   useTeamProjectList,
   useCreateTeamProject,
   useUpdateTeamProject,
-  useDeleteTeamProject
+  useDeleteTeamProject,
+  useTeamEventStream
 } from '@/features/team-projects';
 import { listTeams } from '@/features/teams/api/teams';
 import { AppPage, AppPageContent } from '@/components/layout/app-page';
@@ -567,6 +568,9 @@ export const TeamProjectsPage = () => {
 
     loadTeam();
   }, [isSharedMode]);
+
+  // Real-time SSE for team events
+  useTeamEventStream(teamId ?? undefined);
 
   // Query hooks
   const { data: projectsData, isLoading: projectsLoading, error: projectsError, refetch } = useTeamProjectList(

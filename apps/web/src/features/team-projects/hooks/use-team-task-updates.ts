@@ -10,11 +10,19 @@ import { queryKeys } from '@/lib/query-client';
 
 import type { CreateTeamTaskUpdateRequest, UpdateTeamTaskUpdateRequest } from '@workspace/shared';
 
+// Team data is shared across users — keep staleTime short so refetches
+// triggered by SSE events pick up fresh data quickly.
+const TEAM_QUERY_OPTIONS = {
+  staleTime: 5_000,
+  refetchOnWindowFocus: true as const,
+};
+
 export function useTeamTaskUpdates(teamId: string, projectId: string, taskId: string) {
   return useQuery({
     queryKey: queryKeys.teamTaskUpdates.list(teamId, projectId, taskId),
     queryFn: () => fetchTeamTaskUpdates(teamId, projectId, taskId),
     enabled: !!teamId && !!projectId && !!taskId,
+    ...TEAM_QUERY_OPTIONS,
   });
 }
 

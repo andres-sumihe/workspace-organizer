@@ -16,6 +16,7 @@ import { tagsRouter } from './tags.js';
 import { taskUpdatesRouter } from './task-updates.js';
 import { teamConfigRouter } from './team-config.js';
 import { teamControlmJobsRouter } from './team-controlm-jobs.js';
+import { teamEventsRouter } from './team-events.js';
 import { teamNotesRouter } from './team-notes.js';
 import { teamProjectsRouter } from './team-projects.js';
 import { teamScriptsRouter } from './team-scripts.js';
@@ -101,4 +102,5 @@ v1Router.use('/teams/:teamId/projects', requireSharedDb, teamProjectsRouter);
 v1Router.use('/teams/:teamId/projects/:projectId/notes', requireSharedDb, teamNotesRouter);
 v1Router.use('/teams/:teamId/projects/:projectId/tasks', requireSharedDb, teamTasksRouter);
 v1Router.use('/teams/:teamId/projects/:projectId/tasks/:taskId/updates', requireSharedDb, teamTaskUpdatesRouter);
+v1Router.use('/teams/:teamId/events', requireSharedDb, teamEventsRouter);
 

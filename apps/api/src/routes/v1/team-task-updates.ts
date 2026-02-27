@@ -11,6 +11,7 @@ import { query, queryOne, execute } from '../../db/shared-client.js';
 import { AppError } from '../../errors/app-error.js';
 import { requireAuth } from '../../middleware/auth.middleware.js';
 import { requireTeamRole } from '../../middleware/team-rbac.middleware.js';
+import { teamEventsService } from '../../services/team-events.service.js';
 import { asyncHandler } from '../../utils/async-handler.js';
 
 import type { TeamAuthenticatedRequest } from '../../middleware/team-rbac.middleware.js';
@@ -154,6 +155,8 @@ teamTaskUpdatesRouter.post('/', requireTeamRole('member'), asyncHandler(async (r
     [teamId, taskId, parentId, content, memberEmail, member?.display_name ?? null]
   );
 
+  void teamEventsService.broadcast({ teamId: teamId!, resource: 'taskUpdate', action: 'created', resourceId: rows[0].id, parentId: taskId, grandParentId: projectId, actorEmail: memberEmail });
+
   res.status(201).json({ update: mapRow(rows[0]) });
 }));
 
@@ -194,6 +197,8 @@ teamTaskUpdatesRouter.patch('/:updateId', requireTeamRole('member'), asyncHandle
     [content, updateId]
   );
 
+  void teamEventsService.broadcast({ teamId: teamId!, resource: 'taskUpdate', action: 'updated', resourceId: updateId, parentId: taskId, grandParentId: projectId, actorEmail: memberEmail });
+
   res.json({ update: mapRow(rows[0]) });
 }));
 
@@ -227,6 +232,8 @@ teamTaskUpdatesRouter.delete('/:updateId', requireTeamRole('member'), asyncHandl
     'DELETE FROM team_task_updates WHERE id = $1 AND task_id = $2 AND team_id = $3',
     [updateId, taskId, teamId]
   );
+
+  void teamEventsService.broadcast({ teamId: teamId!, resource: 'taskUpdate', action: 'deleted', resourceId: updateId, parentId: taskId, grandParentId: projectId, actorEmail: memberEmail });
 
   res.status(204).end();
 }));

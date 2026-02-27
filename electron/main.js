@@ -15,6 +15,7 @@ autoUpdater.logger.transports.file.level = 'info';
 autoUpdater.autoDownload = true; // Ensure background downloading is enabled
 
 let expressApp = null;
+let httpServer = null;
 let mainWindow = null;
 
 // --- helper: command registry & menu builder ---
@@ -264,6 +265,91 @@ function startApiServer() {
       
       expressApp = await apiModule.createApp();
       log(`[API] Express app loaded successfully`);
+
+      // Start a real HTTP server that serves BOTH the API and the static
+      // web client.  Loading the window from http://127.0.0.1 instead of
+      // the custom app:// protocol makes SSE and WebSocket work without
+      // cross-origin issues.
+      const apiPort = getApiPort();
+
+      // Locate web dist (same path the protocol handler uses)
+      const webDistPath = path.join(__dirname, '..', 'apps', 'web', 'dist');
+
+      const mimeTypes = {
+        '.html': 'text/html', '.js': 'application/javascript',
+        '.css': 'text/css', '.json': 'application/json',
+        '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
+        '.webp': 'image/webp', '.woff': 'font/woff', '.woff2': 'font/woff2',
+        '.ttf': 'font/ttf', '.eot': 'application/vnd.ms-fontobject',
+        '.pdf': 'application/pdf', '.txt': 'text/plain',
+        '.map': 'application/json',
+      };
+
+      httpServer = http.createServer((req, res) => {
+        const parsed = new URL(req.url || '/', `http://127.0.0.1:${apiPort}`);
+        const pathname = parsed.pathname;
+
+        // Delegate /api requests to Express
+        if (pathname.startsWith('/api')) {
+          expressApp(req, res);
+          return;
+        }
+
+        // Static file serving for the web client
+        let filePath = pathname === '/' ? '/index.html' : pathname;
+
+        // Handle SPA asset paths rewritten by deep routes
+        const assetsMatch = pathname.match(/\/assets\/(.+)$/);
+        if (assetsMatch) {
+          filePath = `/assets/${assetsMatch[1]}`;
+        }
+
+        const fullPath = path.join(webDistPath, filePath);
+
+        // Security: prevent directory traversal
+        if (!path.normalize(fullPath).startsWith(path.normalize(webDistPath))) {
+          res.writeHead(403);
+          res.end('Forbidden');
+          return;
+        }
+
+        fs.readFile(fullPath, (err, data) => {
+          if (err) {
+            // SPA fallback: serve index.html for unknown routes
+            if (!path.extname(filePath)) {
+              fs.readFile(path.join(webDistPath, 'index.html'), (err2, indexData) => {
+                if (err2) {
+                  res.writeHead(404);
+                  res.end('Not Found');
+                  return;
+                }
+                res.writeHead(200, { 'Content-Type': 'text/html' });
+                res.end(indexData);
+              });
+              return;
+            }
+            res.writeHead(404);
+            res.end('Not Found');
+            return;
+          }
+
+          const ext = path.extname(filePath).toLowerCase();
+          res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'application/octet-stream' });
+          res.end(data);
+        });
+      });
+
+      httpServer.listen(apiPort, '127.0.0.1', () => {
+        log(`[API] HTTP server listening on http://127.0.0.1:${apiPort}`);
+      });
+
+      // Attach WebSocket upgrade handler for real-time collaboration
+      if (typeof apiModule.setupCollaborationWebSocket === 'function') {
+        apiModule.setupCollaborationWebSocket(httpServer);
+        log('[API] Collaboration WebSocket handler attached');
+      }
+
       resolve(true);
     } catch (err) {
       log('[API] Failed to load API:', err.message);
@@ -724,11 +810,16 @@ function createWindow() {
         mainWindow.loadURL('app://bundle/');
       });
   } else {
-    // In production, use the custom app:// protocol
-    // This allows proper routing of both static files and API requests
-    mainWindow.loadURL('app://bundle/').catch((err) => {
-      console.error('Failed to load app via custom protocol:', err);
-      mainWindow.show();
+    // In production, load from the real HTTP server so SSE and WebSocket
+    // connections work without cross-origin issues (same-origin).
+    const prodUrl = `http://127.0.0.1:${getApiPort()}`;
+    mainWindow.loadURL(prodUrl).catch((err) => {
+      console.error('Failed to load from HTTP server, falling back to app://:', err);
+      // Fallback to custom protocol if HTTP server is unreachable
+      mainWindow.loadURL('app://bundle/').catch((err2) => {
+        console.error('Failed to load app via custom protocol:', err2);
+        mainWindow.show();
+      });
     });
   }
 
@@ -761,7 +852,11 @@ app.on('ready', async () => {
 });
 
 app.on('window-all-closed', () => {
-  // No server to close - Express app runs in-process without a listener
+  // Close the real HTTP server if running
+  if (httpServer) {
+    httpServer.close();
+    httpServer = null;
+  }
   if (process.platform !== 'darwin') {
     app.quit();
   }
@@ -774,6 +869,10 @@ ipcMain.handle('restart-and-install', () => {
 
 ipcMain.handle('get-app-version', () => {
   return app.getVersion();
+});
+
+ipcMain.handle('get-api-base-url', () => {
+  return getApiBaseUrl();
 });
 
 ipcMain.handle('get-process-versions', () => {
@@ -845,8 +944,8 @@ ipcMain.handle('open-popout-window', (event, urlPath, options = {}) => {
     if (isDev) {
       fullUrl = `http://127.0.0.1:5173${urlPath}`;
     } else {
-      // Use app:// protocol for production
-      fullUrl = `app://bundle${urlPath}`;
+      // Use real HTTP server so SSE/WebSocket work (same-origin)
+      fullUrl = `http://127.0.0.1:${getApiPort()}${urlPath}`;
     }
     
     log(`[Popout] Opening window: ${fullUrl}`);

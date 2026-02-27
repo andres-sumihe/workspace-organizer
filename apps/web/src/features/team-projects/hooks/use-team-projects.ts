@@ -11,6 +11,13 @@ import { queryKeys } from '@/lib/query-client';
 
 import type { TeamProjectStatus, CreateTeamProjectRequest, UpdateTeamProjectRequest } from '@workspace/shared';
 
+// Team data is shared across users — keep staleTime short so refetches
+// triggered by SSE events pick up fresh data quickly.
+const TEAM_QUERY_OPTIONS = {
+  staleTime: 5_000,
+  refetchOnWindowFocus: true as const,
+};
+
 export interface TeamProjectListFilters {
   page?: number;
   pageSize?: number;
@@ -25,6 +32,7 @@ export function useTeamProjectList(teamId: string, filters: TeamProjectListFilte
     queryKey: queryKeys.teamProjects.list(teamId, { page, pageSize, ...rest }),
     queryFn: () => fetchTeamProjects(teamId, page, pageSize, rest),
     enabled: !!teamId,
+    ...TEAM_QUERY_OPTIONS,
   });
 }
 
@@ -33,6 +41,7 @@ export function useTeamProjectDetail(teamId: string, projectId: string | null) {
     queryKey: queryKeys.teamProjects.detail(teamId, projectId ?? ''),
     queryFn: () => fetchTeamProject(teamId, projectId!),
     enabled: !!teamId && !!projectId,
+    ...TEAM_QUERY_OPTIONS,
   });
 }
 

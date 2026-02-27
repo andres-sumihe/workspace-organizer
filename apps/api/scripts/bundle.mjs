@@ -89,6 +89,7 @@ if (resourcesPath.includes('app.asar')) {
 const require = createRequire(import.meta.url);
 const bundle = require('./app.bundle.cjs');
 export const createApp = bundle.createApp;
+export const setupCollaborationWebSocket = bundle.setupCollaborationWebSocket;
 export default bundle;
 `
 );

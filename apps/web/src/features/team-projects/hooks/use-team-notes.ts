@@ -4,6 +4,9 @@ import {
   fetchTeamNotes,
   fetchTeamNote,
   fetchTeamNoteRevisions,
+  fetchTeamNoteRevisionDetail,
+  createManualSnapshot,
+  restoreNoteRevision,
   createTeamNote,
   updateTeamNote,
   deleteTeamNote,
@@ -11,6 +14,13 @@ import {
 import { queryKeys } from '@/lib/query-client';
 
 import type { CreateTeamNoteRequest, UpdateTeamNoteRequest } from '@workspace/shared';
+
+// Team data is shared across users — keep staleTime short so refetches
+// triggered by SSE events pick up fresh data quickly.
+const TEAM_QUERY_OPTIONS = {
+  staleTime: 5_000,
+  refetchOnWindowFocus: true as const,
+};
 
 export interface TeamNoteListFilters {
   page?: number;
@@ -25,6 +35,7 @@ export function useTeamNoteList(teamId: string, projectId: string, filters: Team
     queryKey: queryKeys.teamNotes.list(teamId, projectId, { page, pageSize, ...rest }),
     queryFn: () => fetchTeamNotes(teamId, projectId, page, pageSize, rest),
     enabled: !!teamId && !!projectId,
+    ...TEAM_QUERY_OPTIONS,
   });
 }
 
@@ -33,6 +44,7 @@ export function useTeamNoteDetail(teamId: string, projectId: string, noteId: str
     queryKey: queryKeys.teamNotes.detail(teamId, projectId, noteId ?? ''),
     queryFn: () => fetchTeamNote(teamId, projectId, noteId!),
     enabled: !!teamId && !!projectId && !!noteId,
+    ...TEAM_QUERY_OPTIONS,
   });
 }
 
@@ -41,6 +53,40 @@ export function useTeamNoteRevisions(teamId: string, projectId: string, noteId: 
     queryKey: queryKeys.teamNotes.revisions(teamId, projectId, noteId ?? ''),
     queryFn: () => fetchTeamNoteRevisions(teamId, projectId, noteId!),
     enabled: !!teamId && !!projectId && !!noteId,
+    ...TEAM_QUERY_OPTIONS,
+  });
+}
+
+export function useTeamNoteRevisionDetail(teamId: string, projectId: string, noteId: string, revisionId: string | null) {
+  return useQuery({
+    queryKey: [...queryKeys.teamNotes.revisions(teamId, projectId, noteId), revisionId],
+    queryFn: () => fetchTeamNoteRevisionDetail(teamId, projectId, noteId, revisionId!),
+    enabled: !!teamId && !!projectId && !!noteId && !!revisionId,
+    ...TEAM_QUERY_OPTIONS,
+  });
+}
+
+export function useCreateNoteSnapshot(teamId: string, projectId: string) {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: (noteId: string) => createManualSnapshot(teamId, projectId, noteId),
+    onSuccess: (_data, noteId) => {
+      qc.invalidateQueries({ queryKey: queryKeys.teamNotes.revisions(teamId, projectId, noteId) });
+    },
+  });
+}
+
+export function useRestoreNoteRevision(teamId: string, projectId: string) {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ noteId, revisionId }: { noteId: string; revisionId: string }) =>
+      restoreNoteRevision(teamId, projectId, noteId, revisionId),
+    onSuccess: (_data, { noteId }) => {
+      qc.invalidateQueries({ queryKey: queryKeys.teamNotes.revisions(teamId, projectId, noteId) });
+      qc.invalidateQueries({ queryKey: queryKeys.teamNotes.detail(teamId, projectId, noteId) });
+    },
   });
 }
 
@@ -64,7 +110,6 @@ export function useUpdateTeamNote(teamId: string, projectId: string) {
     onSuccess: (_data, { noteId }) => {
       qc.invalidateQueries({ queryKey: queryKeys.teamNotes.lists() });
       qc.invalidateQueries({ queryKey: queryKeys.teamNotes.detail(teamId, projectId, noteId) });
-      qc.invalidateQueries({ queryKey: queryKeys.teamNotes.revisions(teamId, projectId, noteId) });
     },
   });
 }

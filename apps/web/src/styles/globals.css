@@ -741,6 +741,41 @@ ins.remark-ins {
   cursor: col-resize;
 }
 
+/* ─── Collaboration carets (remote users) ─── */
+.collaboration-carets__caret {
+  border-left: 2px solid;
+  border-right: none;
+  margin-left: -1px;
+  margin-right: -1px;
+  pointer-events: none;
+  position: relative;
+  word-break: normal;
+}
+
+.collaboration-carets__label {
+  border-radius: 3px 3px 3px 0;
+  color: #fff;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 600;
+  left: -1px;
+  line-height: normal;
+  padding: 0.1rem 0.3rem;
+  position: absolute;
+  top: -1.4em;
+  user-select: none;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0.9;
+  transition: opacity 0.15s ease;
+  z-index: 10;
+}
+
+/* Selection highlight for remote users */
+.yjs-selection {
+  opacity: 0.25;
+}
+
 /* Highlight mark */
 .tiptap-rich-text mark {
   background-color: oklch(0.9 0.15 90);

@@ -172,9 +172,12 @@ const EXPECTED_SCHEMAS: Record<string, string[]> = {
   team_note_revisions: [
     'id',
     'note_id',
+    'title',
     'content',
     'saved_by_email',
+    'editors',
     'revision_number',
+    'snapshot_trigger',
     'created_at'
   ],
   team_tasks: [
