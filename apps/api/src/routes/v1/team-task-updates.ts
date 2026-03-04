@@ -124,10 +124,10 @@ teamTaskUpdatesRouter.post('/', requireTeamRole('member'), asyncHandler(async (r
 
   await verifyTask(taskId, projectId, teamId!);
 
-  const content = typeof body.content === 'string' ? body.content.trim() : '';
+  const content = typeof body.content === 'string' ? body.content : '';
   const parentId = typeof body.parentId === 'string' ? body.parentId : null;
 
-  if (!content) {
+  if (!content.trim()) {
     throw new AppError('Content is required', 400, 'INVALID_REQUEST');
   }
 
@@ -187,8 +187,8 @@ teamTaskUpdatesRouter.patch('/:updateId', requireTeamRole('member'), asyncHandle
     throw new AppError('You can only edit your own updates', 403, 'FORBIDDEN');
   }
 
-  const content = typeof body.content === 'string' ? body.content.trim() : '';
-  if (!content) {
+  const content = typeof body.content === 'string' ? body.content : '';
+  if (!content.trim()) {
     throw new AppError('Content is required', 400, 'INVALID_REQUEST');
   }
 

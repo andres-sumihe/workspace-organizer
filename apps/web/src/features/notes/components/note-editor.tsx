@@ -324,6 +324,7 @@ export function NoteEditor({
       TiptapMarkdown.configure({
         html: false,
         linkify: true,
+        breaks: true,
         transformPastedText: true,
         transformCopiedText: true,
       }),

@@ -154,5 +154,34 @@ export const settingsController = {
     } catch (error) {
       next(error);
     }
+  },
+
+  /**
+   * GET /api/v1/settings/app/auto-update
+   */
+  async getAutoUpdateEnabled(_req: Request, res: Response, next: NextFunction) {
+    try {
+      const enabled = await settingsService.getAutoUpdateEnabled();
+      res.json({ enabled });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * PUT /api/v1/settings/app/auto-update
+   */
+  async updateAutoUpdateEnabled(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { enabled } = req.body as { enabled?: boolean };
+      if (typeof enabled !== 'boolean') {
+        res.status(400).json({ code: 'INVALID_VALUE', message: 'enabled must be a boolean' });
+        return;
+      }
+      const result = await settingsService.setAutoUpdateEnabled(enabled);
+      res.json({ enabled: result });
+    } catch (error) {
+      next(error);
+    }
   }
 };

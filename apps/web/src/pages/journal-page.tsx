@@ -549,7 +549,7 @@ function EntryFormDialog({
         // eslint-disable-next-line security/detect-non-literal-regexp
         finalContent = finalContent.replace(new RegExp(`#${tag}\\b`, 'gi'), '');
       });
-      finalContent = finalContent.replace(/\s+/g, ' ').trim();
+      finalContent = finalContent.replace(/[^\S\n]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 
       const data: CreateWorkLogRequest | UpdateWorkLogRequest = {
         content: contentJson || finalContent,
