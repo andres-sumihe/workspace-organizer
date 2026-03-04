@@ -30,3 +30,9 @@ settingsRouter.get('/tools/general', settingsController.getToolsGeneralSettings)
 
 // PUT /api/v1/settings/tools/general - Update tools general settings
 settingsRouter.put('/tools/general', settingsController.updateToolsGeneralSettings);
+
+// GET /api/v1/settings/app/auto-update - Check if auto-update is enabled
+settingsRouter.get('/app/auto-update', settingsController.getAutoUpdateEnabled);
+
+// PUT /api/v1/settings/app/auto-update - Enable/disable auto-update
+settingsRouter.put('/app/auto-update', settingsController.updateAutoUpdateEnabled);

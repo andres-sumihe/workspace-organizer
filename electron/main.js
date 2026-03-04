@@ -12,7 +12,7 @@ const electronLog = require('electron-log');
 // Configure auto-updater logging
 autoUpdater.logger = electronLog;
 autoUpdater.logger.transports.file.level = 'info';
-autoUpdater.autoDownload = true; // Ensure background downloading is enabled
+autoUpdater.autoDownload = false; // Don't download until user sees the update dialog
 
 let expressApp = null;
 let httpServer = null;
@@ -838,9 +838,23 @@ app.on('ready', async () => {
   const win = createWindow();
   buildAppMenu(win);
 
-  // Check for updates after window is created
+  // Check for updates after window is created (only if user opted in)
   if (app.isPackaged) {
-    autoUpdater.checkForUpdatesAndNotify();
+    try {
+      const resp = await require('electron').net.fetch(
+        `${getApiBaseUrl()}/api/v1/settings/app/auto-update`
+      );
+      const data = await resp.json();
+      if (data.enabled !== false) {
+        autoUpdater.checkForUpdatesAndNotify();
+      } else {
+        log('[Updater] Auto-update disabled by user setting');
+      }
+    } catch (err) {
+      // If we can't read the setting, default to checking for updates
+      log('[Updater] Could not read auto-update setting, checking anyway:', err.message);
+      autoUpdater.checkForUpdatesAndNotify();
+    }
   }
 
   app.on('activate', function () {

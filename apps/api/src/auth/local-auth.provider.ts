@@ -382,6 +382,7 @@ export const localAuthProvider = {
   /**
    * Delete user account permanently.
    * Requires password confirmation.
+   * Removes ALL local data so the next user starts fresh.
    */
   async deleteUser(userId: string, password: string): Promise<void> {
     const db = await getDb();
@@ -396,11 +397,55 @@ export const localAuthProvider = {
       throw new Error('INVALID_PASSWORD');
     }
 
-    // Delete all sessions
-    db.prepare('DELETE FROM local_sessions WHERE user_id = ?').run(userId);
-    
-    // Delete the user
-    db.prepare('DELETE FROM local_users WHERE id = ?').run(userId);
+    // Wipe all local data so a new account starts with a clean slate.
+    // Disable FK checks so we can delete in any order within a transaction.
+    db.pragma('foreign_keys = OFF');
+    const wipe = db.transaction(() => {
+      // Personal productivity data
+      db.prepare('DELETE FROM task_updates').run();
+      db.prepare('DELETE FROM work_logs').run();
+      db.prepare('DELETE FROM notes').run();
+      db.prepare('DELETE FROM credentials').run();
+      db.prepare('DELETE FROM vault_settings').run();
+      db.prepare('DELETE FROM overtime_entries').run();
+      db.prepare('DELETE FROM personal_projects').run();
+
+      // Tags / taggings
+      db.prepare('DELETE FROM taggings').run();
+      db.prepare('DELETE FROM tags').run();
+
+      // Scripts & related
+      db.prepare('DELETE FROM script_tags').run();
+      db.prepare('DELETE FROM script_dependencies').run();
+      db.prepare('DELETE FROM drive_mappings').run();
+      db.prepare('DELETE FROM scripts').run();
+
+      // Control-M
+      db.prepare('DELETE FROM controlm_job_conditions').run();
+      db.prepare('DELETE FROM controlm_job_dependencies').run();
+      db.prepare('DELETE FROM controlm_jobs').run();
+
+      // Templates
+      db.prepare('DELETE FROM workspace_templates').run();
+      db.prepare('DELETE FROM template_tokens').run();
+      db.prepare('DELETE FROM template_files').run();
+      db.prepare('DELETE FROM template_folders').run();
+      db.prepare('DELETE FROM templates').run();
+
+      // Workspaces & projects
+      db.prepare('DELETE FROM projects').run();
+      db.prepare('DELETE FROM applications').run();
+      db.prepare('DELETE FROM workspaces').run();
+
+      // Settings (user preferences)
+      db.prepare('DELETE FROM settings').run();
+
+      // Auth
+      db.prepare('DELETE FROM local_sessions').run();
+      db.prepare('DELETE FROM local_users').run();
+    });
+    wipe();
+    db.pragma('foreign_keys = ON');
   },
 
 

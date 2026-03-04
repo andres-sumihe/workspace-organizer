@@ -216,6 +216,24 @@ export const settingsService = {
     return merged;
   },
 
+  // ========================================================================
+  // Application settings (auto-update, etc.)
+  // ========================================================================
+
+  async getAutoUpdateEnabled(): Promise<boolean> {
+    const setting = await settingsRepository.get<boolean>('app.autoUpdateEnabled');
+    return setting?.value ?? true; // enabled by default
+  },
+
+  async setAutoUpdateEnabled(enabled: boolean): Promise<boolean> {
+    await settingsRepository.set(
+      'app.autoUpdateEnabled',
+      enabled,
+      'Whether to automatically check for updates on app startup'
+    );
+    return enabled;
+  },
+
   /**
    * Update tools general settings
    * @param input - Partial settings to update

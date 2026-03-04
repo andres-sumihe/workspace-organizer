@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.4]
+
+## Added
+- Add project management, task and notes for team feature.
+- Add real time collaboration on team project notes
+
+## Fixed
+- Fix image storage location issue that caused the image attachment doesn't work.
+- Fix notes new window exceed screen available area
+- Fix invalid credentials error message on login
+
+
 ## [0.4.3]
 
 ## Added
@@ -15,7 +27,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Fixed
 - Fix issue on file mention feature where the dropdown position not align with the input field.
-- 
 
 ## Changed
 - Task Update and Comment input now support more tools

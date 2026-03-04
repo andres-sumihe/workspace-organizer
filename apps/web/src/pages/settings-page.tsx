@@ -137,6 +137,10 @@ export const SettingsPage = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showDeletePassword, setShowDeletePassword] = useState(false);
 
+  // Auto-update setting state
+  const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(true);
+  const [isLoadingAutoUpdate, setIsLoadingAutoUpdate] = useState(true);
+
   const navigate = useNavigate();
 
   const connectionString = useMemo(() => buildConnectionStringFromForm(connectionForm), [connectionForm]);
@@ -157,6 +161,44 @@ export const SettingsPage = () => {
   useEffect(() => {
     setMTFormData(mtCriteria);
   }, [mtCriteria]);
+
+  // Load auto-update setting
+  useEffect(() => {
+    const loadAutoUpdate = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/v1/settings/app/auto-update`);
+        if (res.ok) {
+          const data = await res.json();
+          setAutoUpdateEnabled(data.enabled !== false);
+        }
+      } catch {
+        // default stays true
+      } finally {
+        setIsLoadingAutoUpdate(false);
+      }
+    };
+    loadAutoUpdate();
+  }, [API_URL]);
+
+  const handleAutoUpdateToggle = async (enabled: boolean) => {
+    setAutoUpdateEnabled(enabled);
+    try {
+      const res = await fetch(`${API_URL}/api/v1/settings/app/auto-update`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      });
+      if (res.ok) {
+        toast.success(enabled ? 'Auto-update enabled' : 'Auto-update disabled');
+      } else {
+        toast.error('Failed to save auto-update setting');
+        setAutoUpdateEnabled(!enabled);
+      }
+    } catch {
+      toast.error('Failed to save auto-update setting');
+      setAutoUpdateEnabled(!enabled);
+    }
+  };
 
   // Load tools general settings
   useEffect(() => {
@@ -676,6 +718,34 @@ export const SettingsPage = () => {
                         )}
                       </div>
                     )}
+                  </div>
+                </div>
+              </Card>
+
+              {/* Auto-Update Setting */}
+              <Card className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="rounded-lg bg-primary/10 p-3">
+                    <Download className="size-6 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-lg font-semibold mb-1">Application Updates</h2>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Control how the application checks for new versions.
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">Auto-check for updates</p>
+                        <p className="text-xs text-muted-foreground">
+                          Automatically check for updates when the app starts. You can always check manually from the Help menu.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={autoUpdateEnabled}
+                        onCheckedChange={handleAutoUpdateToggle}
+                        disabled={isLoadingAutoUpdate}
+                      />
+                    </div>
                   </div>
                 </div>
               </Card>
