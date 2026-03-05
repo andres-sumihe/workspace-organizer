@@ -15,6 +15,7 @@
 import SuperscriptExtension from '@tiptap/extension-superscript';
 import SubscriptExtension from '@tiptap/extension-subscript';
 import Highlight from '@tiptap/extension-highlight';
+import Image from '@tiptap/extension-image';
 import { InlineMath, BlockMath } from '@tiptap/extension-mathematics';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-expect-error — no type declarations
@@ -240,6 +241,40 @@ export const MarkdownBlockMath = BlockMath.extend({
           setup(md: { use: (plugin: unknown) => void }) {
             useOnce(md, markdownItMathPlugin, 'math');
           },
+        },
+      },
+    };
+  },
+});
+
+// ── Block Image with proper markdown round-trip ──────────────────────────────
+// The default prosemirror-markdown image serializer uses state.write() without
+// state.closeBlock(), which works for inline images. When Image is configured
+// with inline:false (block node), the missing closeBlock causes the next block
+// (e.g. --- or ### heading) to be serialized without a blank-line separator.
+// Without that separator, markdown-it re-parses --- as a setext H2 marker
+// instead of a thematic break, and headings may also be misinterpreted.
+
+export const MarkdownBlockImage = Image.extend({
+  addStorage() {
+    return {
+      markdown: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        serialize(state: any, node: any) {
+          state.write(
+            '![' +
+              state.esc(node.attrs.alt || '') +
+              '](' +
+              node.attrs.src.replace(/[()]/g, '\\$&') +
+              (node.attrs.title
+                ? ' "' + node.attrs.title.replace(/"/g, '\\"') + '"'
+                : '') +
+              ')',
+          );
+          state.closeBlock(node);
+        },
+        parse: {
+          // handled by markdown-it
         },
       },
     };

@@ -3,7 +3,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { Markdown as TiptapMarkdown } from 'tiptap-markdown';
 import Collaboration from '@tiptap/extension-collaboration';
 import CollaborationCaret from '@tiptap/extension-collaboration-caret';
-import Image from '@tiptap/extension-image';
+
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import LinkExtension from '@tiptap/extension-link';
@@ -21,7 +21,8 @@ import {
   MarkdownSubscript,
   MarkdownHighlight,
   MarkdownInlineMath,
-  MarkdownBlockMath
+  MarkdownBlockMath,
+  MarkdownBlockImage
 } from '@/features/notes/components/markdown-extensions';
 import 'katex/dist/katex.min.css';
 import { PasteMarkdown } from '@/features/notes/components/paste-markdown';
@@ -281,7 +282,7 @@ export function TeamNoteEditor({ note, teamId, projectId, onSave, onClose, colla
         transformPastedText: true,
         transformCopiedText: true,
       }),
-      Image.configure({ inline: false }),
+      MarkdownBlockImage.configure({ inline: false }),
       TaskList,
       TaskItem.configure({ nested: true }),
       LinkExtension.configure({ openOnClick: false, autolink: true }),

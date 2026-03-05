@@ -1,7 +1,6 @@
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown as TiptapMarkdown } from 'tiptap-markdown';
-import Image from '@tiptap/extension-image';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import LinkExtension from '@tiptap/extension-link';
@@ -11,7 +10,7 @@ import { Table } from '@tiptap/extension-table/table';
 import { TableRow } from '@tiptap/extension-table/row';
 import { TableCell } from '@tiptap/extension-table/cell';
 import { TableHeader } from '@tiptap/extension-table/header';
-import { MarkdownSuperscript, MarkdownSubscript, MarkdownHighlight, MarkdownInlineMath, MarkdownBlockMath } from './markdown-extensions';
+import { MarkdownSuperscript, MarkdownSubscript, MarkdownHighlight, MarkdownInlineMath, MarkdownBlockMath, MarkdownBlockImage } from './markdown-extensions';
 import { Admonition } from './admonition-extension';
 import 'katex/dist/katex.min.css';
 import { common, createLowlight } from 'lowlight';
@@ -88,7 +87,7 @@ export function NoteViewer({ note, onEdit, onDelete, onPopout, isPipEditing, isP
         codeBlock: false,
       }),
       TiptapMarkdown.configure({ html: false, linkify: true }),
-      Image.configure({ inline: false }),
+      MarkdownBlockImage.configure({ inline: false }),
       TaskList,
       TaskItem.configure({ nested: true }),
       LinkExtension.configure({ openOnClick: false, autolink: true }),

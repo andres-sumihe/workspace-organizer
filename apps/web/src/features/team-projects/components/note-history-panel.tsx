@@ -17,7 +17,7 @@ import { diffLines, diffWords } from "diff";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Markdown as TiptapMarkdown } from "tiptap-markdown";
-import Image from "@tiptap/extension-image";
+
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import LinkExtension from "@tiptap/extension-link";
@@ -33,6 +33,7 @@ import {
   MarkdownHighlight,
   MarkdownInlineMath,
   MarkdownBlockMath,
+  MarkdownBlockImage,
 } from "@/features/notes/components/markdown-extensions";
 import { Admonition } from "@/features/notes/components/admonition-extension";
 import "katex/dist/katex.min.css";
@@ -77,7 +78,7 @@ const lowlight = createLowlight(common);
 const viewerExtensions = [
   StarterKit.configure({ codeBlock: false }),
   TiptapMarkdown.configure({ html: false, linkify: true }),
-  Image.configure({ inline: false }),
+  MarkdownBlockImage.configure({ inline: false }),
   TaskList,
   TaskItem.configure({ nested: true }),
   LinkExtension.configure({ openOnClick: false, autolink: true }),
