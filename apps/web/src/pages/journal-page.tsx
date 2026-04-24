@@ -350,6 +350,40 @@ interface EntryFormDialogProps {
   onCreateTag: (name: string) => Promise<Tag>;
 }
 
+interface TiptapNode {
+  type: string;
+  text?: string;
+  content?: TiptapNode[];
+  [key: string]: unknown;
+}
+
+/**
+ * Strip NLP autofill directives (priority:, due:, project:, #hashtag) from
+ * a serialised TipTap JSON document string before persisting rich content.
+ */
+function cleanNlpFromTiptapJson(jsonStr: string): string {
+  const cleanNode = (node: TiptapNode): TiptapNode => {
+    if (node.type === 'text' && typeof node.text === 'string') {
+      let text = node.text;
+      text = text.replace(/priority:\s*(low|medium|high)\b/gi, '');
+      text = text.replace(/due:\s*[^,.\n]+/gi, '');
+      text = text.replace(/project:\s*[a-zA-Z0-9][a-zA-Z0-9 \-_]*/gi, '');
+      text = text.replace(/#[a-zA-Z][a-zA-Z0-9_]*/g, '');
+      text = text.replace(/[^\S\n]+/g, ' ').trim();
+      return { ...node, text };
+    }
+    if (Array.isArray(node.content)) {
+      return { ...node, content: node.content.map(cleanNode) };
+    }
+    return node;
+  };
+  try {
+    return JSON.stringify(cleanNode(JSON.parse(jsonStr) as TiptapNode));
+  } catch {
+    return jsonStr;
+  }
+}
+
 function EntryFormDialog({
   open,
   onOpenChange,
@@ -552,7 +586,7 @@ function EntryFormDialog({
       finalContent = finalContent.replace(/[^\S\n]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 
       const data: CreateWorkLogRequest | UpdateWorkLogRequest = {
-        content: contentJson || finalContent,
+        content: contentJson ? cleanNlpFromTiptapJson(contentJson) : finalContent,
         date,
         status,
         priority: priority !== 'none' ? priority : undefined,

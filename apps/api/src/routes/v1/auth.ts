@@ -31,7 +31,11 @@ authRouter.post('/login', validate(loginSchema), async (req: Request, res: Respo
 
     res.json(result);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Login failed';
+    const errorMessages: Record<string, string> = {
+      INVALID_CREDENTIALS: 'Wrong username or password',
+    };
+    const rawMessage = error instanceof Error ? error.message : '';
+    const message = errorMessages[rawMessage] ?? 'Login failed';
 
     res.status(401).json({
       code: 'UNAUTHORIZED',
