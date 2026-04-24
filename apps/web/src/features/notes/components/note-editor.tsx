@@ -321,7 +321,7 @@ export function NoteEditor({
         codeBlock: false, // replaced by CodeBlockLowlight
       }),
       TiptapMarkdown.configure({
-        html: false,
+        html: true,
         linkify: true,
         breaks: true,
         transformPastedText: true,

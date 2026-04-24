@@ -76,7 +76,7 @@ export const OvertimeStatCard = () => {
 // Tasks Completed This Week Card
 // ============================================================================
 export const TasksCompletedCard = () => {
-  const { weekStartStr, sixtyDaysAgoStr } = useMemo(() => {
+  const { weekStartStr, weekEndStr, sixtyDaysAgoStr } = useMemo(() => {
     const now = new Date();
     const dist = now.getDay() === 0 ? 6 : now.getDay() - 1;
     const weekStart = new Date(now);
@@ -84,9 +84,13 @@ export const TasksCompletedCard = () => {
     
     const sixtyDaysAgo = new Date(now);
     sixtyDaysAgo.setDate(now.getDate() - 60);
+
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
     
     return {
       weekStartStr: weekStart.toISOString().split('T')[0],
+      weekEndStr: weekEnd.toISOString().split('T')[0],
       sixtyDaysAgoStr: sixtyDaysAgo.toISOString().split('T')[0]
     };
   }, []);
@@ -100,8 +104,8 @@ export const TasksCompletedCard = () => {
 
   const completedThisWeek = useMemo(() => {
     if (!historyRes?.items) return 0;
-    return historyRes.items.filter(l => l.date >= weekStartStr && l.status === 'done').length;
-  }, [historyRes, weekStartStr]);
+    return historyRes.items.filter(l => l.date >= weekStartStr && l.date <= weekEndStr && l.status === 'done').length;
+  }, [historyRes, weekStartStr, weekEndStr]);
 
   return (
     <Card>
