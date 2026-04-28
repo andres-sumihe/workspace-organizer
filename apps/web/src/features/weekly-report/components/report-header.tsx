@@ -1,4 +1,4 @@
-import { CalendarDays, ChevronLeft, ChevronRight, Copy } from 'lucide-react';
+import { CalendarDays, CalendarRange, ChevronLeft, ChevronRight, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 
 import type { WeeklyReportSummary, WeeklyReportProjectGroup } from '@workspace/shared';
@@ -12,7 +12,10 @@ interface ReportHeaderProps {
   onNextWeek: () => void;
   onThisWeek: () => void;
   onLastWeek: () => void;
+  onCustomPeriod: () => void;
   isThisWeek: boolean;
+  isLastWeek: boolean;
+  isCustomPeriod: boolean;
   summary: WeeklyReportSummary;
   groups: WeeklyReportProjectGroup[];
 }
@@ -23,7 +26,10 @@ export function ReportHeader({
   onNextWeek,
   onThisWeek,
   onLastWeek,
+  onCustomPeriod,
   isThisWeek,
+  isLastWeek,
+  isCustomPeriod,
   summary,
   groups,
 }: ReportHeaderProps) {
@@ -60,8 +66,22 @@ export function ReportHeader({
           >
             This Week
           </Button>
-          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onLastWeek}>
+          <Button
+            variant={isLastWeek ? 'secondary' : 'outline'}
+            size="sm"
+            className="h-7 text-xs"
+            onClick={onLastWeek}
+          >
             Last Week
+          </Button>
+          <Button
+            variant={isCustomPeriod ? 'secondary' : 'outline'}
+            size="sm"
+            className="h-7 text-xs gap-1.5"
+            onClick={onCustomPeriod}
+          >
+            <CalendarRange className="h-3.5 w-3.5" />
+            Custom Period
           </Button>
         </div>
       </div>

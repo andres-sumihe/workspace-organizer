@@ -6,6 +6,7 @@ import {
   ArrowUpDown,
   Calendar,
   Check,
+  CheckCircle2,
   ChevronDown,
   Copy,
   FileText,
@@ -172,6 +173,12 @@ function KanbanCard({ entry, index, isSelected, onSelect }: KanbanCardProps) {
           <Badge variant="secondary" className={`text-[10px] h-4 px-1 gap-1 border-none bg-zinc-200/80 dark:bg-zinc-800 text-muted-foreground rounded-[2px]`}>
             <FolderOpen className="h-3 w-3" />
             {entry.project.title}
+          </Badge>
+        )}
+        {entry.reportedAt && (
+          <Badge variant="outline" className="text-[10px] h-4 px-1.5 gap-0.5 text-emerald-600 border-emerald-500/50 rounded-[2px]">
+            <CheckCircle2 className="h-2.5 w-2.5" />
+            Reported
           </Badge>
         )}
       </div>
@@ -1089,17 +1096,18 @@ export function JournalPage() {
   const handleSaveEntry = useCallback(
     async (data: CreateWorkLogRequest | UpdateWorkLogRequest, id?: string) => {
       if (id) {
-        // Optimistic update for edit
+        // Optimistic update for edit (exclude reportedAt — null not valid on WorkLogEntry)
+        const { reportedAt: _r, ...safeData } = data as UpdateWorkLogRequest;
         setEntries((prev) =>
           prev.map((e) =>
             e.id === id
-              ? { ...e, ...data, updatedAt: new Date().toISOString() }
+              ? { ...e, ...safeData, updatedAt: new Date().toISOString() }
               : e
           )
         );
         if (selectedEntry?.id === id) {
           setSelectedEntry((prev) =>
-            prev ? { ...prev, ...data, updatedAt: new Date().toISOString() } : prev
+            prev ? { ...prev, ...safeData, updatedAt: new Date().toISOString() } : prev
           );
         }
         await workLogsApi.update(id, data as UpdateWorkLogRequest);

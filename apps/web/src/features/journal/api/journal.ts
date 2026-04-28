@@ -13,6 +13,7 @@ import type {
   UpdateWorkLogRequest,
   RolloverWorkLogsRequest,
   RolloverWorkLogsResponse,
+  BulkMarkReportedResponse,
   PersonalProject,
   PersonalProjectDetail,
   PersonalProjectListResponse,
@@ -129,7 +130,16 @@ export const workLogsApi = {
    * Rollover unfinished work logs to a new date
    */
   rollover: (data: RolloverWorkLogsRequest) =>
-    apiClient.post<RolloverWorkLogsResponse>('/api/v1/work-logs/rollover', data)
+    apiClient.post<RolloverWorkLogsResponse>('/api/v1/work-logs/rollover', data),
+
+  /**
+   * Bulk mark work logs as reported. Pass reportedAt=null to un-mark.
+   */
+  bulkMarkReported: (ids: string[], reportedAt?: string | null) =>
+    apiClient.post<BulkMarkReportedResponse>('/api/v1/work-logs/bulk-mark-reported', {
+      ids,
+      reportedAt: reportedAt !== undefined ? reportedAt : new Date().toISOString()
+    })
 };
 
 // ============================================================================

@@ -91,6 +91,7 @@ export const workLogsService = {
     if (request.actualEndDate !== undefined) data.actualEndDate = request.actualEndDate;
     if (request.projectId !== undefined) data.projectId = request.projectId;
     if (request.flags !== undefined) data.flags = request.flags;
+    if (request.reportedAt !== undefined) data.reportedAt = request.reportedAt;
 
     // Update entry fields
     await workLogsRepository.update(id, data);
@@ -186,5 +187,14 @@ export const workLogsService = {
     const weekEndDate = end.toISOString().split('T')[0];
 
     return this.list({ from: weekStartDate, to: weekEndDate });
+  },
+
+  /**
+   * Bulk mark work logs as reported (or clear with null).
+   * @param ids - IDs to update
+   * @param reportedAt - ISO8601 timestamp, or null to un-mark
+   */
+  async bulkMarkReported(ids: string[], reportedAt: string | null): Promise<number> {
+    return workLogsRepository.bulkMarkReported(ids, reportedAt);
   }
 };

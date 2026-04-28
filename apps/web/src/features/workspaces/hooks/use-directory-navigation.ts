@@ -21,6 +21,9 @@ interface UseDirectoryNavigationReturn {
   setError: Dispatch<SetStateAction<string | null>>;
   loadDirectory: (targetPath: string) => Promise<void>;
   clearDirectory: () => void;
+  /** True once a directory has been successfully loaded at least once. Prevents empty-folder mis-trigger. */
+  hasLoaded: boolean;
+  setHasLoaded: Dispatch<SetStateAction<boolean>>;
 }
 
 export const useDirectoryNavigation = ({
@@ -34,11 +37,13 @@ export const useDirectoryNavigation = ({
   const [currentPath, setCurrentPath] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   const clearDirectory = useCallback(() => {
     setEntries([]);
     setBreadcrumbs([{ label: 'Root', path: '' }]);
     setCurrentPath('');
+    setHasLoaded(false);
   }, []);
 
   const loadDirectory = useCallback(async (targetPath: string) => {
@@ -73,6 +78,7 @@ export const useDirectoryNavigation = ({
       setEntries(response.entries);
       setBreadcrumbs(response.breadcrumbs);
       setCurrentPath(response.path ?? relativePath ?? '');
+      setHasLoaded(true);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to read directory';
       setError(message);
@@ -93,6 +99,8 @@ export const useDirectoryNavigation = ({
     error,
     setError,
     loadDirectory,
-    clearDirectory
+    clearDirectory,
+    hasLoaded,
+    setHasLoaded
   };
 };

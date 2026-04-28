@@ -102,3 +102,19 @@ export function useRolloverWorkLogs() {
     },
   });
 }
+
+/**
+ * Mutation hook for bulk marking work logs as reported.
+ * Pass reportedAt=null to un-mark.
+ */
+export function useBulkMarkReported() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ ids, reportedAt }: { ids: string[]; reportedAt?: string | null }) =>
+      workLogsApi.bulkMarkReported(ids, reportedAt),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.workLogs.all });
+    },
+  });
+}

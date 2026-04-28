@@ -17,6 +17,7 @@ interface ReportProjectGroupProps {
   onStatusChange?: (itemId: string, status: WeeklyReportStatus) => void;
   onPriorityChange?: (itemId: string, priority: WeeklyReportPriority) => void;
   onFlagsChange?: (itemId: string, flags: string[]) => void;
+  onMarkReported?: (itemId: string, reportedAt: string | null) => void;
   /** Map of itemId → true when that item is mid-mutation */
   pendingItems?: Set<string>;
 }
@@ -27,6 +28,7 @@ export function ReportProjectGroup({
   onStatusChange,
   onPriorityChange,
   onFlagsChange,
+  onMarkReported,
   pendingItems,
 }: ReportProjectGroupProps) {
   const navigate = useNavigate();
@@ -109,6 +111,7 @@ export function ReportProjectGroup({
                   onStatusChange={onStatusChange ?? (() => {})}
                   onPriorityChange={onPriorityChange ?? (() => {})}
                   onFlagsChange={onFlagsChange ?? (() => {})}
+                  onMarkReported={onMarkReported}
                   isPending={pendingItems?.has(item.id)}
                 />
               ))}

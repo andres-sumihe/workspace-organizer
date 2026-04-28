@@ -1,6 +1,8 @@
 import { Download, CheckCircle2, XCircle, Loader2, AlertCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import type { DownloadProgress } from '@workspace/shared';
+
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,7 +31,7 @@ type UpdateState =
   | { status: 'idle' }
   | { status: 'checking' }
   | { status: 'available'; info: UpdateInfo }
-  | { status: 'downloading'; progress: number }
+  | { status: 'downloading'; info: UpdateInfo; progress: number; bytesPerSecond: number; transferred: number; total: number }
   | { status: 'ready'; info: UpdateInfo }
   | { status: 'up-to-date' }
   | { status: 'error'; message: string };
@@ -75,6 +77,11 @@ export function UpdateChecker({ open, onOpenChange, triggerCheck }: UpdateChecke
     }
   };
 
+  const startDownload = async () => {
+    if (!window.api?.downloadUpdate) return;
+    await window.api.downloadUpdate();
+  };
+
   // Listen for update events from Electron
   useEffect(() => {
     if (!window.api) return;
@@ -95,11 +102,23 @@ export function UpdateChecker({ open, onOpenChange, triggerCheck }: UpdateChecke
       setState({ status: 'ready', info: info as UpdateInfo });
     });
 
+    const unsubProgress = window.api.onDownloadProgress?.((progress: DownloadProgress) => {
+      setState((prev) => ({
+        status: 'downloading',
+        info: prev.status === 'available' || prev.status === 'downloading' ? (prev as { info: UpdateInfo }).info : {} as UpdateInfo,
+        progress: Math.round(progress.percent),
+        bytesPerSecond: progress.bytesPerSecond,
+        transferred: progress.transferred,
+        total: progress.total,
+      }));
+    });
+
     return () => {
       unsubAvailable?.();
       unsubNotAvailable?.();
       unsubError?.();
       unsubDownloaded?.();
+      unsubProgress?.();
     };
   }, []);
 
@@ -147,9 +166,15 @@ export function UpdateChecker({ open, onOpenChange, triggerCheck }: UpdateChecke
             {state.info.releaseNotes && (
               <div className="space-y-2">
                 <h4 className="text-sm font-semibold">Release Notes</h4>
-                <div className="text-sm text-muted-foreground bg-muted p-3 rounded-md max-h-50 overflow-y-auto">
-                  <pre className="whitespace-pre-wrap font-sans">{state.info.releaseNotes}</pre>
-                </div>
+                <div
+                  className="text-sm text-muted-foreground bg-muted p-3 rounded-md max-h-50 overflow-y-auto prose prose-sm dark:prose-invert max-w-none
+                    [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:text-foreground [&_h2]:mt-3 [&_h2]:mb-1 first:[&_h2]:mt-0
+                    [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:space-y-0.5
+                    [&_li]:text-muted-foreground"
+                  // Release notes come from the app's own GitHub releases (trusted publisher source)
+                  // eslint-disable-next-line react/no-danger
+                  dangerouslySetInnerHTML={{ __html: state.info.releaseNotes }}
+                />
               </div>
             )}
             <p className="text-sm text-muted-foreground">
@@ -161,14 +186,25 @@ export function UpdateChecker({ open, onOpenChange, triggerCheck }: UpdateChecke
       case 'downloading':
         return (
           <div className="space-y-4 py-4">
-            <div className="flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <p className="text-sm font-medium">Downloading update...</p>
+            <Alert>
+              <Download className="h-4 w-4" />
+              <AlertDescription>
+                Downloading version <strong>{state.info.version}</strong>...
+              </AlertDescription>
+            </Alert>
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  {state.progress}% complete
+                </span>
+                <span>{(state.bytesPerSecond / 1024).toFixed(0)} KB/s</span>
+              </div>
+              <Progress value={state.progress} />
+              <p className="text-xs text-muted-foreground text-right">
+                {(state.transferred / 1048576).toFixed(1)} / {(state.total / 1048576).toFixed(1)} MB
+              </p>
             </div>
-            <Progress value={state.progress} />
-            <p className="text-xs text-muted-foreground text-center">
-              {state.progress}% complete
-            </p>
           </div>
         );
 
@@ -206,6 +242,20 @@ export function UpdateChecker({ open, onOpenChange, triggerCheck }: UpdateChecke
   };
 
   const renderFooter = () => {
+    if (state.status === 'available') {
+      return (
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Later
+          </Button>
+          <Button onClick={startDownload}>
+            <Download className="mr-2 h-4 w-4" />
+            Download Update
+          </Button>
+        </DialogFooter>
+      );
+    }
+
     if (state.status === 'ready') {
       return (
         <DialogFooter>
@@ -220,7 +270,7 @@ export function UpdateChecker({ open, onOpenChange, triggerCheck }: UpdateChecke
       );
     }
     
-    if (state.status === 'checking' || state.status === 'available' || state.status === 'downloading') {
+    if (state.status === 'checking' || state.status === 'downloading') {
        return (
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>

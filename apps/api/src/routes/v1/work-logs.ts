@@ -10,6 +10,9 @@ workLogsRouter.get('/', workLogsController.list);
 // POST /api/v1/work-logs/rollover - Rollover unfinished work logs
 workLogsRouter.post('/rollover', workLogsController.rollover);
 
+// POST /api/v1/work-logs/bulk-mark-reported - Bulk mark as reported / un-mark
+workLogsRouter.post('/bulk-mark-reported', workLogsController.bulkMarkReported);
+
 // GET /api/v1/work-logs/:id - Get a work log by ID
 workLogsRouter.get('/:id', workLogsController.getById);
 
