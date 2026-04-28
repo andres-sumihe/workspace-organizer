@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Circle,
   Clock,
+  CheckCircle2,
 } from 'lucide-react';
 
 import type {
@@ -68,6 +69,7 @@ interface ReportTaskRowProps {
   onStatusChange: (itemId: string, status: WeeklyReportStatus) => void;
   onPriorityChange: (itemId: string, priority: WeeklyReportPriority) => void;
   onFlagsChange: (itemId: string, flags: string[]) => void;
+  onMarkReported?: (itemId: string, reportedAt: string | null) => void;
   isPending?: boolean;
 }
 
@@ -82,6 +84,7 @@ export function ReportTaskRow({
   onStatusChange,
   onPriorityChange,
   onFlagsChange,
+  onMarkReported,
   isPending,
 }: ReportTaskRowProps) {
   const statusConfig = STATUS_DISPLAY[item.status];
@@ -112,7 +115,7 @@ export function ReportTaskRow({
       {/* ── Main Row ── */}
       <div
         className={cn(
-          'flex items-center gap-2 px-4 py-2.5 transition-colors',
+          'flex items-center gap-2 px-4 py-2.5 transition-colors group/row',
           'hover:bg-muted/50',
           isExpanded && 'bg-muted/30',
         )}
@@ -241,6 +244,35 @@ export function ReportTaskRow({
           </PopoverContent>
         </Popover>
 
+        {/* Reported badge / mark button */}
+        {item.reportedAt ? (
+          <button
+            type="button"
+            title={`Reported on ${formatTimestampDisplay(item.reportedAt)} — click to un-mark`}
+            onClick={() => onMarkReported?.(item.id, null)}
+            className="shrink-0"
+          >
+            <Badge
+              variant="outline"
+              className="text-[10px] px-1.5 py-0 h-5 text-emerald-600 border-emerald-500/50 cursor-pointer hover:bg-emerald-500/10"
+            >
+              <CheckCircle2 className="h-3 w-3 mr-0.5" />
+              Reported
+            </Badge>
+          </button>
+        ) : (
+          onMarkReported && (
+            <button
+              type="button"
+              title="Mark as reported"
+              onClick={() => onMarkReported(item.id, new Date().toISOString())}
+              className="shrink-0 p-0.5 rounded transition-colors opacity-0 group-hover/row:opacity-100 hover:bg-emerald-500/10"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground hover:text-emerald-600" />
+            </button>
+          )
+        )}
+
         {/* Status text */}
         <span className={cn('text-xs shrink-0 w-20 text-right', statusConfig.color)}>
           {statusConfig.label}
@@ -263,6 +295,12 @@ export function ReportTaskRow({
               <>
                 <span>•</span>
                 <span>Project: {item.projectTitle}</span>
+              </>
+            )}
+            {item.reportedAt && (
+              <>
+                <span>•</span>
+                <span className="text-emerald-600">Reported: {formatTimestampDisplay(item.reportedAt)}</span>
               </>
             )}
           </div>

@@ -14,9 +14,11 @@ import {
   Pause,
   Pencil,
   Plus,
+  Search,
   StickyNote,
   Tag as TagIcon,
-  Trash2
+  Trash2,
+  X
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -72,6 +74,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -425,6 +428,10 @@ export function ProjectDetailPage() {
   const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<WorkLogEntry | null>(null);
 
+  // Task filter/search state
+  const [taskSearch, setTaskSearch] = useState('');
+  const [taskStatusFilter, setTaskStatusFilter] = useState<WorkLogStatus | 'active' | 'all'>('active');
+
   // Fetch project data
   const fetchProject = useCallback(async () => {
     if (!projectId) return;
@@ -453,6 +460,21 @@ export function ProjectDetailPage() {
     if (!project || project.taskStats.total === 0) return 0;
     return Math.round((project.taskStats.done / project.taskStats.total) * 100);
   }, [project]);
+
+  const filteredTasks = useMemo(() => {
+    if (!project) return [];
+    let tasks = project.linkedTasks;
+    if (taskStatusFilter === 'active') {
+      tasks = tasks.filter((t) => t.status !== 'done');
+    } else if (taskStatusFilter !== 'all') {
+      tasks = tasks.filter((t) => t.status === taskStatusFilter);
+    }
+    if (taskSearch.trim()) {
+      const q = taskSearch.trim().toLowerCase();
+      tasks = tasks.filter((t) => extractPlainText(t.content).toLowerCase().includes(q));
+    }
+    return tasks;
+  }, [project, taskStatusFilter, taskSearch]);
 
   // Handlers
   const invalidateRelatedCaches = useCallback(() => {
@@ -840,6 +862,57 @@ export function ProjectDetailPage() {
                 </Button>
               </div>
 
+              {/* Filter bar */}
+              {project.linkedTasks.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1 max-w-xs">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    <Input
+                      placeholder="Search tasks..."
+                      value={taskSearch}
+                      onChange={(e) => setTaskSearch(e.target.value)}
+                      className="pl-8 h-8 text-sm"
+                    />
+                    {taskSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setTaskSearch('')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {(['active', 'all', 'todo', 'in_progress', 'done'] as const).map((f) => {
+                      const labels: Record<string, string> = {
+                        active: 'Active',
+                        all: 'All',
+                        todo: 'To Do',
+                        in_progress: 'In Progress',
+                        done: 'Done',
+                      };
+                      return (
+                        <Button
+                          key={f}
+                          variant={taskStatusFilter === f ? 'secondary' : 'ghost'}
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={() => setTaskStatusFilter(f)}
+                        >
+                          {labels[f]}
+                          {f !== 'active' && f !== 'all' && project.taskStats[f === 'todo' ? 'todo' : f === 'in_progress' ? 'inProgress' : 'done'] > 0 && (
+                            <span className="ml-1 text-muted-foreground">
+                              ({project.taskStats[f === 'todo' ? 'todo' : f === 'in_progress' ? 'inProgress' : 'done']})
+                            </span>
+                          )}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {project.linkedTasks.length === 0 ? (
                 <Card>
                   <CardContent className="flex flex-col items-center justify-center py-12">
@@ -851,6 +924,16 @@ export function ProjectDetailPage() {
                     <Button onClick={() => setQuickTaskOpen(true)} className="gap-2">
                       <Plus className="h-4 w-4" />
                       Add First Task
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : filteredTasks.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-8">
+                    <Search className="h-8 w-8 text-muted-foreground mb-3" />
+                    <p className="text-muted-foreground text-sm">No tasks match your filter.</p>
+                    <Button variant="ghost" size="sm" className="mt-2" onClick={() => { setTaskSearch(''); setTaskStatusFilter('active'); }}>
+                      Clear filters
                     </Button>
                   </CardContent>
                 </Card>
@@ -867,7 +950,7 @@ export function ProjectDetailPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {project.linkedTasks.map((task) => (
+                      {filteredTasks.map((task) => (
                         <TaskRow
                           key={task.id}
                           task={task}

@@ -1304,6 +1304,9 @@ export interface WorkLogEntry {
 
   createdAt: string;
   updatedAt: string;
+
+  // Reporting tracking
+  reportedAt?: string; // ISO8601 — set when this task was marked as reported in a meeting
 }
 
 /**
@@ -1344,6 +1347,7 @@ export interface UpdateWorkLogRequest {
   actualEndDate?: string;
   projectId?: string;
   tagIds?: string[];
+  reportedAt?: string | null; // null clears the reported state
 }
 
 /**
@@ -1375,6 +1379,21 @@ export interface WorkLogListResponse {
  */
 export interface WorkLogResponse {
   entry: WorkLogEntry;
+}
+
+/**
+ * Request to bulk-mark work logs as reported (or un-mark when reportedAt is null).
+ */
+export interface BulkMarkReportedRequest {
+  ids: string[];
+  reportedAt?: string | null; // ISO8601 to mark, null to un-mark, omit to use current time
+}
+
+/**
+ * Response for bulk mark-reported operation.
+ */
+export interface BulkMarkReportedResponse {
+  updated: number;
 }
 
 // ============================================================================
@@ -1443,6 +1462,7 @@ export interface WeeklyReportItem {
   dueDate: string | null;
   date: string; // Original entry date
   createdAt: string; // When the work log was created
+  reportedAt?: string; // ISO8601 — set when marked as reported in a meeting
   updates: WeeklyReportItemUpdate[];
 }
 

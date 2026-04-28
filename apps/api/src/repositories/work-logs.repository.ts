@@ -25,6 +25,7 @@ interface WorkLogRow {
   flags: string;
   created_at: string;
   updated_at: string;
+  reported_at: string | null;
 }
 
 interface ProjectRow {
@@ -79,7 +80,8 @@ const mapRowToEntry = (row: WorkLogRow, tags: Tag[], project?: PersonalProjectSu
   tags,
   flags: parseFlags(row.flags),
   createdAt: row.created_at,
-  updatedAt: row.updated_at
+  updatedAt: row.updated_at,
+  reportedAt: row.reported_at ?? undefined
 });
 
 export interface CreateWorkLogData {
@@ -104,6 +106,7 @@ export interface UpdateWorkLogData {
   actualEndDate?: string;
   projectId?: string;
   flags?: TaskUpdateFlag[];
+  reportedAt?: string | null; // null clears the reported state
 }
 
 export interface ListWorkLogsParams {
@@ -324,6 +327,10 @@ export const workLogsRepository = {
       updates.push('flags = ?');
       params.push(JSON.stringify(data.flags));
     }
+    if (data.reportedAt !== undefined) {
+      updates.push('reported_at = ?');
+      params.push(data.reportedAt ?? null);
+    }
 
     if (updates.length === 0) {
       return this.getById(id);
@@ -386,6 +393,19 @@ export const workLogsRepository = {
     const result = db
       .prepare(`UPDATE work_logs SET date = ? WHERE id IN (${placeholders})`)
       .run(newDate, ...ids);
+    return result.changes;
+  },
+
+  /**
+   * Bulk set reported_at for work logs. Pass null to clear (un-mark).
+   */
+  async bulkMarkReported(ids: string[], reportedAt: string | null): Promise<number> {
+    if (ids.length === 0) return 0;
+    const db = await getDb();
+    const placeholders = ids.map(() => '?').join(',');
+    const result = db
+      .prepare(`UPDATE work_logs SET reported_at = ? WHERE id IN (${placeholders})`)
+      .run(reportedAt, ...ids);
     return result.changes;
   },
 

@@ -246,6 +246,8 @@ export interface DesktopApi {
   onUpdateNotAvailable: (callback: (info: unknown) => void) => () => void;
   onUpdateError: (callback: (err: string) => void) => () => void;
   onUpdateDownloaded: (callback: (info: unknown) => void) => () => void;
+  onDownloadProgress: (callback: (progress: { percent: number; bytesPerSecond: number; transferred: number; total: number }) => void) => () => void;
+  downloadUpdate: () => Promise<{ ok: boolean; error?: string }>;
   restartAndInstall: () => Promise<void>;
   getAppVersion: () => Promise<string>;
   getProcessVersions: () => Promise<unknown>;

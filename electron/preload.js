@@ -92,6 +92,12 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('update-downloaded', listener);
     return () => ipcRenderer.removeListener('update-downloaded', listener);
   },
+  onDownloadProgress: (callback) => {
+    const listener = (event, progress) => callback(progress);
+    ipcRenderer.on('update-download-progress', listener);
+    return () => ipcRenderer.removeListener('update-download-progress', listener);
+  },
+  downloadUpdate: () => ipcRenderer.invoke('download-update'),
   restartAndInstall: () => ipcRenderer.invoke('restart-and-install'),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getProcessVersions: () => ipcRenderer.invoke('get-process-versions'),

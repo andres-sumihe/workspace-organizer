@@ -165,7 +165,9 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath, highlightPath }
     setCurrentPath,
     loading: directoryLoading,
     error: directoryError,
-    loadDirectory
+    loadDirectory,
+    hasLoaded,
+    setHasLoaded
   } = useDirectoryNavigation({
     getEffectiveRootPath,
     getRelativePath,
@@ -258,6 +260,7 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath, highlightPath }
         setPreview(persistedState.preview);
         setSelectedFiles(persistedState.selectedFiles);
         setSelectedProjectId(persistedState.selectedProjectId);
+        setHasLoaded(true);  // restored from persisted state — treat as already loaded
         queueMicrotask(() => {
           hasInitialized.current = true;
         });
@@ -317,13 +320,13 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath, highlightPath }
   
   useEffect(() => {
     if (!hasInitialized.current) return;
-    const shouldLoad = (activeWorkspace || customRootPath) && desktopAvailable && workspaceId && entries.length === 0;
+    const shouldLoad = (activeWorkspace || customRootPath) && desktopAvailable && workspaceId && !hasLoaded;
     
     // If using custom root, just load. If using workspace projects, need selectedProjectId
     if (shouldLoad && (customRootPath || selectedProjectId)) {
       void loadDirectory('');
     }
-  }, [activeWorkspace, customRootPath, desktopAvailable, workspaceId, selectedProjectId, entries.length, loadDirectory]);
+  }, [activeWorkspace, customRootPath, desktopAvailable, workspaceId, selectedProjectId, hasLoaded, loadDirectory]);
 
   const prevSelectedProjectId = useRef<string | null>(selectedProjectId);
   

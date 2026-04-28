@@ -69,6 +69,13 @@ export interface UpdateInfo {
   releaseNotes?: string;
 }
 
+export interface DownloadProgress {
+  percent: number;
+  bytesPerSecond: number;
+  transferred: number;
+  total: number;
+}
+
 // Complete TypedElectronAPI Interface
 // This matches the actual preload.js implementation
 export interface TypedElectronAPI {
@@ -280,6 +287,8 @@ export interface TypedElectronAPI {
   onUpdateNotAvailable: (callback: () => void) => () => void;
   onUpdateError: (callback: (err: string) => void) => () => void;
   onUpdateDownloaded: (callback: (info: UpdateInfo) => void) => () => void;
+  onDownloadProgress: (callback: (progress: DownloadProgress) => void) => () => void;
+  downloadUpdate: () => Promise<{ ok: boolean; error?: string }>;
   restartAndInstall: () => Promise<void>;
   getAppVersion: () => Promise<string>;
   // eslint-disable-next-line no-undef

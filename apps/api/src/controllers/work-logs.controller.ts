@@ -256,5 +256,32 @@ export const workLogsController = {
     } catch (error) {
       next(error);
     }
+  },
+
+  /**
+   * POST /api/v1/work-logs/bulk-mark-reported
+   * Bulk mark work logs as reported (or un-mark when reportedAt is null)
+   */
+  async bulkMarkReported(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { ids, reportedAt } = req.body as { ids?: unknown; reportedAt?: unknown };
+
+      if (!Array.isArray(ids) || ids.length === 0) {
+        res.status(400).json({
+          code: 'MISSING_IDS',
+          message: 'ids must be a non-empty array of work log IDs'
+        });
+        return;
+      }
+
+      // reportedAt: omit → use now; string → use as-is; null → clear
+      const timestamp: string | null =
+        reportedAt === null ? null : typeof reportedAt === 'string' ? reportedAt : new Date().toISOString();
+
+      const updated = await workLogsService.bulkMarkReported(ids as string[], timestamp);
+      res.json({ updated });
+    } catch (error) {
+      next(error);
+    }
   }
 };

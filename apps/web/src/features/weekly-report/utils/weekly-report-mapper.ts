@@ -87,6 +87,7 @@ export function toReportItem(entry: WorkLogEntry): WeeklyReportItem {
     dueDate: entry.dueDate ?? null,
     date: entry.date,
     createdAt: entry.createdAt,
+    reportedAt: entry.reportedAt,
     updates: [], // Lazy-loaded on expand
   };
 }

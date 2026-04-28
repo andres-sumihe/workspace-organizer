@@ -897,6 +897,16 @@ ipcMain.handle('get-process-versions', () => {
   };
 });
 
+ipcMain.handle('download-update', async () => {
+  try {
+    await autoUpdater.downloadUpdate();
+    return { ok: true };
+  } catch (err) {
+    console.error('[Updater] Failed to download update:', err);
+    return { ok: false, error: err.message };
+  }
+});
+
 ipcMain.handle('check-for-updates', async () => {
   console.log('[Updater] Checking for updates via API...');
   try {
@@ -1002,6 +1012,10 @@ autoUpdater.on('update-not-available', (info) => {
 
 autoUpdater.on('error', (err) => {
   if (mainWindow) mainWindow.webContents.send('update-error', err.message);
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  if (mainWindow) mainWindow.webContents.send('update-download-progress', progressObj);
 });
 
 autoUpdater.on('update-downloaded', (info) => {
