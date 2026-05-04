@@ -14,14 +14,15 @@ import { settingsRouter } from './settings.js';
 import { setupRouter } from './setup.js';
 import { tagsRouter } from './tags.js';
 import { taskUpdatesRouter } from './task-updates.js';
+import { teamCalendarRouter } from './team-calendar.js';
 import { teamConfigRouter } from './team-config.js';
 import { teamControlmJobsRouter } from './team-controlm-jobs.js';
 import { teamEventsRouter } from './team-events.js';
 import { teamNotesRouter } from './team-notes.js';
 import { teamProjectsRouter } from './team-projects.js';
 import { teamScriptsRouter } from './team-scripts.js';
-import { teamTasksRouter } from './team-tasks.js';
 import { teamTaskUpdatesRouter } from './team-task-updates.js';
+import { teamTasksRouter } from './team-tasks.js';
 import { teamsRouter } from './teams.js';
 import { templatesRouter } from './templates.js';
 import { toolsOvertimeRouter } from './tools-overtime.js';
@@ -74,13 +75,13 @@ const requireSharedDb = async (_req: Request, res: Response, next: NextFunction)
     if (!isConfigured) {
       res.status(503).json({
         code: 'NOT_CONFIGURED',
-        message: 'Team features not configured. Please configure shared database in Settings.'
+        message: 'Team features not configured. Please configure shared database in Settings.',
       });
       return;
     }
     res.status(503).json({
       code: 'SHARED_DB_UNAVAILABLE',
-      message: 'Shared database is not connected. Please check the configuration.'
+      message: 'Shared database is not connected. Please check the configuration.',
     });
     return;
   }
@@ -101,6 +102,10 @@ v1Router.use('/teams/:teamId/controlm-jobs', requireSharedDb, teamControlmJobsRo
 v1Router.use('/teams/:teamId/projects', requireSharedDb, teamProjectsRouter);
 v1Router.use('/teams/:teamId/projects/:projectId/notes', requireSharedDb, teamNotesRouter);
 v1Router.use('/teams/:teamId/projects/:projectId/tasks', requireSharedDb, teamTasksRouter);
-v1Router.use('/teams/:teamId/projects/:projectId/tasks/:taskId/updates', requireSharedDb, teamTaskUpdatesRouter);
+v1Router.use(
+  '/teams/:teamId/projects/:projectId/tasks/:taskId/updates',
+  requireSharedDb,
+  teamTaskUpdatesRouter,
+);
+v1Router.use('/teams/:teamId/calendar', requireSharedDb, teamCalendarRouter);
 v1Router.use('/teams/:teamId/events', requireSharedDb, teamEventsRouter);
-

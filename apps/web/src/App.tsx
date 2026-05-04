@@ -1,6 +1,24 @@
-import { Briefcase, FolderGit2, LayoutDashboard, Settings, Loader2, Users, Wrench, BookOpen, StickyNote } from 'lucide-react';
+import {
+  Briefcase,
+  FolderGit2,
+  LayoutDashboard,
+  Settings,
+  Loader2,
+  Users,
+  Wrench,
+  BookOpen,
+  StickyNote,
+} from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation, Outlet } from 'react-router-dom';
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+  useLocation,
+  Outlet,
+} from 'react-router-dom';
 
 import type { SidebarNavItem } from '@/components/layout/app-sidebar';
 
@@ -21,7 +39,6 @@ import { InstallationPage } from '@/pages/installation-page';
 import { JournalPage } from '@/pages/journal-page';
 import { LoginPage } from '@/pages/login-page';
 import { NotePopoutPage } from '@/pages/note-popout-page';
-import { TeamNotePopoutPage } from '@/pages/team-note-popout-page';
 import { NotesPage } from '@/pages/notes-page';
 import { OvertimePage } from '@/pages/overtime-page';
 import { ProjectDetailPage } from '@/pages/project-detail-page';
@@ -30,6 +47,9 @@ import { RecoveryPage } from '@/pages/recovery-page';
 import { ScriptsPage } from '@/pages/scripts-page';
 import { SettingsPage } from '@/pages/settings-page';
 import { SetupPage } from '@/pages/setup-page';
+import { TeamCalendarPage } from '@/pages/team-calendar-page';
+import { TeamCalendarSettingsPage } from '@/pages/team-calendar-settings-page';
+import { TeamNotePopoutPage } from '@/pages/team-note-popout-page';
 import { TeamPage } from '@/pages/team-page';
 import { TeamProjectDetailPage } from '@/pages/team-project-detail-page';
 import { TeamProjectsPage } from '@/pages/team-projects-page';
@@ -114,7 +134,10 @@ function AppContent() {
     'open-workspace-root': async () => {
       try {
         if (window.api?.invokeMainAction) {
-          const result = await window.api.invokeMainAction('open-workspace-root', {}) as { canceled?: boolean; path?: string; };
+          const result = (await window.api.invokeMainAction('open-workspace-root', {})) as {
+            canceled?: boolean;
+            path?: string;
+          };
           if (result?.path) {
             console.log('Selected workspace root:', result.path);
             navigate('/workspaces');
@@ -140,7 +163,7 @@ function AppContent() {
     'check-updates': () => {
       setUpdateCheckerOpen(true);
     },
-    'about': () => {
+    about: () => {
       setAboutOpen(true);
     },
   });
@@ -162,8 +185,10 @@ function AppContent() {
         subItems: [
           { key: 'members', label: 'Members' },
           { key: 'team-projects', label: 'Projects' },
-          { key: 'scripts', label: 'Scripts' }
-        ]
+          { key: 'team-calendar', label: 'Calendar' },
+          { key: 'team-calendar-settings', label: 'Team Settings' },
+          { key: 'scripts', label: 'Scripts' },
+        ],
       },
       { key: 'journal', label: 'Journal', icon: BookOpen },
       { key: 'notes', label: 'Notes & Vault', icon: StickyNote },
@@ -171,13 +196,11 @@ function AppContent() {
         key: 'tools',
         label: 'Tools',
         icon: Wrench,
-        subItems: [
-          { key: 'overtime', label: 'Overtime' }
-        ]
+        subItems: [{ key: 'overtime', label: 'Overtime' }],
       },
       { key: 'settings', label: 'Settings', icon: Settings },
     ],
-    [isSoloMode]
+    [isSoloMode],
   );
 
   // Determine active key and subkey from route
@@ -188,6 +211,7 @@ function AppContent() {
     // Scripts, Team Projects, and Teams pages fall under Teams group
     if (path.startsWith('/scripts')) return 'teams';
     if (path.startsWith('/team-projects')) return 'teams';
+    if (path.startsWith('/team-calendar')) return 'teams';
     if (path.startsWith('/teams')) return 'teams';
     if (path.startsWith('/journal')) return 'journal';
     if (path.startsWith('/notes')) return 'notes';
@@ -202,6 +226,8 @@ function AppContent() {
     // Teams sub-navigation
     if (path.startsWith('/scripts')) return 'scripts';
     if (path.startsWith('/team-projects')) return 'team-projects';
+    if (path.startsWith('/team-calendar/settings')) return 'team-calendar-settings';
+    if (path.startsWith('/team-calendar')) return 'team-calendar';
     if (path.startsWith('/teams')) return 'members';
     return undefined;
   };
@@ -221,7 +247,7 @@ function AppContent() {
           } else if (key === 'tools' && subKey) {
             // Navigate to tools sub-page
             const toolsRoutes: Record<string, string> = {
-              overtime: '/tools/overtime'
+              overtime: '/tools/overtime',
             };
             navigate(toolsRoutes[subKey] || '/tools/overtime');
           } else if (key === 'teams' && subKey) {
@@ -229,7 +255,9 @@ function AppContent() {
             const teamsRoutes: Record<string, string> = {
               members: '/teams',
               'team-projects': '/team-projects',
-              scripts: '/scripts'
+              'team-calendar': '/team-calendar',
+              'team-calendar-settings': '/team-calendar/settings',
+              scripts: '/scripts',
             };
             navigate(teamsRoutes[subKey] || '/teams');
           } else if (key === 'teams') {
@@ -241,7 +269,7 @@ function AppContent() {
               projects: '/projects',
               journal: '/journal',
               notes: '/notes',
-              settings: '/settings'
+              settings: '/settings',
             };
             navigate(routes[key] || '/');
           }
@@ -258,6 +286,8 @@ function AppContent() {
           <Route path="/scripts" element={<ScriptsPage />} />
           <Route path="/scripts/:scriptId" element={<ScriptsPage />} />
           <Route path="/teams" element={<TeamPage />} />
+          <Route path="/team-calendar" element={<TeamCalendarPage />} />
+          <Route path="/team-calendar/settings" element={<TeamCalendarSettingsPage />} />
           <Route path="/team-projects" element={<TeamProjectsPage />} />
           <Route path="/team-projects/:projectId" element={<TeamProjectDetailPage />} />
           <Route path="/journal" element={<JournalPage />} />
@@ -285,7 +315,10 @@ export function App() {
         {/* Protected routes - require installation and authentication */}
         <Route element={<ProtectedRoutes />}>
           <Route path="/popout/notes/:noteId" element={<NotePopoutPage />} />
-          <Route path="/popout/team-notes/:teamId/:projectId/:noteId" element={<TeamNotePopoutPage />} />
+          <Route
+            path="/popout/team-notes/:teamId/:projectId/:noteId"
+            element={<TeamNotePopoutPage />}
+          />
           <Route path="/*" element={<AppContent />} />
         </Route>
       </Routes>

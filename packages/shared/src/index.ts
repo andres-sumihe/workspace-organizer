@@ -696,7 +696,17 @@ export interface TeamMemberListResponse {
 /**
  * Resources that can be accessed in a team context.
  */
-export type TeamResource = 'teams' | 'team_members' | 'scripts' | 'controlm_jobs' | 'audit' | 'team_projects' | 'team_notes' | 'team_tasks';
+export type TeamResource =
+  | 'teams'
+  | 'team_members'
+  | 'scripts'
+  | 'controlm_jobs'
+  | 'audit'
+  | 'team_projects'
+  | 'team_notes'
+  | 'team_tasks'
+  | 'team_calendar'
+  | 'team_wfh';
 
 /**
  * Actions that can be performed on team resources.
@@ -716,7 +726,9 @@ export const TEAM_ROLE_PERMISSIONS: Record<TeamRole, Record<TeamResource, TeamAc
     audit: ['read'],
     team_projects: ['create', 'read', 'update', 'delete', 'manage'],
     team_notes: ['create', 'read', 'update', 'delete'],
-    team_tasks: ['create', 'read', 'update', 'delete', 'manage']
+    team_tasks: ['create', 'read', 'update', 'delete', 'manage'],
+    team_calendar: ['create', 'read', 'update', 'delete', 'manage'],
+    team_wfh: ['create', 'read', 'update', 'delete', 'manage'],
   },
   admin: {
     teams: ['read'],
@@ -726,7 +738,9 @@ export const TEAM_ROLE_PERMISSIONS: Record<TeamRole, Record<TeamResource, TeamAc
     audit: ['read'],
     team_projects: ['create', 'read', 'update', 'delete'],
     team_notes: ['create', 'read', 'update', 'delete'],
-    team_tasks: ['create', 'read', 'update', 'delete', 'manage']
+    team_tasks: ['create', 'read', 'update', 'delete', 'manage'],
+    team_calendar: ['create', 'read', 'update', 'delete', 'manage'],
+    team_wfh: ['create', 'read', 'update', 'delete', 'manage'],
   },
   member: {
     teams: ['read'],
@@ -736,8 +750,10 @@ export const TEAM_ROLE_PERMISSIONS: Record<TeamRole, Record<TeamResource, TeamAc
     audit: ['read'], // Own actions only
     team_projects: ['read'],
     team_notes: ['create', 'read', 'update', 'delete'], // Own items only
-    team_tasks: ['create', 'read', 'update'] // Can create and update assigned tasks
-  }
+    team_tasks: ['create', 'read', 'update'], // Can create and update assigned tasks
+    team_calendar: ['read'],
+    team_wfh: ['create', 'read'],
+  },
 };
 
 /**
@@ -758,7 +774,7 @@ export const hasMinimumRole = (userRole: TeamRole, requiredRole: TeamRole): bool
 export const roleHasPermission = (
   role: TeamRole,
   resource: TeamResource,
-  action: TeamAction
+  action: TeamAction,
 ): boolean => {
   const permissions = TEAM_ROLE_PERMISSIONS[role]?.[resource] ?? [];
   return permissions.includes(action);
@@ -1036,7 +1052,6 @@ export interface DeleteAccountRequest {
   password: string;
 }
 
-
 // Migration Types
 export interface MigrationMapping {
   localId: string;
@@ -1266,7 +1281,12 @@ export type WorkLogPriority = 'low' | 'medium' | 'high';
 /**
  * Flags for task status indicators.
  */
-export type TaskUpdateFlag = 'blocked' | 'needs_confirmation' | 'urgent' | 'on_hold' | 'waiting_feedback';
+export type TaskUpdateFlag =
+  | 'blocked'
+  | 'needs_confirmation'
+  | 'urgent'
+  | 'on_hold'
+  | 'waiting_feedback';
 
 /**
  * Global tag entity - reusable across multiple features (work logs, projects, etc.)
@@ -2092,6 +2112,170 @@ export interface CollaborationUser {
   name: string;
   email: string;
   color: string;
+}
+
+// ============================================================================
+// Team Calendar and WFH Types
+// ============================================================================
+
+export type TeamWfhGroupCode = 'A' | 'B' | 'C' | 'D';
+
+export type TeamWfhScheduleStatus = 'scheduled' | 'rescheduled';
+
+export type TeamWfhChangeRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+
+export interface TeamPublicHoliday {
+  id: string;
+  teamId: string;
+  name: string;
+  description?: string;
+  holidayDate: string;
+  sourceRangeId?: string;
+  reducesAnnualLeave: boolean;
+  createdByEmail: string;
+  updatedByEmail?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTeamPublicHolidayRequest {
+  name: string;
+  description?: string;
+  startDate: string;
+  endDate?: string;
+  isRange?: boolean;
+  reducesAnnualLeave?: boolean;
+}
+
+export interface UpdateTeamPublicHolidayRequest {
+  name?: string;
+  description?: string;
+  holidayDate?: string;
+  reducesAnnualLeave?: boolean;
+}
+
+export interface TeamPublicHolidayResponse {
+  holiday: TeamPublicHoliday;
+}
+
+export interface TeamPublicHolidayListResponse {
+  items: TeamPublicHoliday[];
+  meta: PaginationMeta;
+}
+
+export interface TeamWfhGroupMember {
+  teamId: string;
+  email: string;
+  displayName?: string;
+  role: TeamRole;
+  groupCode?: TeamWfhGroupCode;
+  updatedByEmail?: string;
+  updatedAt?: string;
+}
+
+export interface TeamWfhGroupAssignment {
+  email: string;
+  groupCode: TeamWfhGroupCode;
+}
+
+export interface UpdateTeamWfhGroupMembersRequest {
+  assignments: TeamWfhGroupAssignment[];
+}
+
+export interface TeamWfhGroupMembersResponse {
+  members: TeamWfhGroupMember[];
+}
+
+export interface TeamWfhScheduleMember {
+  email: string;
+  displayName?: string;
+}
+
+export interface TeamWfhSchedule {
+  id: string;
+  teamId: string;
+  groupCode: TeamWfhGroupCode;
+  originalDate: string;
+  scheduleDate: string;
+  status: TeamWfhScheduleStatus;
+  conflictHolidayId?: string;
+  generationYear: number;
+  generatedByEmail: string;
+  members: TeamWfhScheduleMember[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GenerateTeamWfhScheduleRequest {
+  year: number;
+  weekStartDate: string;
+  mondayGroupCode: TeamWfhGroupCode;
+  regenerate?: boolean;
+}
+
+export interface TeamWfhScheduleGenerationResult {
+  year: number;
+  createdCount: number;
+  deletedCount: number;
+  conflictCount: number;
+  rangeStartDate: string;
+  rangeEndDate: string;
+}
+
+export interface TeamWfhScheduleGenerationResponse {
+  result: TeamWfhScheduleGenerationResult;
+}
+
+export interface TeamWfhScheduleListResponse {
+  items: TeamWfhSchedule[];
+}
+
+export interface TeamWfhChangeRequest {
+  id: string;
+  teamId: string;
+  scheduleId?: string;
+  requesterEmail: string;
+  requesterDisplayName?: string;
+  groupCode: TeamWfhGroupCode;
+  originalDate: string;
+  requestedDate: string;
+  reason?: string;
+  status: TeamWfhChangeRequestStatus;
+  approverEmail?: string;
+  decisionNote?: string;
+  decidedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTeamWfhChangeRequestRequest {
+  scheduleId: string;
+  requestedDate: string;
+  reason?: string;
+}
+
+export interface DecideTeamWfhChangeRequestRequest {
+  decisionNote?: string;
+}
+
+export interface TeamWfhChangeRequestResponse {
+  request: TeamWfhChangeRequest;
+}
+
+export interface TeamWfhChangeRequestListResponse {
+  items: TeamWfhChangeRequest[];
+  meta: PaginationMeta;
+}
+
+export interface TeamCalendarDay {
+  date: string;
+  holidays: TeamPublicHoliday[];
+  wfhSchedules: TeamWfhSchedule[];
+  approvedRequests: TeamWfhChangeRequest[];
+}
+
+export interface TeamCalendarEventsResponse {
+  days: TeamCalendarDay[];
 }
 
 // ============================================================================
