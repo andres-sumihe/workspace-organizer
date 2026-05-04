@@ -1,6 +1,5 @@
 import {
   AlertCircle,
-  CalendarDays,
   ChevronLeft,
   ChevronRight,
   Loader2,
@@ -97,8 +96,50 @@ interface DayCellProps {
 
 const MAX_VISIBLE_EVENTS = 2;
 
+interface TeamColors {
+  badge: string;
+  pill: string;
+  card: string;
+}
+
+const getTeamColors = (groupCode: string): TeamColors => {
+  switch (groupCode) {
+    case 'A':
+      return {
+        badge: 'bg-primary text-primary-foreground',
+        pill: 'bg-primary/10 border-primary/25',
+        card: 'border-primary/20 bg-primary/5',
+      };
+    case 'B':
+      return {
+        badge: 'bg-info text-info-foreground',
+        pill: 'bg-info/10 border-info/25',
+        card: 'border-info/20 bg-info/5',
+      };
+    case 'C':
+      return {
+        badge: 'bg-success text-success-foreground',
+        pill: 'bg-success/10 border-success/25',
+        card: 'border-success/20 bg-success/5',
+      };
+    case 'D':
+      return {
+        badge: 'bg-warning text-warning-foreground',
+        pill: 'bg-warning/10 border-warning/25',
+        card: 'border-warning/20 bg-warning/5',
+      };
+    default:
+      return {
+        badge: 'bg-secondary text-secondary-foreground',
+        pill: 'bg-secondary border-border',
+        card: 'border-border bg-secondary/30',
+      };
+  }
+};
+
 function DayCell({ day, calendarDate, visibleMonth, onRequestChange }: DayCellProps) {
   const totalEvents = day.holidays.length + day.wfhSchedules.length + day.approvedRequests.length;
+  const isWeekendDay = calendarDate.getUTCDay() === 0 || calendarDate.getUTCDay() === 6;
 
   // Build visible items: holidays first, then WFH schedules, then approved requests
   const visibleHolidays = day.holidays.slice(0, MAX_VISIBLE_EVENTS);
@@ -115,49 +156,56 @@ function DayCell({ day, calendarDate, visibleMonth, onRequestChange }: DayCellPr
         <button
           type="button"
           className={cn(
-            'min-h-24 border-r border-b border-border p-2 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring',
-            !isSameMonth(calendarDate, visibleMonth) && 'bg-muted/30 text-muted-foreground',
-            isToday(calendarDate) && 'bg-primary/5',
+            'relative min-h-28 border-r border-b border-border p-2.5 text-left transition-colors hover:bg-accent/40 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-inset',
+            !isSameMonth(calendarDate, visibleMonth) && 'bg-muted/20 opacity-60',
+            isWeekendDay && isSameMonth(calendarDate, visibleMonth) && 'bg-muted/30',
+            isToday(calendarDate) && 'bg-primary/5!',
           )}
         >
+          {isToday(calendarDate) ? (
+            <div className="absolute inset-x-0 top-0 h-0.75 rounded-t bg-primary" />
+          ) : null}
           <div className="flex items-center justify-between gap-2">
             <span
               className={cn(
-                'flex size-7 items-center justify-center rounded-full text-sm',
-                isToday(calendarDate) && 'bg-primary text-primary-foreground',
+                'flex size-7 items-center justify-center rounded-full text-sm font-medium tabular-nums',
+                isToday(calendarDate) && 'bg-primary text-primary-foreground font-bold shadow-sm',
               )}
             >
               {getDayNumber(calendarDate)}
             </span>
-            {totalEvents > 0 && day.holidays.length > 0 ? (
+            {day.holidays.length > 0 ? (
               <span className="size-1.5 rounded-full bg-warning" />
             ) : null}
           </div>
-          <div className="mt-2 flex flex-col gap-1">
+          <div className="mt-1.5 flex flex-col gap-1">
             {visibleHolidays.map((holiday) => (
-              <span key={holiday.id} className="flex items-center gap-1 text-xs text-foreground">
+              <span key={holiday.id} className="flex items-center gap-1 rounded border border-warning/30 bg-warning/15 px-1.5 py-0.5 text-[11px] font-medium leading-tight">
                 <span className="size-1.5 shrink-0 rounded-full bg-warning" />
-                <span className="truncate leading-tight">{holiday.name}</span>
+                <span className="truncate">{holiday.name}</span>
               </span>
             ))}
-            {visibleSchedules.map((schedule) => (
-              <span key={schedule.id} className="flex items-center gap-1 text-xs text-foreground">
-                <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
-                  {schedule.groupCode}
+            {visibleSchedules.map((schedule) => {
+              const colors = getTeamColors(schedule.groupCode);
+              return (
+                <span key={schedule.id} className={cn('flex items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] font-medium leading-tight', colors.pill)}>
+                  <span className={cn('flex size-3.5 shrink-0 items-center justify-center rounded-full text-[8px] font-bold', colors.badge)}>
+                    {schedule.groupCode}
+                  </span>
+                  <span className="truncate">Team {schedule.groupCode}</span>
                 </span>
-                <span className="truncate leading-tight">Team {schedule.groupCode}</span>
-              </span>
-            ))}
+              );
+            })}
             {visibleRequests.map((request) => (
-              <span key={request.id} className="flex items-center gap-1 text-xs text-foreground">
+              <span key={request.id} className="flex items-center gap-1 rounded border border-success/30 bg-success/10 px-1.5 py-0.5 text-[11px] font-medium leading-tight">
                 <span className="size-1.5 shrink-0 rounded-full bg-success" />
-                <span className="truncate leading-tight">
+                <span className="truncate">
                   {request.requesterDisplayName ?? request.requesterEmail}
                 </span>
               </span>
             ))}
             {overflowCount > 0 ? (
-              <span className="text-[10px] leading-tight text-muted-foreground">
+              <span className="px-0.5 text-[10px] leading-tight text-muted-foreground">
                 +{overflowCount} more
               </span>
             ) : null}
@@ -165,18 +213,18 @@ function DayCell({ day, calendarDate, visibleMonth, onRequestChange }: DayCellPr
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-96" align="start">
-        <div className="space-y-4">
+        <div className="space-y-3.5">
           <div>
-            <p className="text-sm font-semibold">{getDisplayDate(day.date)}</p>
+            <p className="text-sm font-bold tracking-tight">{getDisplayDate(day.date)}</p>
             {totalEvents === 0 ? (
-              <p className="text-sm text-muted-foreground">No team calendar items</p>
+              <p className="mt-1 text-xs text-muted-foreground">No events scheduled</p>
             ) : null}
           </div>
           {day.holidays.length > 0 ? (
-            <div className="space-y-2">
-              <p className="text-xs font-medium uppercase text-muted-foreground">Public Holidays</p>
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Public Holidays</p>
               {day.holidays.map((holiday) => (
-                <div key={holiday.id} className="rounded-md border border-border p-3">
+                <div key={holiday.id} className="rounded-md border border-warning/25 bg-warning/8 p-2.5">
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-medium">{holiday.name}</p>
                     {holiday.reducesAnnualLeave ? (
@@ -191,50 +239,53 @@ function DayCell({ day, calendarDate, visibleMonth, onRequestChange }: DayCellPr
             </div>
           ) : null}
           {day.wfhSchedules.length > 0 ? (
-            <div className="space-y-2">
-              <p className="text-xs font-medium uppercase text-muted-foreground">WFH Schedule</p>
-              {day.wfhSchedules.map((schedule) => (
-                <div key={schedule.id} className="rounded-md border border-border p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="flex size-7 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
-                        {schedule.groupCode}
-                      </span>
-                      <div>
-                        <p className="font-medium">Team {schedule.groupCode}</p>
-                        {schedule.status === 'rescheduled' ? (
-                          <p className="text-xs text-muted-foreground">
-                            Moved from {getDisplayDate(schedule.originalDate)}
-                          </p>
-                        ) : null}
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">WFH Schedule</p>
+              {day.wfhSchedules.map((schedule) => {
+                const colors = getTeamColors(schedule.groupCode);
+                return (
+                  <div key={schedule.id} className={cn('rounded-md border p-2.5', colors.card)}>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className={cn('flex size-7 items-center justify-center rounded-full text-xs font-semibold', colors.badge)}>
+                          {schedule.groupCode}
+                        </span>
+                        <div>
+                          <p className="font-medium">Team {schedule.groupCode}</p>
+                          {schedule.status === 'rescheduled' ? (
+                            <p className="text-xs text-muted-foreground">
+                              Moved from {getDisplayDate(schedule.originalDate)}
+                            </p>
+                          ) : null}
+                        </div>
                       </div>
+                      <Button size="sm" variant="outline" onClick={() => onRequestChange(schedule)}>
+                        Request
+                      </Button>
                     </div>
-                    <Button size="sm" variant="outline" onClick={() => onRequestChange(schedule)}>
-                      Request
-                    </Button>
+                    <div className="mt-2.5 flex flex-wrap gap-1.5">
+                      {schedule.members.length > 0 ? (
+                        schedule.members.map((member) => (
+                          <Badge key={member.email} variant="secondary">
+                            {member.displayName ?? member.email}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-xs text-muted-foreground">No assigned members</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {schedule.members.length > 0 ? (
-                      schedule.members.map((member) => (
-                        <Badge key={member.email} variant="secondary">
-                          {member.displayName ?? member.email}
-                        </Badge>
-                      ))
-                    ) : (
-                      <span className="text-sm text-muted-foreground">No assigned members</span>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : null}
           {day.approvedRequests.length > 0 ? (
-            <div className="space-y-2">
-              <p className="text-xs font-medium uppercase text-muted-foreground">
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                 Approved Changes
               </p>
               {day.approvedRequests.map((request) => (
-                <div key={request.id} className="rounded-md border border-border p-3 text-sm">
+                <div key={request.id} className="rounded-md border border-success/25 bg-success/5 p-2.5 text-sm">
                   <p className="font-medium">
                     {request.requesterDisplayName ?? request.requesterEmail}
                   </p>
@@ -376,22 +427,21 @@ export const TeamCalendarPage = () => {
     >
       <AppPageContent className="flex justify-center bg-muted/20">
         <div className="w-full max-w-270 space-y-4">
-          <div className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
+          <div className="flex items-center justify-between rounded-lg border border-border bg-card px-5 py-3.5 shadow-sm">
             <div className="flex items-center gap-3">
-              <CalendarDays className="size-5 text-muted-foreground" />
-              <h2 className="text-lg font-semibold">{getMonthTitle(visibleMonth)}</h2>
+              <h2 className="text-xl font-bold tracking-tight">{getMonthTitle(visibleMonth)}</h2>
               {eventsQuery.isFetching ? (
                 <Loader2 className="size-4 animate-spin text-muted-foreground" />
               ) : null}
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" onClick={handlePreviousMonth}>
+            <div className="flex items-center gap-1.5">
+              <Button variant="ghost" size="icon" className="size-8" onClick={handlePreviousMonth}>
                 <ChevronLeft className="size-4" />
               </Button>
-              <Button variant="outline" onClick={() => setVisibleMonth(startOfMonth(new Date()))}>
+              <Button variant="outline" size="sm" className="h-8 px-3 text-xs font-medium" onClick={() => setVisibleMonth(startOfMonth(new Date()))}>
                 Today
               </Button>
-              <Button variant="outline" size="icon" onClick={handleNextMonth}>
+              <Button variant="ghost" size="icon" className="size-8" onClick={handleNextMonth}>
                 <ChevronRight className="size-4" />
               </Button>
             </div>
@@ -409,11 +459,14 @@ export const TeamCalendarPage = () => {
           ) : null}
 
           <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
-            <div className="grid grid-cols-7 border-b border-border bg-muted/60">
-              {weekdayLabels.map((weekday) => (
+            <div className="grid grid-cols-7 border-b border-border bg-muted/50">
+              {weekdayLabels.map((weekday, index) => (
                 <div
                   key={weekday}
-                  className="px-3 py-2 text-center text-xs font-medium uppercase text-muted-foreground"
+                  className={cn(
+                    'px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wider',
+                    index >= 5 ? 'text-muted-foreground/60' : 'text-muted-foreground',
+                  )}
                 >
                   {weekday}
                 </div>
