@@ -2,7 +2,7 @@ import { QueryClient } from '@tanstack/react-query';
 
 /**
  * Global QueryClient configuration for TanStack Query
- * 
+ *
  * Optimized for desktop Electron app:
  * - staleTime: 60 seconds - reduces unnecessary refetches for desktop usage
  * - gcTime: 10 minutes - longer cache for offline-capable desktop app
@@ -29,7 +29,7 @@ export const queryClient = new QueryClient({
 /**
  * Query key factory for consistent cache key management
  * Following TanStack Query best practices for key hierarchy
- * 
+ *
  * Structure: [domain, scope, ...params]
  * - all: Base key for the domain (used for broad invalidation)
  * - lists/list: For list queries with optional filters
@@ -47,7 +47,8 @@ export const queryKeys = {
     tags: () => [...queryKeys.scripts.all, 'tags'] as const,
     conflicts: () => [...queryKeys.scripts.all, 'conflicts'] as const,
     driveAnalysis: () => [...queryKeys.scripts.all, 'drive-analysis'] as const,
-    activity: (scriptId: string, page: number) => [...queryKeys.scripts.all, 'activity', scriptId, page] as const,
+    activity: (scriptId: string, page: number) =>
+      [...queryKeys.scripts.all, 'activity', scriptId, page] as const,
   },
 
   // Jobs domain
@@ -72,7 +73,8 @@ export const queryKeys = {
   // Workspace Projects domain (within a workspace)
   projects: {
     all: ['projects'] as const,
-    byWorkspace: (workspaceId: string) => [...queryKeys.projects.all, 'workspace', workspaceId] as const,
+    byWorkspace: (workspaceId: string) =>
+      [...queryKeys.projects.all, 'workspace', workspaceId] as const,
     detail: (projectId: string) => [...queryKeys.projects.all, 'detail', projectId] as const,
   },
 
@@ -80,7 +82,8 @@ export const queryKeys = {
   personalProjects: {
     all: ['personalProjects'] as const,
     lists: () => [...queryKeys.personalProjects.all, 'list'] as const,
-    list: (params?: Record<string, unknown>) => [...queryKeys.personalProjects.lists(), params] as const,
+    list: (params?: Record<string, unknown>) =>
+      [...queryKeys.personalProjects.lists(), params] as const,
     details: () => [...queryKeys.personalProjects.all, 'detail'] as const,
     detail: (id: string) => [...queryKeys.personalProjects.details(), id] as const,
   },
@@ -122,7 +125,8 @@ export const queryKeys = {
     all: ['overtime'] as const,
     lists: () => [...queryKeys.overtime.all, 'list'] as const,
     list: (params?: Record<string, unknown>) => [...queryKeys.overtime.lists(), params] as const,
-    stats: (params?: Record<string, unknown>) => [...queryKeys.overtime.all, 'stats', params] as const,
+    stats: (params?: Record<string, unknown>) =>
+      [...queryKeys.overtime.all, 'stats', params] as const,
   },
 
   // Workspace files domain (Electron IPC directory listing)
@@ -144,42 +148,74 @@ export const queryKeys = {
     all: ['vault'] as const,
     status: () => [...queryKeys.vault.all, 'status'] as const,
     credentials: () => [...queryKeys.vault.all, 'credentials'] as const,
-    credentialList: (params?: Record<string, unknown>) => [...queryKeys.vault.credentials(), 'list', params] as const,
+    credentialList: (params?: Record<string, unknown>) =>
+      [...queryKeys.vault.credentials(), 'list', params] as const,
+  },
+
+  // Team Projects domain
+  teams: {
+    all: ['teams'] as const,
+    current: () => [...queryKeys.teams.all, 'current'] as const,
   },
 
   // Team Projects domain
   teamProjects: {
     all: ['teamProjects'] as const,
     lists: () => [...queryKeys.teamProjects.all, 'list'] as const,
-    list: (teamId: string, params?: Record<string, unknown>) => [...queryKeys.teamProjects.lists(), teamId, params] as const,
+    list: (teamId: string, params?: Record<string, unknown>) =>
+      [...queryKeys.teamProjects.lists(), teamId, params] as const,
     details: () => [...queryKeys.teamProjects.all, 'detail'] as const,
-    detail: (teamId: string, projectId: string) => [...queryKeys.teamProjects.details(), teamId, projectId] as const,
+    detail: (teamId: string, projectId: string) =>
+      [...queryKeys.teamProjects.details(), teamId, projectId] as const,
   },
 
   // Team Notes domain
   teamNotes: {
     all: ['teamNotes'] as const,
     lists: () => [...queryKeys.teamNotes.all, 'list'] as const,
-    list: (teamId: string, projectId: string, params?: Record<string, unknown>) => [...queryKeys.teamNotes.lists(), teamId, projectId, params] as const,
+    list: (teamId: string, projectId: string, params?: Record<string, unknown>) =>
+      [...queryKeys.teamNotes.lists(), teamId, projectId, params] as const,
     details: () => [...queryKeys.teamNotes.all, 'detail'] as const,
-    detail: (teamId: string, projectId: string, noteId: string) => [...queryKeys.teamNotes.details(), teamId, projectId, noteId] as const,
-    revisions: (teamId: string, projectId: string, noteId: string) => [...queryKeys.teamNotes.all, 'revisions', teamId, projectId, noteId] as const,
+    detail: (teamId: string, projectId: string, noteId: string) =>
+      [...queryKeys.teamNotes.details(), teamId, projectId, noteId] as const,
+    revisions: (teamId: string, projectId: string, noteId: string) =>
+      [...queryKeys.teamNotes.all, 'revisions', teamId, projectId, noteId] as const,
   },
 
   // Team Tasks domain
   teamTasks: {
     all: ['teamTasks'] as const,
     lists: () => [...queryKeys.teamTasks.all, 'list'] as const,
-    list: (teamId: string, projectId: string, params?: Record<string, unknown>) => [...queryKeys.teamTasks.lists(), teamId, projectId, params] as const,
+    list: (teamId: string, projectId: string, params?: Record<string, unknown>) =>
+      [...queryKeys.teamTasks.lists(), teamId, projectId, params] as const,
     details: () => [...queryKeys.teamTasks.all, 'detail'] as const,
-    detail: (teamId: string, projectId: string, taskId: string) => [...queryKeys.teamTasks.details(), teamId, projectId, taskId] as const,
+    detail: (teamId: string, projectId: string, taskId: string) =>
+      [...queryKeys.teamTasks.details(), teamId, projectId, taskId] as const,
   },
 
   // Team Task Updates domain
   teamTaskUpdates: {
     all: ['teamTaskUpdates'] as const,
     lists: () => [...queryKeys.teamTaskUpdates.all, 'list'] as const,
-    list: (teamId: string, projectId: string, taskId: string) => [...queryKeys.teamTaskUpdates.lists(), teamId, projectId, taskId] as const,
+    list: (teamId: string, projectId: string, taskId: string) =>
+      [...queryKeys.teamTaskUpdates.lists(), teamId, projectId, taskId] as const,
+  },
+
+  // Team Calendar domain
+  teamCalendar: {
+    all: ['teamCalendar'] as const,
+    holidays: () => [...queryKeys.teamCalendar.all, 'holidays'] as const,
+    holidayList: (teamId: string, params?: Record<string, unknown>) =>
+      [...queryKeys.teamCalendar.holidays(), teamId, params] as const,
+    groups: (teamId: string) => [...queryKeys.teamCalendar.all, 'groups', teamId] as const,
+    schedules: () => [...queryKeys.teamCalendar.all, 'schedules'] as const,
+    scheduleList: (teamId: string, params?: Record<string, unknown>) =>
+      [...queryKeys.teamCalendar.schedules(), teamId, params] as const,
+    requests: () => [...queryKeys.teamCalendar.all, 'requests'] as const,
+    requestList: (teamId: string, params?: Record<string, unknown>) =>
+      [...queryKeys.teamCalendar.requests(), teamId, params] as const,
+    events: (teamId: string, params?: Record<string, unknown>) =>
+      [...queryKeys.teamCalendar.all, 'events', teamId, params] as const,
   },
 
   // Collaboration domain

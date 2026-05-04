@@ -24,23 +24,8 @@ export interface SchemaValidationResult {
  * These should match what the migrations in shared-migrations/ actually create
  */
 const EXPECTED_SCHEMAS: Record<string, string[]> = {
-  teams: [
-    'id',
-    'name',
-    'description',
-    'created_by_email',
-    'created_at',
-    'updated_at'
-  ],
-  team_members: [
-    'id',
-    'team_id',
-    'email',
-    'display_name',
-    'role',
-    'joined_at',
-    'updated_at'
-  ],
+  teams: ['id', 'name', 'description', 'created_by_email', 'created_at', 'updated_at'],
+  team_members: ['id', 'team_id', 'email', 'display_name', 'role', 'joined_at', 'updated_at'],
   audit_log: [
     'id',
     'team_id',
@@ -54,7 +39,7 @@ const EXPECTED_SCHEMAS: Record<string, string[]> = {
     'ip_address',
     'user_agent',
     'metadata',
-    'timestamp'
+    'timestamp',
   ],
   scripts: [
     'id',
@@ -69,7 +54,7 @@ const EXPECTED_SCHEMAS: Record<string, string[]> = {
     'created_by',
     'updated_by',
     'created_at',
-    'updated_at'
+    'updated_at',
   ],
   drive_mappings: [
     'id',
@@ -80,7 +65,7 @@ const EXPECTED_SCHEMAS: Record<string, string[]> = {
     'has_credentials',
     'username',
     'created_at',
-    'updated_at'
+    'updated_at',
   ],
   controlm_jobs: [
     'id',
@@ -110,37 +95,18 @@ const EXPECTED_SCHEMAS: Record<string, string[]> = {
     'is_active',
     'linked_script_id',
     'created_at',
-    'updated_at'
+    'updated_at',
   ],
   job_dependencies: [
     'id',
     'predecessor_job_id',
     'successor_job_id',
     'condition_type',
-    'created_at'
-  ],
-  job_conditions: [
-    'id',
-    'job_id',
-    'condition_name',
-    'condition_type',
-    'odate',
-    'created_at'
-  ],
-  app_info: [
-    'server_id',
-    'team_id',
-    'team_name',
-    'public_key',
     'created_at',
-    'updated_at'
   ],
-  app_secrets: [
-    'key',
-    'value',
-    'created_at',
-    'updated_at'
-  ],
+  job_conditions: ['id', 'job_id', 'condition_name', 'condition_type', 'odate', 'created_at'],
+  app_info: ['server_id', 'team_id', 'team_name', 'public_key', 'created_at', 'updated_at'],
+  app_secrets: ['key', 'value', 'created_at', 'updated_at'],
   team_projects: [
     'id',
     'team_id',
@@ -155,7 +121,7 @@ const EXPECTED_SCHEMAS: Record<string, string[]> = {
     'created_by_email',
     'updated_by_email',
     'created_at',
-    'updated_at'
+    'updated_at',
   ],
   team_notes: [
     'id',
@@ -167,7 +133,7 @@ const EXPECTED_SCHEMAS: Record<string, string[]> = {
     'created_by_email',
     'updated_by_email',
     'created_at',
-    'updated_at'
+    'updated_at',
   ],
   team_note_revisions: [
     'id',
@@ -178,7 +144,7 @@ const EXPECTED_SCHEMAS: Record<string, string[]> = {
     'editors',
     'revision_number',
     'snapshot_trigger',
-    'created_at'
+    'created_at',
   ],
   team_tasks: [
     'id',
@@ -192,22 +158,60 @@ const EXPECTED_SCHEMAS: Record<string, string[]> = {
     'created_by_email',
     'updated_by_email',
     'created_at',
-    'updated_at'
+    'updated_at',
   ],
-  team_task_assignments: [
+  team_task_assignments: ['id', 'task_id', 'email', 'display_name', 'assigned_at'],
+  team_yjs_updates: ['id', 'document_name', 'state', 'created_at', 'updated_at'],
+  team_public_holidays: [
     'id',
-    'task_id',
-    'email',
-    'display_name',
-    'assigned_at'
-  ],
-  team_yjs_updates: [
-    'id',
-    'document_name',
-    'state',
+    'team_id',
+    'name',
+    'description',
+    'holiday_date',
+    'source_range_id',
+    'reduces_annual_leave',
+    'created_by_email',
+    'updated_by_email',
     'created_at',
-    'updated_at'
-  ]
+    'updated_at',
+  ],
+  team_wfh_group_members: [
+    'id',
+    'team_id',
+    'member_email',
+    'group_code',
+    'updated_by_email',
+    'updated_at',
+  ],
+  team_wfh_schedules: [
+    'id',
+    'team_id',
+    'group_code',
+    'original_date',
+    'schedule_date',
+    'status',
+    'conflict_holiday_id',
+    'generation_year',
+    'generated_by_email',
+    'created_at',
+    'updated_at',
+  ],
+  team_wfh_change_requests: [
+    'id',
+    'team_id',
+    'schedule_id',
+    'requester_email',
+    'group_code',
+    'original_date',
+    'requested_date',
+    'reason',
+    'status',
+    'approver_email',
+    'decision_note',
+    'decided_at',
+    'created_at',
+    'updated_at',
+  ],
 };
 
 /**
@@ -225,7 +229,7 @@ export const schemaValidationService = {
       WHERE table_schema = $1 AND table_name = $2
       ORDER BY ordinal_position
       `,
-      [SHARED_SCHEMA, tableName]
+      [SHARED_SCHEMA, tableName],
     );
     return result.rows;
   },
@@ -241,7 +245,7 @@ export const schemaValidationService = {
         WHERE table_schema = $1 AND table_name = $2
       ) as exists
       `,
-      [SHARED_SCHEMA, tableName]
+      [SHARED_SCHEMA, tableName],
     );
     return result.rows[0]?.exists ?? false;
   },
@@ -254,7 +258,7 @@ export const schemaValidationService = {
       table: tableName,
       exists: false,
       valid: false,
-      errors: []
+      errors: [],
     };
 
     const expectedColumns = EXPECTED_SCHEMAS[tableName];
@@ -289,9 +293,7 @@ export const schemaValidationService = {
     result.valid = result.missingColumns.length === 0;
 
     if (result.missingColumns.length > 0) {
-      result.errors.push(
-        `Missing required columns: ${result.missingColumns.join(', ')}`
-      );
+      result.errors.push(`Missing required columns: ${result.missingColumns.join(', ')}`);
     }
 
     return result;
@@ -326,7 +328,7 @@ export const schemaValidationService = {
       total: tableNames.length,
       valid: 0,
       invalid: 0,
-      missing: 0
+      missing: 0,
     };
 
     for (const result of Object.values(results)) {
@@ -344,7 +346,7 @@ export const schemaValidationService = {
     return {
       valid: allValid,
       tables: results,
-      summary
+      summary,
     };
-  }
+  },
 };

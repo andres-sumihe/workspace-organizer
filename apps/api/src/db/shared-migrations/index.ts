@@ -14,6 +14,8 @@ import * as migration0012 from './0012-create-team-notes.js';
 import * as migration0013 from './0013-create-team-tasks.js';
 import * as migration0014 from './0014-create-team-task-updates.js';
 import * as migration0015 from './0015-create-team-yjs-updates.js';
+import * as migration0016 from './0016-enhance-note-revisions.js';
+import * as migration0017 from './0017-create-team-calendar-wfh.js';
 import { SHARED_SCHEMA, getSearchPath, qualifyTable } from '../shared-schema.js';
 
 import type { Pool, PoolClient } from 'pg';
@@ -51,7 +53,9 @@ const migrations: SharedMigration[] = [
   { id: migration0012.id, up: migration0012.up },
   { id: migration0013.id, up: migration0013.up },
   { id: migration0014.id, up: migration0014.up },
-  { id: migration0015.id, up: migration0015.up }
+  { id: migration0015.id, up: migration0015.up },
+  { id: migration0016.id, up: migration0016.up },
+  { id: migration0017.id, up: migration0017.up },
 ];
 
 // Re-export schema utilities
@@ -81,7 +85,7 @@ export const schemaExists = async (pool: Pool): Promise<boolean> => {
       `SELECT EXISTS (
         SELECT 1 FROM information_schema.schemata WHERE schema_name = $1
       ) as exists`,
-      [SHARED_SCHEMA]
+      [SHARED_SCHEMA],
     );
     return result.rows[0]?.exists ?? false;
   } finally {
@@ -96,7 +100,7 @@ export const schemaExists = async (pool: Pool): Promise<boolean> => {
 const tryAcquireMigrationLock = async (client: PoolClient): Promise<boolean> => {
   const result = await client.query<{ pg_try_advisory_lock: boolean }>(
     'SELECT pg_try_advisory_lock($1)',
-    [MIGRATION_LOCK_ID]
+    [MIGRATION_LOCK_ID],
   );
   return result.rows[0]?.pg_try_advisory_lock ?? false;
 };
@@ -112,14 +116,11 @@ const releaseMigrationLock = async (client: PoolClient): Promise<void> => {
  * Run all pending migrations on the shared PostgreSQL database.
  * Uses advisory locking to prevent concurrent migration runs.
  * Creates the schema if it doesn't exist, then runs migrations within that schema.
- * 
+ *
  * @param pool - PostgreSQL connection pool
  * @param executedBy - Email/identifier of who triggered the migration (for audit)
  */
-export const runSharedMigrations = async (
-  pool: Pool, 
-  executedBy?: string
-): Promise<string[]> => {
+export const runSharedMigrations = async (pool: Pool, executedBy?: string): Promise<string[]> => {
   const result = await runSharedMigrationsWithDetails(pool, executedBy);
   if (!result.success && result.errors.length > 0) {
     throw new Error(result.errors.join('; '));
@@ -133,7 +134,7 @@ export const runSharedMigrations = async (
  */
 export const runSharedMigrationsWithDetails = async (
   pool: Pool,
-  executedBy?: string
+  executedBy?: string,
 ): Promise<MigrationRunResult> => {
   const client = await pool.connect();
   const result: MigrationRunResult = {
@@ -142,7 +143,7 @@ export const runSharedMigrationsWithDetails = async (
     skipped: [],
     errors: [],
     lockAcquired: false,
-    executedBy
+    executedBy,
   };
   const migrationsTable = qualifyTable('migrations');
   const searchPath = getSearchPath();
@@ -186,7 +187,9 @@ export const runSharedMigrationsWithDetails = async (
     const executedIds = new Set(existingResult.rows.map((row) => row.id));
 
     // Get hostname for audit trail
-    const hostnameResult = await client.query<{ hostname: string }>('SELECT current_setting(\'application_name\') as hostname');
+    const hostnameResult = await client.query<{ hostname: string }>(
+      "SELECT current_setting('application_name') as hostname",
+    );
     const hostname = hostnameResult.rows[0]?.hostname || 'unknown';
 
     // Run pending migrations in order
@@ -203,7 +206,7 @@ export const runSharedMigrationsWithDetails = async (
         await migration.up(client);
         await client.query(
           `INSERT INTO ${migrationsTable} (id, executed_by, hostname) VALUES ($1, $2, $3)`,
-          [migration.id, executedBy || 'system', hostname]
+          [migration.id, executedBy || 'system', hostname],
         );
         await client.query('COMMIT');
         result.executed.push(migration.id);
@@ -250,16 +253,16 @@ export const getPendingMigrations = async (pool: Pool): Promise<string[]> => {
 export const getExecutedMigrations = async (pool: Pool): Promise<string[]> => {
   const client = await pool.connect();
   const migrationsTable = qualifyTable('migrations');
-  
+
   try {
     // First check if schema exists
     const schemaCheck = await client.query<{ exists: boolean }>(
       `SELECT EXISTS (
         SELECT 1 FROM information_schema.schemata WHERE schema_name = $1
       ) as exists`,
-      [SHARED_SCHEMA]
+      [SHARED_SCHEMA],
     );
-    
+
     if (!schemaCheck.rows[0]?.exists) {
       return [];
     }
@@ -270,15 +273,15 @@ export const getExecutedMigrations = async (pool: Pool): Promise<string[]> => {
         SELECT 1 FROM information_schema.tables 
         WHERE table_schema = $1 AND table_name = 'migrations'
       ) as exists`,
-      [SHARED_SCHEMA]
+      [SHARED_SCHEMA],
     );
-    
+
     if (!tableCheck.rows[0]?.exists) {
       return [];
     }
 
     const result = await client.query<{ id: string }>(
-      `SELECT id FROM ${migrationsTable} ORDER BY executed_at`
+      `SELECT id FROM ${migrationsTable} ORDER BY executed_at`,
     );
     return result.rows.map((row) => row.id);
   } catch {
@@ -292,24 +295,28 @@ export const getExecutedMigrations = async (pool: Pool): Promise<string[]> => {
 /**
  * Get detailed migration history including who ran each migration.
  */
-export const getMigrationHistory = async (pool: Pool): Promise<Array<{
-  id: string;
-  executed_at: Date;
-  executed_by: string | null;
-  hostname: string | null;
-}>> => {
+export const getMigrationHistory = async (
+  pool: Pool,
+): Promise<
+  Array<{
+    id: string;
+    executed_at: Date;
+    executed_by: string | null;
+    hostname: string | null;
+  }>
+> => {
   const client = await pool.connect();
   const migrationsTable = qualifyTable('migrations');
-  
+
   try {
     const schemaCheck = await client.query<{ exists: boolean }>(
       `SELECT EXISTS (
         SELECT 1 FROM information_schema.tables 
         WHERE table_schema = $1 AND table_name = 'migrations'
       ) as exists`,
-      [SHARED_SCHEMA]
+      [SHARED_SCHEMA],
     );
-    
+
     if (!schemaCheck.rows[0]?.exists) {
       return [];
     }
@@ -322,7 +329,7 @@ export const getMigrationHistory = async (pool: Pool): Promise<Array<{
     }>(
       `SELECT id, executed_at, executed_by, hostname 
        FROM ${migrationsTable} 
-       ORDER BY executed_at ASC`
+       ORDER BY executed_at ASC`,
     );
     return result.rows;
   } catch {

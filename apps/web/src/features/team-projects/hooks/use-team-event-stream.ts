@@ -5,15 +5,15 @@
  * the appropriate TanStack Query cache keys on each incoming event.
  */
 
-import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 
 import { getApiHttpBaseUrl } from '@/lib/api-base-url';
 import { queryKeys } from '@/lib/query-client';
 
 interface TeamSSEEvent {
   type: 'connected' | 'team-event';
-  resource?: 'task' | 'taskUpdate' | 'note' | 'project';
+  resource?: 'task' | 'taskUpdate' | 'note' | 'project' | 'calendar' | 'wfh';
   action?: 'created' | 'updated' | 'deleted';
   resourceId?: string;
   parentId?: string;
@@ -79,7 +79,7 @@ export function useTeamEventStream(teamId: string | undefined) {
 function invalidateForEvent(
   qc: ReturnType<typeof useQueryClient>,
   teamId: string,
-  event: TeamSSEEvent
+  event: TeamSSEEvent,
 ) {
   const { resource, resourceId, parentId, grandParentId } = event;
 
@@ -129,6 +129,11 @@ function invalidateForEvent(
           queryKey: queryKeys.teamNotes.revisions(teamId, parentId, resourceId),
         });
       }
+      break;
+
+    case 'calendar':
+    case 'wfh':
+      void qc.invalidateQueries({ queryKey: queryKeys.teamCalendar.all });
       break;
   }
 }

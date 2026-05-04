@@ -12,9 +12,14 @@
  */
 
 import { EventEmitter } from 'events';
+
 import { Client } from 'pg';
 
-import { getSharedDbConnectionString, isSharedDbConnected, query as pgQuery } from '../db/shared-client.js';
+import {
+  getSharedDbConnectionString,
+  isSharedDbConnected,
+  query as pgQuery,
+} from '../db/shared-client.js';
 import { dbLogger } from '../utils/logger.js';
 
 const CHANNEL = 'team_events';
@@ -27,7 +32,7 @@ export interface TeamEvent {
   /** The team this event belongs to */
   teamId: string;
   /** Resource type that changed */
-  resource: 'task' | 'taskUpdate' | 'note' | 'project';
+  resource: 'task' | 'taskUpdate' | 'note' | 'project' | 'calendar' | 'wfh';
   /** What happened */
   action: 'created' | 'updated' | 'deleted';
   /** ID of the changed resource */

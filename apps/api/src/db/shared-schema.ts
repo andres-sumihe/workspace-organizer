@@ -24,8 +24,9 @@
  *
  * Version History:
  * - v1: Initial schema (teams, audit, scripts, jobs, app_info, tags)
+ * - v2: Team calendar, public holidays, WFH groups, WFH schedules, WFH change requests
  */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 /**
  * Minimum compatible schema version
@@ -36,7 +37,9 @@ export const MIN_SCHEMA_VERSION = 1;
 /**
  * The PostgreSQL schema name for all Workspace Organizer shared tables.
  * Tables: users, roles, permissions, sessions, audit_log, scripts,
- *         controlm_jobs, app_info, app_secrets, teams, team_members, migrations, schema_info
+ *         controlm_jobs, app_info, app_secrets, teams, team_members,
+ *         team_public_holidays, team_wfh_group_members, team_wfh_schedules,
+ *         team_wfh_change_requests, migrations, schema_info
  */
 export const SHARED_SCHEMA = 'workspace_organizer';
 

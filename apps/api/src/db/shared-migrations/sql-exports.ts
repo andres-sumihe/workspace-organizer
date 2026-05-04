@@ -132,7 +132,7 @@ EXECUTE FUNCTION update_updated_at_column();
 
 -- Record migration
 INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0001-create-teams', current_user);
-`
+`,
   },
   {
     id: '0002-create-audit-log',
@@ -177,7 +177,7 @@ ON audit_log (member_email, timestamp DESC);
 
 -- Record migration
 INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0002-create-audit-log', current_user);
-`
+`,
   },
   {
     id: '0003-create-scripts',
@@ -253,7 +253,7 @@ CREATE TABLE IF NOT EXISTS script_drive_mappings (
 
 -- Record migration
 INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0003-create-scripts', current_user);
-`
+`,
   },
   {
     id: '0004-create-controlm-jobs',
@@ -337,7 +337,7 @@ CREATE INDEX IF NOT EXISTS idx_job_conditions_job ON job_conditions (job_id);
 
 -- Record migration
 INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0004-create-controlm-jobs', current_user);
-`
+`,
   },
   {
     id: '0005-create-app-info',
@@ -374,7 +374,7 @@ COMMENT ON TABLE app_secrets IS 'Secure storage for server secrets. Access shoul
 
 -- Record migration
 INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0005-create-app-info', current_user);
-`
+`,
   },
   {
     id: '0006-create-tags',
@@ -415,7 +415,7 @@ CREATE INDEX IF NOT EXISTS idx_script_tags_tag ON script_tags (tag_id);
 
 -- Record migration
 INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0006-create-tags', current_user);
-`
+`,
   },
   {
     id: '0007-update-drive-mappings',
@@ -459,7 +459,7 @@ CREATE INDEX idx_drive_mappings_drive_letter ON drive_mappings(drive_letter);
 
 -- Record migration
 INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0007-update-drive-mappings', current_user);
-`
+`,
   },
   {
     id: '0008-create-script-dependencies',
@@ -482,7 +482,7 @@ CREATE INDEX IF NOT EXISTS idx_script_dependencies_dependency ON script_dependen
 
 -- Record migration
 INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0008-create-script-dependencies', current_user);
-`
+`,
   },
   {
     id: '0009-add-missing-script-columns',
@@ -507,7 +507,7 @@ ADD COLUMN IF NOT EXISTS last_executed_at TIMESTAMP WITH TIME ZONE;
 
 -- Record migration
 INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0009-add-missing-script-columns', current_user);
-`
+`,
   },
   {
     id: '0010-fix-null-timestamps',
@@ -532,7 +532,7 @@ UPDATE tags SET updated_at = NOW() WHERE updated_at IS NULL;
 
 -- Record migration
 INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0010-fix-null-timestamps', current_user);
-`
+`,
   },
   {
     id: '0011-create-team-projects',
@@ -572,7 +572,7 @@ EXECUTE FUNCTION update_updated_at_column();
 
 -- Record migration
 INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0011-create-team-projects', current_user);
-`
+`,
   },
   {
     id: '0012-create-team-notes',
@@ -623,7 +623,7 @@ CREATE INDEX IF NOT EXISTS idx_team_note_revisions_number ON team_note_revisions
 
 -- Record migration
 INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0012-create-team-notes', current_user);
-`
+`,
   },
   {
     id: '0013-create-team-tasks',
@@ -674,7 +674,7 @@ CREATE INDEX IF NOT EXISTS idx_team_task_assignments_email ON team_task_assignme
 
 -- Record migration
 INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0013-create-team-tasks', current_user);
-`
+`,
   },
   {
     id: '0014-create-team-task-updates',
@@ -713,7 +713,7 @@ EXECUTE FUNCTION update_updated_at_column();
 
 -- Record migration
 INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0014-create-team-task-updates', current_user);
-`
+`,
   },
   {
     id: '0015-create-team-yjs-updates',
@@ -743,7 +743,7 @@ EXECUTE FUNCTION update_updated_at_column();
 
 -- Record migration
 INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0015-create-team-yjs-updates', current_user);
-`
+`,
   },
   {
     id: '0016-enhance-note-revisions',
@@ -766,8 +766,141 @@ WHERE r.note_id = n.id AND r.title IS NULL;
 
 -- Record migration
 INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0016-enhance-note-revisions', current_user);
-`
-  }
+`,
+  },
+  {
+    id: '0017-create-team-calendar-wfh',
+    description:
+      'Create team calendar, public holidays, WFH groups, schedules, and change requests',
+    sql: `
+-- Migration: 0017-create-team-calendar-wfh
+-- Description: Create team calendar and WFH scheduling tables
+
+SET search_path TO workspace_organizer, public;
+
+CREATE TABLE IF NOT EXISTS team_public_holidays (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  holiday_date DATE NOT NULL,
+  source_range_id UUID,
+  reduces_annual_leave BOOLEAN NOT NULL DEFAULT FALSE,
+  created_by_email VARCHAR(255) NOT NULL,
+  updated_by_email VARCHAR(255),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  CONSTRAINT team_public_holidays_unique_name_date UNIQUE (team_id, name, holiday_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_team_public_holidays_team_date ON team_public_holidays (team_id, holiday_date);
+CREATE INDEX IF NOT EXISTS idx_team_public_holidays_source_range ON team_public_holidays (source_range_id);
+
+DROP TRIGGER IF EXISTS trg_team_public_holidays_updated_at ON team_public_holidays;
+CREATE TRIGGER trg_team_public_holidays_updated_at
+BEFORE UPDATE ON team_public_holidays
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TABLE IF NOT EXISTS team_wfh_group_members (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  member_email VARCHAR(255) NOT NULL,
+  group_code CHAR(1) NOT NULL CHECK (group_code IN ('A', 'B', 'C', 'D')),
+  updated_by_email VARCHAR(255),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  CONSTRAINT team_wfh_group_members_unique UNIQUE (team_id, member_email),
+  CONSTRAINT team_wfh_group_members_member_fk FOREIGN KEY (team_id, member_email)
+    REFERENCES team_members(team_id, email) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_team_wfh_group_members_team ON team_wfh_group_members (team_id);
+CREATE INDEX IF NOT EXISTS idx_team_wfh_group_members_group ON team_wfh_group_members (team_id, group_code);
+
+DROP TRIGGER IF EXISTS trg_team_wfh_group_members_updated_at ON team_wfh_group_members;
+CREATE TRIGGER trg_team_wfh_group_members_updated_at
+BEFORE UPDATE ON team_wfh_group_members
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TABLE IF NOT EXISTS team_wfh_schedules (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  group_code CHAR(1) NOT NULL CHECK (group_code IN ('A', 'B', 'C', 'D')),
+  original_date DATE NOT NULL,
+  schedule_date DATE NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'scheduled',
+  conflict_holiday_id UUID REFERENCES team_public_holidays(id) ON DELETE SET NULL,
+  generation_year INTEGER NOT NULL,
+  generated_by_email VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  CONSTRAINT team_wfh_schedules_unique_original UNIQUE (team_id, generation_year, group_code, original_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_team_wfh_schedules_team_date ON team_wfh_schedules (team_id, schedule_date);
+CREATE INDEX IF NOT EXISTS idx_team_wfh_schedules_team_year ON team_wfh_schedules (team_id, generation_year);
+CREATE INDEX IF NOT EXISTS idx_team_wfh_schedules_team_status ON team_wfh_schedules (team_id, status);
+
+DROP TRIGGER IF EXISTS trg_team_wfh_schedules_updated_at ON team_wfh_schedules;
+CREATE TRIGGER trg_team_wfh_schedules_updated_at
+BEFORE UPDATE ON team_wfh_schedules
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TABLE IF NOT EXISTS team_wfh_change_requests (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  schedule_id UUID REFERENCES team_wfh_schedules(id) ON DELETE SET NULL,
+  requester_email VARCHAR(255) NOT NULL,
+  group_code CHAR(1) NOT NULL CHECK (group_code IN ('A', 'B', 'C', 'D')),
+  original_date DATE NOT NULL,
+  requested_date DATE NOT NULL,
+  reason TEXT,
+  status VARCHAR(50) NOT NULL DEFAULT 'pending',
+  approver_email VARCHAR(255),
+  decision_note TEXT,
+  decided_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  CONSTRAINT team_wfh_change_requests_status_check CHECK (status IN ('pending', 'approved', 'rejected', 'cancelled')),
+  CONSTRAINT team_wfh_change_requests_member_fk FOREIGN KEY (team_id, requester_email)
+    REFERENCES team_members(team_id, email) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_team_wfh_change_requests_team_status ON team_wfh_change_requests (team_id, status);
+CREATE INDEX IF NOT EXISTS idx_team_wfh_change_requests_requester ON team_wfh_change_requests (team_id, requester_email);
+CREATE INDEX IF NOT EXISTS idx_team_wfh_change_requests_schedule ON team_wfh_change_requests (schedule_id);
+CREATE INDEX IF NOT EXISTS idx_team_wfh_change_requests_requested_date ON team_wfh_change_requests (team_id, requested_date);
+
+DROP TRIGGER IF EXISTS trg_team_wfh_change_requests_updated_at ON team_wfh_change_requests;
+CREATE TRIGGER trg_team_wfh_change_requests_updated_at
+BEFORE UPDATE ON team_wfh_change_requests
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TABLE IF NOT EXISTS schema_info (
+  id SERIAL PRIMARY KEY,
+  version INTEGER NOT NULL,
+  app_version VARCHAR(50),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_by VARCHAR(255)
+);
+
+INSERT INTO schema_info (id, version, app_version, updated_by)
+VALUES (1, 2, 'manual', current_user)
+ON CONFLICT (id) DO UPDATE SET
+  version = GREATEST(schema_info.version, EXCLUDED.version),
+  updated_at = NOW(),
+  updated_by = current_user;
+
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by)
+VALUES ('0017-create-team-calendar-wfh', current_user)
+ON CONFLICT (id) DO NOTHING;
+`,
+  },
 ];
 
 /**
@@ -820,7 +953,6 @@ export const getAllMigrationSQL = (): string => {
  * For now, returns full schema (future: incremental upgrades)
  */
 export const getUpgradeSQL = (fromVersion: number, toVersion: number): string => {
-  // For v1, there's only one version - return full schema
   if (fromVersion === 0 || fromVersion < toVersion) {
     return getUnifiedSchemaSQL();
   }
