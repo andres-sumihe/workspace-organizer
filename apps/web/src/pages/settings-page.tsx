@@ -1,4 +1,4 @@
-import { Database, Download, Loader2, Save, Settings as SettingsIcon, Server, Link2, Unlink, RefreshCw, CheckCircle2, XCircle, AlertCircle, AlertTriangle, Wrench, Copy, Shield, FileKey, Trash2, KeyRound, Lock, Eye, EyeOff } from 'lucide-react';
+import { Database, Download, Loader2, Save, Settings as SettingsIcon, Server, Link2, Unlink, RefreshCw, CheckCircle2, XCircle, AlertCircle, AlertTriangle, Wrench, Copy, Shield, FileKey, Trash2, KeyRound, Lock, Eye, EyeOff, Monitor } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -141,6 +141,10 @@ export const SettingsPage = () => {
   const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(true);
   const [isLoadingAutoUpdate, setIsLoadingAutoUpdate] = useState(true);
 
+  // Keep Awake setting state
+  const [keepAwakeEnabled, setKeepAwakeEnabled] = useState(false);
+  const [isLoadingKeepAwake, setIsLoadingKeepAwake] = useState(true);
+
   const navigate = useNavigate();
 
   const connectionString = useMemo(() => buildConnectionStringFromForm(connectionForm), [connectionForm]);
@@ -197,6 +201,33 @@ export const SettingsPage = () => {
     } catch {
       toast.error('Failed to save auto-update setting');
       setAutoUpdateEnabled(!enabled);
+    }
+  };
+
+  // Load keep-awake state from Electron main process
+  useEffect(() => {
+    if (!window.api?.getKeepAwake) {
+      setIsLoadingKeepAwake(false);
+      return;
+    }
+    window.api.getKeepAwake().then(({ active }) => {
+      setKeepAwakeEnabled(active);
+    }).catch(() => {
+      // default stays false
+    }).finally(() => {
+      setIsLoadingKeepAwake(false);
+    });
+  }, []);
+
+  const handleKeepAwakeToggle = async (enabled: boolean) => {
+    if (!window.api?.setKeepAwake) return;
+    setKeepAwakeEnabled(enabled);
+    try {
+      await window.api.setKeepAwake(enabled);
+      toast.success(enabled ? 'Keep Awake enabled' : 'Keep Awake disabled');
+    } catch {
+      toast.error('Failed to toggle Keep Awake');
+      setKeepAwakeEnabled(!enabled);
     }
   };
 
@@ -749,6 +780,36 @@ export const SettingsPage = () => {
                   </div>
                 </div>
               </Card>
+
+              {/* Keep Awake Setting — Electron only */}
+              {window.api ? (
+                <Card className="p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="rounded-lg bg-primary/10 p-3">
+                      <Monitor className="size-6 text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <h2 className="text-lg font-semibold mb-1">Keep Awake</h2>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Prevent the system and screen from going to sleep while the app is open.
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">Prevent screen sleep</p>
+                          <p className="text-xs text-muted-foreground">
+                            Keeps the display on and prevents the system from sleeping.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={keepAwakeEnabled}
+                          onCheckedChange={handleKeepAwakeToggle}
+                          disabled={isLoadingKeepAwake}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ) : null}
             </div>
           </TabsContent>
 
