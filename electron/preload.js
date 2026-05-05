@@ -115,4 +115,7 @@ contextBridge.exposeInMainWorld('api', {
   invokeMainAction: (actionId, args) => ipcRenderer.invoke('main-action:' + actionId, args),
   // Get the actual HTTP API base URL for direct connections (SSE, WebSocket)
   getApiBaseUrl: () => ipcRenderer.invoke('get-api-base-url'),
+  // Keep Awake — prevent system/screen sleep
+  setKeepAwake: (enabled) => ipcRenderer.invoke('keep-awake:set', enabled),
+  getKeepAwake: () => ipcRenderer.invoke('keep-awake:get'),
 });

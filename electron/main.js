@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, clipboard, protocol, net, Menu, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, clipboard, protocol, net, Menu, shell, powerSaveBlocker } = require('electron');
 const path = require('path');
 const http = require('http');
 const url = require('url');
@@ -17,6 +17,7 @@ autoUpdater.autoDownload = false; // Don't download until user sees the update d
 let expressApp = null;
 let httpServer = null;
 let mainWindow = null;
+let keepAwakeBlockerId = null; // powerSaveBlocker id, null when inactive
 
 // --- helper: command registry & menu builder ---
 function buildAppMenu(win) {
@@ -1020,6 +1021,28 @@ autoUpdater.on('download-progress', (progressObj) => {
 
 autoUpdater.on('update-downloaded', (info) => {
   if (mainWindow) mainWindow.webContents.send('update-downloaded', info);
+});
+
+// Keep Awake — prevent system/screen sleep via powerSaveBlocker
+ipcMain.handle('keep-awake:set', (_event, enabled) => {
+  if (enabled) {
+    if (keepAwakeBlockerId === null || !powerSaveBlocker.isStarted(keepAwakeBlockerId)) {
+      keepAwakeBlockerId = powerSaveBlocker.start('prevent-display-sleep');
+      log(`[KeepAwake] Started (id=${keepAwakeBlockerId})`);
+    }
+  } else {
+    if (keepAwakeBlockerId !== null && powerSaveBlocker.isStarted(keepAwakeBlockerId)) {
+      powerSaveBlocker.stop(keepAwakeBlockerId);
+      log(`[KeepAwake] Stopped (id=${keepAwakeBlockerId})`);
+      keepAwakeBlockerId = null;
+    }
+  }
+  return { ok: true, active: keepAwakeBlockerId !== null };
+});
+
+ipcMain.handle('keep-awake:get', () => {
+  const active = keepAwakeBlockerId !== null && powerSaveBlocker.isStarted(keepAwakeBlockerId);
+  return { active };
 });
 
 ipcMain.handle('list-templates', async () => {

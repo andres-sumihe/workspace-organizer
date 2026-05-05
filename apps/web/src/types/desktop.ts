@@ -255,4 +255,6 @@ export interface DesktopApi {
   toggleDevTools: () => Promise<void>;
   onMenuCommand: (cb: (payload: { id: string }) => void) => () => void;
   invokeMainAction: (actionId: string, args?: unknown) => Promise<unknown>;
+  setKeepAwake: (enabled: boolean) => Promise<{ ok: boolean; active: boolean }>;
+  getKeepAwake: () => Promise<{ active: boolean }>;
 }
