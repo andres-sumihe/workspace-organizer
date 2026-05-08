@@ -1,6 +1,7 @@
-import { LogOut, Menu, Search, User } from 'lucide-react';
+import { LogOut, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
+import { GlobalSearch } from '@/components/layout/global-search';
 import { ModeToggle } from '@/components/mode-toggle';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,10 +12,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-
 import { useAuth } from '@/contexts/auth-context';
 
 export const TopNav = () => {
@@ -35,14 +34,7 @@ export const TopNav = () => {
 
         {/* Desktop trigger positioned to the left of the header search */}
         <SidebarTrigger className="hidden md:inline-flex" />
-        <div className="relative hidden w-64 md:block">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="pl-10" placeholder="Search anything..." />
-        </div>
-
-        <Button variant="outline" size="icon" className="md:hidden">
-          <Menu className="size-4" />
-        </Button>
+        <GlobalSearch />
       </div>
       <div className="ml-auto flex items-center gap-2">
         <ModeToggle />

@@ -1,5 +1,6 @@
 import { DragDropProvider } from '@dnd-kit/react';
 import { useSortable } from '@dnd-kit/react/sortable';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   ArrowRight,
@@ -18,27 +19,11 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
-import { queryKeys } from '@/lib/query-client';
 
 import type { WorkLogStatus, WorkLogPriority, PersonalProject, TaskUpdateFlag } from '@workspace/shared';
 
-import {
-  tagsApi,
-  workLogsApi,
-  type Tag,
-  type WorkLogEntry,
-  type CreateWorkLogRequest,
-  type UpdateWorkLogRequest
-} from '@/features/journal/api/journal';
-import {
-  useWorkLogsList
-} from '@/features/journal/hooks/use-work-logs';
-import { useTagsList } from '@/features/journal/hooks/use-tags';
-import { usePersonalProjectsList } from '@/features/journal/hooks/use-personal-projects';
-import { TaskDetailModal, TASK_STATUS_CONFIG, TASK_PRIORITY_CONFIG } from '@/features/journal/components';
 import { AppPage, AppPageContent } from '@/components/layout/app-page';
 import {
   AlertDialog,
@@ -70,6 +55,8 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
+import { MentionContentView, extractPlainText } from '@/components/ui/mention-content-view';
+import { MentionTextarea } from '@/components/ui/mention-input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
@@ -79,10 +66,21 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { MentionTextarea } from '@/components/ui/mention-input';
-import { MentionContentView, extractPlainText } from '@/components/ui/mention-content-view';
-import { useProjectFileMention } from '@/hooks/use-file-mention';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  tagsApi,
+  workLogsApi,
+  type Tag,
+  type WorkLogEntry,
+  type CreateWorkLogRequest,
+  type UpdateWorkLogRequest
+} from '@/features/journal/api/journal';
+import { TaskDetailModal, TASK_STATUS_CONFIG, TASK_PRIORITY_CONFIG } from '@/features/journal/components';
+import { usePersonalProjectsList } from '@/features/journal/hooks/use-personal-projects';
+import { useTagsList } from '@/features/journal/hooks/use-tags';
+import {
+  useWorkLogsList
+} from '@/features/journal/hooks/use-work-logs';
 import {
   formatDate,
   formatDateDisplay,
@@ -93,6 +91,8 @@ import {
   parseContentForSuggestions,
   formatFullDate
 } from '@/features/journal/utils/journal-parser';
+import { useProjectFileMention } from '@/hooks/use-file-mention';
+import { queryKeys } from '@/lib/query-client';
 
 // ============================================================================
 // Types & Constants
@@ -104,6 +104,15 @@ const PRIORITY_CONFIG = TASK_PRIORITY_CONFIG;
 
 // Kanban columns in order
 const KANBAN_COLUMNS: WorkLogStatus[] = ['todo', 'in_progress', 'done'];
+
+const parseJournalDateParam = (value: string | null) => {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return new Date();
+  }
+
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+};
 
 // ============================================================================
 // Hooks
@@ -253,7 +262,7 @@ function KanbanColumn({ status, index, entries, selectedEntry, onSelectEntry }: 
   return (
     <div
       ref={ref}
-      className={`flex flex-col rounded-[3px] ${config.bgColor} min-w-[280px] max-w-[340px] flex-1 h-full shadow-sm`}
+      className={`flex flex-col rounded-[3px] ${config.bgColor} min-w-70 max-w-85 flex-1 h-full shadow-sm`}
     >
       {/* Column Header */}
       <div className="flex items-center gap-2 px-3 py-4 select-none">
@@ -277,7 +286,7 @@ function KanbanColumn({ status, index, entries, selectedEntry, onSelectEntry }: 
 
       {/* Cards */}
       <ScrollArea className="flex-1 px-1.5 py-1">
-        <div className="space-y-2 min-h-[100px] mb-4">
+        <div className="space-y-2 min-h-25 mb-4">
           {
             columnEntries.map((entry, idx) => (
               <KanbanCard
@@ -878,10 +887,12 @@ function RolloverDialog({ open, onOpenChange, onRollover, unfinishedCount }: Rol
 export function JournalPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const dateParam = searchParams.get('date');
   
   // Navigation state
-  const [currentDate, setCurrentDate] = useState(() => new Date());
-  const [viewMode, setViewMode] = useState<'week' | 'day'>('week');
+  const [currentDate, setCurrentDate] = useState(() => parseJournalDateParam(dateParam));
+  const [viewMode, setViewMode] = useState<'week' | 'day'>(() => (dateParam ? 'day' : 'week'));
 
   // Filter state
   const [projectFilter, setProjectFilter] = useState<string | undefined>(undefined);
@@ -894,6 +905,15 @@ export function JournalPage() {
   const [rolloverDialogOpen, setRolloverDialogOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<WorkLogEntry | undefined>();
   const [unfinishedPastEntries, setUnfinishedPastEntries] = useState<WorkLogEntry[]>([]);
+
+  useEffect(() => {
+    if (!dateParam) {
+      return;
+    }
+
+    setCurrentDate(parseJournalDateParam(dateParam));
+    setViewMode('day');
+  }, [dateParam]);
 
   // Calculate date range for query
   const start = useMemo(() => viewMode === 'week' ? getWeekStart(currentDate) : currentDate, [viewMode, currentDate]);
@@ -1249,12 +1269,12 @@ export function JournalPage() {
     >
       <AppPageContent className="flex flex-col h-full overflow-hidden">
         {/* Header: Navigation + Filter + Stats */}
-        <div className="flex items-center justify-between mb-4 flex-shrink-0">
+        <div className="flex items-center justify-between mb-4 shrink-0">
           <div className="flex items-center gap-3">
             <Button variant="outline" size="icon" onClick={goToPrevious}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <div className="text-lg font-semibold min-w-[200px] text-center">
+            <div className="text-lg font-semibold min-w-50 text-center">
               {viewMode === 'week' 
                 ? getWeekRangeLabel(getWeekStart(currentDate))
                 : formatFullDate(currentDate)

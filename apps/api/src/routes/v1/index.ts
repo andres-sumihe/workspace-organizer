@@ -10,6 +10,7 @@ import { notesRouter } from './notes.js';
 import { personalProjectsRouter } from './personal-projects.js';
 import { schemaValidationRouter } from './schema-validation.js';
 import { scriptsRouter } from './scripts.js';
+import { searchRouter } from './search.js';
 import { settingsRouter } from './settings.js';
 import { setupRouter } from './setup.js';
 import { tagsRouter } from './tags.js';
@@ -67,6 +68,9 @@ v1Router.use('/vault', vaultRouter);
 
 // Uploads routes - always available (local data only)
 v1Router.use('/uploads', uploadsRouter);
+
+// Global search route - always available, shared domains are included only when connected
+v1Router.use('/search', searchRouter);
 
 // Middleware to check if shared database is connected for shared features
 const requireSharedDb = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {

@@ -242,6 +242,33 @@ export const workLogsRepository = {
   },
 
   /**
+   * Search work logs by content.
+   */
+  async search(query: string, limit = 5): Promise<WorkLogEntry[]> {
+    const db = await getDb();
+    const rows = db
+      .prepare(
+        `SELECT * FROM work_logs
+         WHERE content LIKE ?
+         ORDER BY date DESC, updated_at DESC
+         LIMIT ?`
+      )
+      .all(`%${query}%`, limit) as unknown[];
+
+    const validRows = rows.filter(isWorkLogRow);
+    const entries: WorkLogEntry[] = [];
+
+    for (const row of validRows) {
+      const tagIds = await taggingsRepository.getTagIds(TAGGABLE_TYPE, row.id);
+      const tags = await tagsRepository.getByIds(tagIds);
+      const project = row.project_id ? await this.getProjectSummary(row.project_id) : undefined;
+      entries.push(mapRowToEntry(row, tags, project));
+    }
+
+    return entries;
+  },
+
+  /**
    * Get task statistics for a batch of project IDs.
    */
   async getTaskStatsByProjectIds(

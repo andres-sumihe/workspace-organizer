@@ -304,4 +304,8 @@ export interface TypedElectronAPI {
   // Menu integration
   onMenuCommand: (cb: (payload: { id: string }) => void) => () => void;
   invokeMainAction: (actionId: string, args?: unknown) => Promise<unknown>;
+
+  // Power management
+  setKeepAwake: (enabled: boolean) => Promise<{ ok: boolean; active: boolean }>;
+  getKeepAwake: () => Promise<{ active: boolean }>;
 }
