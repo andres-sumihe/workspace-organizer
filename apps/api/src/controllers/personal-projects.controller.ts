@@ -157,12 +157,13 @@ export const deleteProject = async (req: Request, res: Response, next: NextFunct
 export const searchProjects = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const query = req.query.q as string | undefined;
+    const limit = typeof req.query.limit === 'string' ? parseInt(req.query.limit, 10) : undefined;
 
     if (!query?.trim()) {
       return res.json({ items: [] });
     }
 
-    const projects = await personalProjectsService.search(query);
+    const projects = await personalProjectsService.search(query, limit);
 
     res.json({ items: projects });
   } catch (error) {

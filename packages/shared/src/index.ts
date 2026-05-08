@@ -23,6 +23,33 @@ export interface ErrorPayload {
   details?: ErrorDetail[];
 }
 
+export type SearchResultType =
+  | 'workspace'
+  | 'personal-project'
+  | 'note'
+  | 'journal'
+  | 'script'
+  | 'team-project';
+
+export interface SearchResultItem {
+  id: string;
+  type: SearchResultType;
+  title: string;
+  subtitle?: string;
+  preview?: string;
+  url: string;
+  updatedAt?: string;
+}
+
+export interface GlobalSearchResponse {
+  query: string;
+  items: SearchResultItem[];
+  meta: {
+    total: number;
+    limitPerDomain: number;
+  };
+}
+
 export interface TemplateFolder {
   name: string;
   folders?: TemplateFolder[];

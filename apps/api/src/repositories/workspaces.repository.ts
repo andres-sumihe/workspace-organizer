@@ -135,6 +135,32 @@ export const countWorkspaces = async (): Promise<number> => {
   return 0;
 };
 
+export const searchWorkspaces = async (query: string, limit: number): Promise<WorkspaceSummary[]> => {
+  const db = await getDb();
+  const searchPattern = `%${query}%`;
+  const rowsRaw: unknown = db.prepare(`
+    SELECT
+      w.*,
+      (SELECT COUNT(*) FROM personal_projects p WHERE p.workspace_id = w.id) as project_count
+    FROM workspaces w
+    WHERE w.name LIKE ? OR w.description LIKE ? OR w.root_path LIKE ?
+    ORDER BY w.name
+    LIMIT ?
+  `).all(searchPattern, searchPattern, searchPattern, limit);
+
+  const summaries: WorkspaceSummary[] = [];
+
+  if (Array.isArray(rowsRaw)) {
+    for (const row of rowsRaw) {
+      if (isWorkspaceSummaryRow(row)) {
+        summaries.push(mapRowToSummary(row));
+      }
+    }
+  }
+
+  return summaries;
+};
+
 export const findWorkspaceById = async (id: string): Promise<WorkspaceDetail | null> => {
   const db = await getDb();
   const row: unknown = db.prepare(`

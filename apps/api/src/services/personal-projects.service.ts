@@ -113,10 +113,10 @@ export const personalProjectsService = {
   },
 
   /**
-   * Search projects by title (partial match)
+   * Search projects by text fields and business identifiers.
    */
-  async search(query: string): Promise<PersonalProject[]> {
-    return personalProjectsRepository.search(query);
+  async search(query: string, limit?: number): Promise<PersonalProject[]> {
+    return personalProjectsRepository.search(query, limit);
   },
 
   /**

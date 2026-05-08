@@ -70,6 +70,13 @@ export const queryKeys = {
     detail: (id: string) => [...queryKeys.workspaces.details(), id] as const,
   },
 
+  // Global search domain
+  search: {
+    all: ['search'] as const,
+    global: (query: string, limitPerDomain: number) =>
+      [...queryKeys.search.all, 'global', query, limitPerDomain] as const,
+  },
+
   // Workspace Projects domain (within a workspace)
   projects: {
     all: ['projects'] as const,

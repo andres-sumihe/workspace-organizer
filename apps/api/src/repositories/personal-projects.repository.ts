@@ -286,13 +286,23 @@ export const personalProjectsRepository = {
   },
 
   /**
-   * Search projects by title (partial match)
+   * Search projects by title, description, notes, and business identifiers.
    */
-  async search(query: string): Promise<PersonalProject[]> {
+  async search(query: string, limit = 20): Promise<PersonalProject[]> {
     const db = await getDb();
+    const searchPattern = `%${query}%`;
     const rows = db
-      .prepare('SELECT * FROM personal_projects WHERE title LIKE ? ORDER BY title')
-      .all(`%${query}%`);
+      .prepare(`
+        SELECT * FROM personal_projects
+        WHERE title LIKE ?
+          OR description LIKE ?
+          OR notes LIKE ?
+          OR business_proposal_id LIKE ?
+          OR change_id LIKE ?
+        ORDER BY updated_at DESC, title
+        LIMIT ?
+      `)
+      .all(searchPattern, searchPattern, searchPattern, searchPattern, searchPattern, limit);
 
     const projects: PersonalProject[] = [];
     for (const row of rows) {
