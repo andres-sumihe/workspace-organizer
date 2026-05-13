@@ -9,11 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Added
 - Added Multiple Week support on Journal report and now task can be mark as "Reported"
+- Added Calendar with WFH and Holiday schedule, Teams Settings and change request for WFH schedule
+- Added Keep Awake feature to keep your screen awake
+- Added Global Search utility, now you can search almost anything on the app
+- Added Backlog on Project task and Journal
 
 # Fixed
 - Fix auto-update being disabled but there is no way to update the app
-
-
 
 ## [0.4.4]
 
