@@ -901,6 +901,26 @@ VALUES ('0017-create-team-calendar-wfh', current_user)
 ON CONFLICT (id) DO NOTHING;
 `,
   },
+  {
+    id: '0018-add-team-task-status-check',
+    description: 'Add allowed status constraint for team tasks including backlog',
+    sql: `
+-- Migration: 0018-add-team-task-status-check
+-- Description: Add allowed status constraint for team tasks including backlog
+
+SET search_path TO workspace_organizer, public;
+
+ALTER TABLE team_tasks DROP CONSTRAINT IF EXISTS team_tasks_status_check;
+ALTER TABLE team_tasks
+ADD CONSTRAINT team_tasks_status_check
+CHECK (status IN ('pending', 'in_progress', 'completed', 'cancelled', 'backlog')) NOT VALID;
+
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by)
+VALUES ('0018-add-team-task-status-check', current_user)
+ON CONFLICT (id) DO NOTHING;
+`,
+  },
 ];
 
 /**

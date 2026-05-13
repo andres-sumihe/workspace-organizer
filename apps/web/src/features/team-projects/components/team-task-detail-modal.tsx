@@ -1,4 +1,5 @@
 import {
+  Archive,
   Calendar,
   Check,
   ChevronDown,
@@ -10,9 +11,10 @@ import {
   X
 } from 'lucide-react';
 
+import { TeamTaskUpdatesSection } from './team-task-updates-section';
+
 import type { TaskUpdateFlag, TeamTask, TeamTaskStatus } from '@workspace/shared';
 
-import { MentionContentView } from '@/components/ui/mention-content-view';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -30,9 +32,9 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
-import { formatDateDisplay, formatTimestampDisplay } from '@/features/journal/utils/journal-parser';
+import { MentionContentView } from '@/components/ui/mention-content-view';
 import { TaskFlagsSection } from '@/features/journal/components/task-flags-section';
-import { TeamTaskUpdatesSection } from './team-task-updates-section';
+import { formatDateDisplay, formatTimestampDisplay } from '@/features/journal/utils/journal-parser';
 
 // ── Status / Priority configs (mirrors page-level configs) ──
 
@@ -40,6 +42,11 @@ const TASK_STATUS_CONFIG: Record<
   TeamTaskStatus,
   { label: string; icon: typeof Circle; color: string }
 > = {
+  backlog: {
+    label: 'Backlog',
+    icon: Archive,
+    color: 'text-amber-600 dark:text-amber-300'
+  },
   pending: {
     label: 'Todo',
     icon: Circle,

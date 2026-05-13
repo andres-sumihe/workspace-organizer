@@ -16,6 +16,7 @@ import * as migration0014 from './0014-create-team-task-updates.js';
 import * as migration0015 from './0015-create-team-yjs-updates.js';
 import * as migration0016 from './0016-enhance-note-revisions.js';
 import * as migration0017 from './0017-create-team-calendar-wfh.js';
+import * as migration0018 from './0018-add-team-task-status-check.js';
 import { SHARED_SCHEMA, getSearchPath, qualifyTable } from '../shared-schema.js';
 
 import type { Pool, PoolClient } from 'pg';
@@ -56,6 +57,7 @@ const migrations: SharedMigration[] = [
   { id: migration0015.id, up: migration0015.up },
   { id: migration0016.id, up: migration0016.up },
   { id: migration0017.id, up: migration0017.up },
+  { id: migration0018.id, up: migration0018.up },
 ];
 
 // Re-export schema utilities

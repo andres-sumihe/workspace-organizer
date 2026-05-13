@@ -1,4 +1,4 @@
-import { Check, Circle, Clock } from 'lucide-react';
+import { Archive, Check, Circle, Clock } from 'lucide-react';
 
 import type { WorkLogStatus, WorkLogPriority } from '@workspace/shared';
 
@@ -30,6 +30,13 @@ export const TASK_STATUS_CONFIG: Record<
     color: 'text-[#36B37E] dark:text-[#E3FCEF]',
     bgColor: 'bg-[#F4F5F7] dark:bg-[#1D2125]',
     accent: 'before:bg-[#36B37E]'
+  },
+  backlog: {
+    label: 'Backlog',
+    icon: Archive,
+    color: 'text-amber-600 dark:text-amber-300',
+    bgColor: 'bg-amber-50 dark:bg-amber-950/20',
+    accent: 'before:bg-amber-500 dark:before:bg-amber-400'
   }
 };
 

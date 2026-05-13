@@ -1,5 +1,6 @@
 import { DragDropProvider } from '@dnd-kit/react';
 import { useSortable } from '@dnd-kit/react/sortable';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
   Archive,
@@ -29,7 +30,6 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import type {
@@ -45,25 +45,6 @@ import type {
   UpdateTeamTaskRequest,
 } from '@workspace/shared';
 
-import {
-  useTeamProjectDetail,
-  useTeamNoteList,
-  useCreateTeamNote,
-  useUpdateTeamNote,
-  useDeleteTeamNote,
-  useTeamTaskList,
-  useCreateTeamTask,
-  useUpdateTeamTask,
-  useDeleteTeamTask,
-  useTeamEventStream,
-} from '@/features/team-projects';
-import { TeamNoteEditor } from '@/features/team-projects/components/team-note-editor';
-import { TeamNoteContentViewer } from '@/features/team-projects/components/team-note-content-viewer';
-import { TeamTaskDetailModal } from '@/features/team-projects/components/team-task-detail-modal';
-import {
-  useCollaborationStatus,
-  useCollaborationProvider,
-} from '@/features/team-projects/hooks/use-collaboration';
 import { AppPage, AppPageTabs } from '@/components/layout/app-page';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -97,6 +78,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { extractPlainText } from '@/components/ui/mention-content-view';
+import { MentionTextarea } from '@/components/ui/mention-input';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -107,10 +90,27 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MentionTextarea } from '@/components/ui/mention-input';
-import { extractPlainText } from '@/components/ui/mention-content-view';
-import { readFileAsBase64 } from '@/lib/base64-image';
 import { parseContentForSuggestions } from '@/features/journal/utils/journal-parser';
+import {
+  useTeamProjectDetail,
+  useTeamNoteList,
+  useCreateTeamNote,
+  useUpdateTeamNote,
+  useDeleteTeamNote,
+  useTeamTaskList,
+  useCreateTeamTask,
+  useUpdateTeamTask,
+  useDeleteTeamTask,
+  useTeamEventStream,
+} from '@/features/team-projects';
+import { TeamNoteContentViewer } from '@/features/team-projects/components/team-note-content-viewer';
+import { TeamNoteEditor } from '@/features/team-projects/components/team-note-editor';
+import { TeamTaskDetailModal } from '@/features/team-projects/components/team-task-detail-modal';
+import {
+  useCollaborationStatus,
+  useCollaborationProvider,
+} from '@/features/team-projects/hooks/use-collaboration';
+import { readFileAsBase64 } from '@/lib/base64-image';
 
 // ============================================================================
 // Types & Constants
@@ -152,6 +152,13 @@ const TASK_STATUS_CONFIG: Record<
   TeamTaskStatus,
   { label: string; icon: typeof Circle; color: string; bgColor: string; accent: string }
 > = {
+  backlog: {
+    label: 'Backlog',
+    icon: Archive,
+    color: 'text-amber-600 dark:text-amber-300',
+    bgColor: 'bg-amber-50 dark:bg-amber-950/20',
+    accent: 'before:bg-amber-500'
+  },
   pending: {
     label: 'Todo',
     icon: Circle,
@@ -364,7 +371,7 @@ function KanbanColumn({ status, index, tasks, onDeleteTask, onViewTask }: Kanban
   return (
     <div
       ref={ref}
-      className={`flex flex-col rounded-[3px] ${config.bgColor} min-w-[280px] max-w-[340px] flex-1 h-full shadow-sm`}
+      className={`flex flex-col rounded-[3px] ${config.bgColor} min-w-70 max-w-85 flex-1 h-full shadow-sm`}
     >
       {/* Column Header */}
       <div className="flex items-center gap-2 px-3 py-4 select-none">
@@ -388,7 +395,7 @@ function KanbanColumn({ status, index, tasks, onDeleteTask, onViewTask }: Kanban
 
       {/* Cards */}
       <ScrollArea className="flex-1 px-1.5 py-1">
-        <div className="space-y-2 min-h-[100px] mb-4">
+        <div className="space-y-2 min-h-25 mb-4">
           {columnTasks.map((task, idx) => (
             <KanbanCard
               key={task.id}
@@ -401,6 +408,173 @@ function KanbanColumn({ status, index, tasks, onDeleteTask, onViewTask }: Kanban
         </div>
       </ScrollArea>
     </div>
+  );
+}
+
+interface TeamBacklogPanelProps {
+  tasks: TeamTask[];
+  total: number;
+  searchQuery: string;
+  isLoading: boolean;
+  onSearchChange: (query: string) => void;
+  onAddBacklog: () => void;
+  onViewTask: (task: TeamTask) => void;
+  onDeleteTask: (task: TeamTask) => void;
+}
+
+function TeamBacklogPanel({
+  tasks,
+  total,
+  searchQuery,
+  isLoading,
+  onSearchChange,
+  onAddBacklog,
+  onViewTask,
+  onDeleteTask
+}: TeamBacklogPanelProps) {
+  const [collapsed, setCollapsed] = useState(false);
+
+  return (
+    <aside
+      className={`flex h-full shrink-0 flex-col rounded-[3px] border bg-card shadow-sm overflow-hidden transition-[width] duration-300 ease-in-out ${
+        collapsed ? 'w-10' : 'w-92'
+      }`}
+    >
+      {collapsed ? (
+        <div className="flex h-full flex-col items-center gap-3 py-3">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 shrink-0"
+            onClick={() => setCollapsed(false)}
+            title="Expand backlog"
+          >
+            <ChevronsRight className="h-4 w-4" />
+          </Button>
+          <Archive className="h-4 w-4 text-amber-600 dark:text-amber-300 mt-2" />
+          {total > 0 && (
+            <span className="text-xs font-semibold text-muted-foreground">{total}</span>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="border-b p-3 space-y-3">
+            <div className="flex items-center gap-2">
+              <Archive className="h-4 w-4 text-amber-600 dark:text-amber-300" />
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold leading-none">Backlog</div>
+                <div className="text-xs text-muted-foreground mt-1">{total} planned</div>
+              </div>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
+                onClick={() => setCollapsed(true)}
+                title="Collapse backlog"
+              >
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button size="icon" variant="outline" className="h-8 w-8" onClick={onAddBacklog} title="Add backlog task">
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(event) => onSearchChange(event.target.value)}
+                placeholder="Search backlog..."
+                className="h-9 rounded-[3px] pl-8"
+              />
+            </div>
+          </div>
+
+          <ScrollArea className="flex-1 p-2">
+            {isLoading && (
+              <div className="flex h-24 items-center justify-center text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+              </div>
+            )}
+
+            {!isLoading && tasks.length === 0 && (
+              <div className="flex h-28 flex-col items-center justify-center rounded-[3px] border border-dashed text-center text-sm text-muted-foreground">
+                <Archive className="mb-2 h-5 w-5" />
+                <span>{searchQuery.trim() ? 'No backlog matches' : 'No backlog tasks'}</span>
+              </div>
+            )}
+
+            {!isLoading && tasks.length > 0 && (
+              <div className="space-y-2 pb-2">
+                {tasks.map((task) => (
+                  <div
+                    key={task.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onViewTask(task)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') onViewTask(task);
+                    }}
+                    className="group rounded-[3px] border bg-background p-3 text-left shadow-sm transition-colors hover:bg-muted/60"
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium leading-snug text-foreground/90">{task.title}</div>
+                        {task.description && (
+                          <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                            {extractPlainText(task.description)}
+                          </div>
+                        )}
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild onClick={(event) => event.stopPropagation()}>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100">
+                            <MoreHorizontal className="h-3.5 w-3.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={(event) => { event.stopPropagation(); onViewTask(task); }}>
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={(event) => { event.stopPropagation(); onDeleteTask(task); }}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <Badge
+                        variant={TASK_PRIORITY_CONFIG[task.priority].variant}
+                        className="h-4 rounded-[2px] px-1 text-[10px] font-bold uppercase tracking-tighter"
+                      >
+                        {TASK_PRIORITY_CONFIG[task.priority].label}
+                      </Badge>
+                      {task.dueDate && (
+                        <Badge variant="outline" className="h-4 rounded-[2px] border-none bg-zinc-200/80 px-1 text-[10px] text-muted-foreground dark:bg-zinc-800">
+                          {formatDateShort(task.dueDate)}
+                        </Badge>
+                      )}
+                      {task.assignees.length > 0 && (
+                        <Badge variant="secondary" className="h-4 rounded-[2px] border-none bg-zinc-200/80 px-1 text-[10px] text-muted-foreground dark:bg-zinc-800">
+                          {task.assignees.length} assigned
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </>
+      )}
+    </aside>
   );
 }
 
@@ -437,7 +611,7 @@ function NotesTab({ teamId, projectId, searchQuery }: NotesTabProps) {
     enabled: collabAvailable && isEditing && !!selectedNote,
   });
 
-  const notes = notesData?.items ?? [];
+  const notes = useMemo(() => notesData?.items ?? [], [notesData?.items]);
 
   // Listen for BroadcastChannel messages from popout windows
   useEffect(() => {
@@ -673,10 +847,11 @@ interface TaskFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   task?: TeamTask;
+  defaultStatus?: TeamTaskStatus;
   onSave: (data: CreateTeamTaskRequest | UpdateTeamTaskRequest, id?: string) => Promise<void>;
 }
 
-function TaskFormDialog({ open, onOpenChange, task, onSave }: TaskFormDialogProps) {
+function TaskFormDialog({ open, onOpenChange, task, defaultStatus = 'pending', onSave }: TaskFormDialogProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');        // plain text for NLP parsing
   const [descriptionJson, setDescriptionJson] = useState(''); // Tiptap JSON for persistence
@@ -705,7 +880,7 @@ function TaskFormDialog({ open, onOpenChange, task, onSave }: TaskFormDialogProp
         setTitle('');
         setDescription('');
         setDescriptionJson('');
-        setStatus('pending');
+        setStatus(defaultStatus);
         setPriority('medium');
         setDueDate('');
       }
@@ -714,7 +889,7 @@ function TaskFormDialog({ open, onOpenChange, task, onSave }: TaskFormDialogProp
       setUserOverridePriority(false);
       setUserOverrideDueDate(false);
     }
-  }, [open, task]);
+  }, [open, task, defaultStatus]);
 
   // NLP auto-detection from description text
   useEffect(() => {
@@ -788,8 +963,14 @@ function TaskFormDialog({ open, onOpenChange, task, onSave }: TaskFormDialogProp
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{task ? 'Edit Task' : 'Create Task'}</DialogTitle>
-          <DialogDescription>{task ? 'Update the task details.' : 'Add a new task to this project.'}</DialogDescription>
+          <DialogTitle>{task ? 'Edit Task' : defaultStatus === 'backlog' ? 'Create Backlog Task' : 'Create Task'}</DialogTitle>
+          <DialogDescription>
+            {task
+              ? 'Update the task details.'
+              : defaultStatus === 'backlog'
+                ? 'Capture planned work before it enters the active board.'
+                : 'Add a new task to this project.'}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
@@ -883,6 +1064,7 @@ export const TeamProjectDetailPage = () => {
   const teamId = searchParams.get('teamId') ?? '';
   const [activeTab, setActiveTab] = useState<TabValue>('overview');
   const [noteSearchQuery, setNoteSearchQuery] = useState('');
+  const [taskBacklogSearchQuery, setTaskBacklogSearchQuery] = useState('');
 
   // Real-time SSE for team events
   useTeamEventStream(teamId || undefined);
@@ -897,11 +1079,22 @@ export const TeamProjectDetailPage = () => {
     projectId ?? '',
     { pageSize: 100 }
   );
+  const { data: backlogTasksData, isLoading: backlogTasksLoading } = useTeamTaskList(
+    teamId,
+    projectId ?? '',
+    {
+      pageSize: 200,
+      status: 'backlog',
+      searchQuery: taskBacklogSearchQuery.trim() || undefined
+    }
+  );
   const createTaskMutation = useCreateTeamTask(teamId, projectId ?? '');
   const updateTaskMutation = useUpdateTeamTask(teamId, projectId ?? '');
   const deleteTaskMutation = useDeleteTeamTask(teamId, projectId ?? '');
 
-  const allTasks = tasksData?.items ?? [];
+  const allTasks = useMemo(() => tasksData?.items ?? [], [tasksData?.items]);
+  const backlogTasks = useMemo(() => backlogTasksData?.items ?? [], [backlogTasksData?.items]);
+  const backlogTaskTotal = backlogTasksData?.meta.total ?? backlogTasks.length;
 
   // Local tasks state for DnD optimistic updates
   const [localTasks, setLocalTasks] = useState<TeamTask[]>([]);
@@ -909,14 +1102,19 @@ export const TeamProjectDetailPage = () => {
     setLocalTasks(allTasks);
   }, [allTasks]);
 
+  const activeTasks = useMemo(
+    () => localTasks.filter((task) => task.status !== 'backlog'),
+    [localTasks]
+  );
+
   // Task stats computed from actual task data
   const taskStats = useMemo(() => {
-    const total = localTasks.length;
-    const completed = localTasks.filter((t) => t.status === 'completed').length;
-    const inProgress = localTasks.filter((t) => t.status === 'in_progress').length;
-    const pending = localTasks.filter((t) => t.status === 'pending').length;
-    return { total, completed, inProgress, pending };
-  }, [localTasks]);
+    const total = activeTasks.length;
+    const completed = activeTasks.filter((t) => t.status === 'completed').length;
+    const inProgress = activeTasks.filter((t) => t.status === 'in_progress').length;
+    const pending = activeTasks.filter((t) => t.status === 'pending').length;
+    return { total, completed, inProgress, pending, backlog: backlogTaskTotal, all: total + backlogTaskTotal };
+  }, [activeTasks, backlogTaskTotal]);
 
   const taskProgress = useMemo(() => {
     if (taskStats.total === 0) return 0;
@@ -926,6 +1124,7 @@ export const TeamProjectDetailPage = () => {
   // Dialog states
   const [taskFormOpen, setTaskFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TeamTask | undefined>();
+  const [taskDefaultStatus, setTaskDefaultStatus] = useState<TeamTaskStatus>('pending');
   const [deletingTask, setDeletingTask] = useState<TeamTask | null>(null);
   const [detailTask, setDetailTask] = useState<TeamTask | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -966,11 +1165,19 @@ export const TeamProjectDetailPage = () => {
 
   const handleEditTask = useCallback((task: TeamTask) => {
     setEditingTask(task);
+    setTaskDefaultStatus(task.status);
     setTaskFormOpen(true);
   }, []);
 
   const handleAddTask = useCallback(() => {
     setEditingTask(undefined);
+    setTaskDefaultStatus('pending');
+    setTaskFormOpen(true);
+  }, []);
+
+  const handleAddBacklogTask = useCallback(() => {
+    setEditingTask(undefined);
+    setTaskDefaultStatus('backlog');
     setTaskFormOpen(true);
   }, []);
 
@@ -1021,13 +1228,13 @@ export const TeamProjectDetailPage = () => {
   }, [handleEditTask]);
 
   const handleDetailDelete = useCallback((id: string) => {
-    const task = localTasks.find((t) => t.id === id);
+    const task = localTasks.find((t) => t.id === id) ?? backlogTasks.find((t) => t.id === id);
     if (task) {
       setDetailModalOpen(false);
       setDetailTask(null);
       setDeletingTask(task);
     }
-  }, [localTasks]);
+  }, [localTasks, backlogTasks]);
 
   // Error / loading guards
   if (!teamId || !projectId) {
@@ -1096,9 +1303,9 @@ export const TeamProjectDetailPage = () => {
               <TabsTrigger value="tasks" className="gap-2">
                 <ListTodo className="h-4 w-4" />
                 Tasks
-                {taskStats.total > 0 && (
+                {taskStats.all > 0 && (
                   <Badge variant="secondary" className="ml-1">
-                    {taskStats.total}
+                    {taskStats.all}
                   </Badge>
                 )}
               </TabsTrigger>
@@ -1158,10 +1365,14 @@ export const TeamProjectDetailPage = () => {
                     </div>
 
                     {/* Task Stats Grid */}
-                    <div className="grid grid-cols-4 gap-4 pt-2">
+                    <div className="grid grid-cols-5 gap-4 pt-2">
                       <div className="text-center">
                         <div className="text-2xl font-bold text-gray-500">{taskStats.pending}</div>
                         <div className="text-xs text-muted-foreground">Pending</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-amber-600 dark:text-amber-300">{taskStats.backlog}</div>
+                        <div className="text-xs text-muted-foreground">Backlog</div>
                       </div>
                       <div className="text-center">
                         <div className="text-2xl font-bold text-blue-500">{taskStats.inProgress}</div>
@@ -1325,7 +1536,10 @@ export const TeamProjectDetailPage = () => {
               <div className="flex items-center justify-between mb-4 shrink-0">
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   <span>
-                    <strong className="text-foreground">{taskStats.total}</strong> tasks
+                    <strong className="text-foreground">{taskStats.total}</strong> active
+                  </span>
+                  <span className="text-amber-600 dark:text-amber-300">
+                    <strong>{taskStats.backlog}</strong> backlog
                   </span>
                   <span className="text-green-500">
                     <strong>{taskStats.completed}</strong> done
@@ -1350,7 +1564,7 @@ export const TeamProjectDetailPage = () => {
                 </div>
               )}
 
-              {!tasksLoading && localTasks.length === 0 && (
+              {!tasksLoading && !backlogTasksLoading && activeTasks.length === 0 && backlogTasks.length === 0 && (
                 <Card>
                   <CardContent className="flex flex-col items-center justify-center py-12">
                     <ListTodo className="h-12 w-12 text-muted-foreground mb-4" />
@@ -1366,7 +1580,7 @@ export const TeamProjectDetailPage = () => {
                 </Card>
               )}
 
-              {!tasksLoading && localTasks.length > 0 && (
+              {!tasksLoading && (activeTasks.length > 0 || backlogTasks.length > 0 || backlogTasksLoading) && (
                 <DragDropProvider
                   onDragOver={(event) => {
                     const { source, target } = event.operation;
@@ -1376,11 +1590,11 @@ export const TeamProjectDetailPage = () => {
                     if (target?.type === 'column') {
                       targetStatus = target.id as TeamTaskStatus;
                     } else if (target?.type === 'item') {
-                      const targetTask = localTasks.find((t) => t.id === target.id);
+                      const targetTask = activeTasks.find((t) => t.id === target.id);
                       targetStatus = targetTask?.status;
                     }
 
-                    const sourceTask = localTasks.find((t) => t.id === source.id);
+                    const sourceTask = activeTasks.find((t) => t.id === source.id);
                     if (sourceTask && targetStatus && sourceTask.status !== targetStatus) {
                       setLocalTasks((prev) =>
                         prev.map((t) =>
@@ -1402,7 +1616,7 @@ export const TeamProjectDetailPage = () => {
                     if (target?.type === 'column') {
                       targetStatus = target.id as TeamTaskStatus;
                     } else if (target?.type === 'item') {
-                      const targetTask = localTasks.find((t) => t.id === target.id);
+                      const targetTask = activeTasks.find((t) => t.id === target.id);
                       targetStatus = targetTask?.status;
                     }
 
@@ -1418,12 +1632,22 @@ export const TeamProjectDetailPage = () => {
                   }}
                 >
                   <div className="flex-1 flex gap-4 overflow-x-auto pb-4">
+                    <TeamBacklogPanel
+                      tasks={backlogTasks}
+                      total={backlogTaskTotal}
+                      searchQuery={taskBacklogSearchQuery}
+                      isLoading={backlogTasksLoading}
+                      onSearchChange={setTaskBacklogSearchQuery}
+                      onAddBacklog={handleAddBacklogTask}
+                      onViewTask={handleViewTask}
+                      onDeleteTask={setDeletingTask}
+                    />
                     {KANBAN_COLUMNS.map((status, index) => (
                       <KanbanColumn
                         key={status}
                         status={status}
                         index={index}
-                        tasks={localTasks}
+                        tasks={activeTasks}
                         onDeleteTask={setDeletingTask}
                         onViewTask={handleViewTask}
                       />
@@ -1459,6 +1683,7 @@ export const TeamProjectDetailPage = () => {
         open={taskFormOpen}
         onOpenChange={handleTaskFormOpenChange}
         task={editingTask}
+        defaultStatus={taskDefaultStatus}
         onSave={handleSaveTask}
       />
 

@@ -112,7 +112,7 @@ teamProjectsRouter.get('/', requireTeamRole('member'), asyncHandler(async (req: 
      ) ns ON true
      LEFT JOIN LATERAL (
        SELECT
-         COUNT(1)::text AS task_total,
+         COUNT(1) FILTER (WHERE status != 'backlog')::text AS task_total,
          COUNT(1) FILTER (WHERE status = 'completed')::text AS task_completed,
          COUNT(1) FILTER (WHERE status = 'in_progress')::text AS task_in_progress,
          COUNT(1) FILTER (WHERE status = 'pending')::text AS task_pending
