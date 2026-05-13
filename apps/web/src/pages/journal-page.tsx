@@ -2,6 +2,7 @@ import { DragDropProvider } from '@dnd-kit/react';
 import { useSortable } from '@dnd-kit/react/sortable';
 import { useQueryClient } from '@tanstack/react-query';
 import {
+  Archive,
   ArrowLeft,
   ArrowRight,
   ArrowUpDown,
@@ -9,6 +10,8 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  ChevronsLeft,
+  ChevronsRight,
   Copy,
   FileText,
   Filter,
@@ -16,7 +19,8 @@ import {
   Loader2,
   MoveRight,
   Plus,
-  RotateCcw
+  RotateCcw,
+  Search
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -104,6 +108,7 @@ const PRIORITY_CONFIG = TASK_PRIORITY_CONFIG;
 
 // Kanban columns in order
 const KANBAN_COLUMNS: WorkLogStatus[] = ['todo', 'in_progress', 'done'];
+const ACTIVE_WORK_LOG_STATUSES: WorkLogStatus[] = ['todo', 'in_progress', 'done'];
 
 const parseJournalDateParam = (value: string | null) => {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -303,6 +308,154 @@ function KanbanColumn({ status, index, entries, selectedEntry, onSelectEntry }: 
   );
 }
 
+interface BacklogPanelProps {
+  entries: WorkLogEntry[];
+  searchQuery: string;
+  isLoading: boolean;
+  selectedEntry?: WorkLogEntry;
+  onSearchChange: (query: string) => void;
+  onAddBacklog: () => void;
+  onSelectEntry: (entry: WorkLogEntry) => void;
+}
+
+function BacklogPanel({
+  entries,
+  searchQuery,
+  isLoading,
+  selectedEntry,
+  onSearchChange,
+  onAddBacklog,
+  onSelectEntry
+}: BacklogPanelProps) {
+  const [collapsed, setCollapsed] = useState(false);
+
+  const filteredEntries = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    if (!normalizedQuery) return entries;
+
+    return entries.filter((entry) => {
+      const content = extractPlainText(entry.content).toLowerCase();
+      const project = entry.project?.title.toLowerCase() ?? '';
+      const tags = entry.tags.map((tag) => tag.name.toLowerCase()).join(' ');
+      return `${content} ${project} ${tags}`.includes(normalizedQuery);
+    });
+  }, [entries, searchQuery]);
+
+  return (
+    <aside
+      className={`flex h-full shrink-0 flex-col rounded-[3px] border bg-card shadow-sm overflow-hidden transition-[width] duration-300 ease-in-out ${
+        collapsed ? 'w-10' : 'w-92'
+      }`}
+    >
+      {collapsed ? (
+        <div className="flex h-full flex-col items-center gap-3 py-3">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 shrink-0"
+            onClick={() => setCollapsed(false)}
+            title="Expand backlog"
+          >
+            <ChevronsRight className="h-4 w-4" />
+          </Button>
+          <Archive className="h-4 w-4 text-amber-600 dark:text-amber-300 mt-2" />
+          {entries.length > 0 && (
+            <span className="text-xs font-semibold text-muted-foreground">{entries.length}</span>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="border-b p-3 space-y-3">
+            <div className="flex items-center gap-2">
+              <Archive className="h-4 w-4 text-amber-600 dark:text-amber-300" />
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold leading-none">Backlog</div>
+                <div className="text-xs text-muted-foreground mt-1">{entries.length} planned</div>
+              </div>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
+                onClick={() => setCollapsed(true)}
+                title="Collapse backlog"
+              >
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button size="icon" variant="outline" className="h-8 w-8" onClick={onAddBacklog} title="Add backlog item">
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={searchQuery}
+                onChange={(event) => onSearchChange(event.target.value)}
+                placeholder="Search backlog..."
+                className="h-9 w-full rounded-[3px] border bg-background pl-8 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+              />
+            </div>
+          </div>
+
+          <ScrollArea className="flex-1 p-2">
+            {isLoading && (
+              <div className="flex h-24 items-center justify-center text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+              </div>
+            )}
+
+            {!isLoading && filteredEntries.length === 0 && (
+              <div className="flex h-28 flex-col items-center justify-center rounded-[3px] border border-dashed text-center text-sm text-muted-foreground">
+                <Archive className="mb-2 h-5 w-5" />
+                <span>{searchQuery.trim() ? 'No backlog matches' : 'No backlog items'}</span>
+              </div>
+            )}
+
+            {!isLoading && filteredEntries.length > 0 && (
+              <div className="space-y-2 pb-2">
+                {filteredEntries.map((entry) => (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    onClick={() => onSelectEntry(entry)}
+                    className={`w-full rounded-[3px] border p-3 text-left shadow-sm transition-colors hover:bg-muted/60 ${
+                      selectedEntry?.id === entry.id ? 'border-primary bg-primary/5!' : 'bg-background'
+                    }`}
+                  >
+                    <div className="text-sm font-medium leading-snug text-foreground/90">
+                      <MentionContentView content={entry.content} />
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      {entry.priority && (
+                        <Badge
+                          variant={PRIORITY_CONFIG[entry.priority].variant}
+                          className="h-4 rounded-[2px] px-1 text-[10px] font-bold uppercase tracking-tighter"
+                        >
+                          {PRIORITY_CONFIG[entry.priority].label}
+                        </Badge>
+                      )}
+                      {entry.dueDate && (
+                        <Badge variant="outline" className="h-4 rounded-[2px] border-none bg-zinc-200/80 px-1 text-[10px] text-muted-foreground dark:bg-zinc-800">
+                          {formatDateDisplay(entry.dueDate)}
+                        </Badge>
+                      )}
+                      {entry.project && (
+                        <Badge variant="secondary" className="h-4 rounded-[2px] border-none bg-zinc-200/80 px-1 text-[10px] text-muted-foreground dark:bg-zinc-800">
+                          {entry.project.title}
+                        </Badge>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </>
+      )}
+    </aside>
+  );
+}
+
 // TaskDetailModal is now imported from @/features/journal/components (shared component)
 
 interface ProjectFilterProps {
@@ -360,6 +513,7 @@ interface EntryFormDialogProps {
   onOpenChange: (open: boolean) => void;
   entry?: WorkLogEntry;
   defaultDate?: string;
+  defaultStatus?: WorkLogStatus;
   tags: Tag[];
   projects: PersonalProject[];
   onSave: (data: CreateWorkLogRequest | UpdateWorkLogRequest, id?: string) => Promise<void>;
@@ -405,6 +559,7 @@ function EntryFormDialog({
   onOpenChange,
   entry,
   defaultDate,
+  defaultStatus = 'todo',
   tags,
   projects,
   onSave,
@@ -461,7 +616,7 @@ function EntryFormDialog({
         setContent('');
         setContentJson('');
         setDate(defaultDate ?? getTodayDate());
-        setStatus('todo');
+        setStatus(defaultStatus);
         setPriority('none');
         setDueDate('');
         setProjectId('none');
@@ -476,7 +631,7 @@ function EntryFormDialog({
       }
       setSuggestions({ hashtags: [] });
     }
-  }, [open, entry, defaultDate]);
+  }, [open, entry, defaultDate, defaultStatus]);
 
   // Parse content for suggestions with debouncing
   useEffect(() => {
@@ -647,9 +802,13 @@ function EntryFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{entry ? 'Edit Entry' : 'New Entry'}</DialogTitle>
+          <DialogTitle>{entry ? 'Edit Entry' : defaultStatus === 'backlog' ? 'New Backlog Item' : 'New Entry'}</DialogTitle>
           <DialogDescription>
-            {entry ? 'Update your work log entry' : 'Add a new entry to your work journal'}
+            {entry
+              ? 'Update your work log entry'
+              : defaultStatus === 'backlog'
+                ? 'Capture work that is planned but not active yet'
+                : 'Add a new entry to your work journal'}
           </DialogDescription>
         </DialogHeader>
 
@@ -901,6 +1060,8 @@ export function JournalPage() {
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<WorkLogEntry | undefined>();
   const [defaultDate, setDefaultDate] = useState<string | undefined>();
+  const [defaultStatus, setDefaultStatus] = useState<WorkLogStatus>('todo');
+  const [backlogSearchQuery, setBacklogSearchQuery] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [rolloverDialogOpen, setRolloverDialogOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<WorkLogEntry | undefined>();
@@ -930,7 +1091,12 @@ export function JournalPage() {
   const { data: entriesData, isLoading: entriesLoading, error: entriesError, refetch } = useWorkLogsList({
     from,
     to,
-    projectId: projectFilter
+    projectId: projectFilter,
+    status: ACTIVE_WORK_LOG_STATUSES
+  });
+  const { data: backlogData, isLoading: backlogLoading } = useWorkLogsList({
+    projectId: projectFilter,
+    status: ['backlog']
   });
   const { data: tagsData, isLoading: tagsLoading } = useTagsList();
   const { data: projectsData, isLoading: projectsLoading } = usePersonalProjectsList();
@@ -939,14 +1105,21 @@ export function JournalPage() {
   
   // Local state for optimistic updates (synced with query data)
   const [localEntries, setEntries] = useState<WorkLogEntry[]>([]);
+  const [localBacklogEntries, setBacklogEntries] = useState<WorkLogEntry[]>([]);
   const [localTags, setTags] = useState<Tag[]>([]);
   
   // Sync local state with query data
   useEffect(() => {
     if (entriesData?.items) {
-      setEntries(entriesData.items);
+      setEntries(entriesData.items.filter((entry) => entry.status !== 'backlog'));
     }
   }, [entriesData?.items]);
+
+  useEffect(() => {
+    if (backlogData?.items) {
+      setBacklogEntries(backlogData.items);
+    }
+  }, [backlogData?.items]);
   
   useEffect(() => {
     if (tagsData?.items) {
@@ -955,11 +1128,43 @@ export function JournalPage() {
   }, [tagsData?.items]);
   
   // Use local state for optimistic updates, fallback to query data
-  const entries = localEntries.length > 0 || !entriesData ? localEntries : (entriesData?.items ?? []);
+  const entries = useMemo(
+    () => (localEntries.length > 0 || !entriesData ? localEntries : (entriesData?.items ?? [])),
+    [localEntries, entriesData]
+  );
+  const backlogEntries = useMemo(
+    () => (localBacklogEntries.length > 0 || !backlogData ? localBacklogEntries : (backlogData?.items ?? [])),
+    [localBacklogEntries, backlogData]
+  );
   const tags = localTags.length > 0 || !tagsData ? localTags : (tagsData?.items ?? []);
   const projects = projectsData?.items ?? [];
   const isLoading = entriesLoading || tagsLoading || projectsLoading;
   const error = entriesError ? (entriesError instanceof Error ? entriesError.message : 'Failed to load journal data') : null;
+
+  const placeEntryLocally = useCallback((entry: WorkLogEntry) => {
+    const isBacklog = entry.status === 'backlog';
+
+    setEntries((prev) =>
+      isBacklog
+        ? prev.filter((item) => item.id !== entry.id)
+        : prev.some((item) => item.id === entry.id)
+          ? prev.map((item) => (item.id === entry.id ? entry : item))
+          : [entry, ...prev]
+    );
+
+    setBacklogEntries((prev) =>
+      isBacklog
+        ? prev.some((item) => item.id === entry.id)
+          ? prev.map((item) => (item.id === entry.id ? entry : item))
+          : [entry, ...prev]
+        : prev.filter((item) => item.id !== entry.id)
+    );
+  }, []);
+
+  const removeEntryLocally = useCallback((id: string) => {
+    setEntries((prev) => prev.filter((entry) => entry.id !== id));
+    setBacklogEntries((prev) => prev.filter((entry) => entry.id !== id));
+  }, []);
 
   // Fetch unfinished tasks from all past dates (before today)
   useEffect(() => {
@@ -1016,100 +1221,96 @@ export function JournalPage() {
   const handleStatusChange = useCallback(
     async (id: string, newStatus: WorkLogStatus) => {
       // Find the entry to get its old status for rollback
-      const entry = entries.find((e) => e.id === id);
+      const entry = [...entries, ...backlogEntries].find((e) => e.id === id);
       if (!entry || entry.status === newStatus) return;
 
-      const oldStatus = entry.status;
+      const oldEntry = entry;
+      const activatedDate = entry.status === 'backlog' && newStatus !== 'backlog' ? formatDate(currentDate) : entry.date;
+      const optimisticEntry: WorkLogEntry = {
+        ...entry,
+        status: newStatus,
+        date: activatedDate,
+        actualEndDate: newStatus === 'done' ? getTodayDate() : entry.actualEndDate,
+        updatedAt: new Date().toISOString()
+      };
 
       // Optimistic update: update local state immediately
-      setEntries((prev) =>
-        prev.map((e) =>
-          e.id === id
-            ? {
-                ...e,
-                status: newStatus,
-                actualEndDate: newStatus === 'done' ? getTodayDate() : e.actualEndDate,
-                updatedAt: new Date().toISOString()
-              }
-            : e
-        )
-      );
+      placeEntryLocally(optimisticEntry);
 
       // Update selected entry if it's the one being changed
       if (selectedEntry?.id === id) {
-        setSelectedEntry((prev) =>
-          prev
-            ? {
-                ...prev,
-                status: newStatus,
-                actualEndDate: newStatus === 'done' ? getTodayDate() : prev.actualEndDate,
-                updatedAt: new Date().toISOString()
-              }
-            : prev
-        );
+        setSelectedEntry(optimisticEntry);
       }
 
       // Persist to API in background
       try {
         const updateData: UpdateWorkLogRequest = { status: newStatus };
+        if (activatedDate !== entry.date) {
+          updateData.date = activatedDate;
+        }
         if (newStatus === 'done') {
           updateData.actualEndDate = getTodayDate();
         }
-        await workLogsApi.update(id, updateData);
+        const result = await workLogsApi.update(id, updateData);
+        placeEntryLocally(result.entry);
         // Invalidate work logs so dashboard/heatmap/other views update
         queryClient.invalidateQueries({ queryKey: queryKeys.workLogs.all });
         queryClient.invalidateQueries({ queryKey: queryKeys.personalProjects.lists() });
       } catch (err) {
         console.error('Failed to update status:', err);
         // Rollback on error
-        setEntries((prev) =>
-          prev.map((e) => (e.id === id ? { ...e, status: oldStatus } : e))
-        );
+        placeEntryLocally(oldEntry);
         if (selectedEntry?.id === id) {
-          setSelectedEntry((prev) => (prev ? { ...prev, status: oldStatus } : prev));
+          setSelectedEntry(oldEntry);
         }
       }
     },
-    [entries, selectedEntry, setEntries, queryClient]
+    [entries, backlogEntries, currentDate, selectedEntry, placeEntryLocally, queryClient]
   );
 
   const handleFlagsChange = useCallback(
     async (id: string, newFlags: TaskUpdateFlag[]) => {
+      const entry = [...entries, ...backlogEntries].find((item) => item.id === id);
+      if (!entry) return;
+
       // Optimistic update
-      setEntries((prev) =>
-        prev.map((e) =>
-          e.id === id
-            ? { ...e, flags: newFlags, updatedAt: new Date().toISOString() }
-            : e
-        )
-      );
+      const optimisticEntry = { ...entry, flags: newFlags, updatedAt: new Date().toISOString() };
+      placeEntryLocally(optimisticEntry);
 
       if (selectedEntry?.id === id) {
-        setSelectedEntry((prev) =>
-          prev ? { ...prev, flags: newFlags, updatedAt: new Date().toISOString() } : prev
-        );
+        setSelectedEntry(optimisticEntry);
       }
 
       // Persist to API
       try {
-        await workLogsApi.update(id, { flags: newFlags });
+        const result = await workLogsApi.update(id, { flags: newFlags });
+        placeEntryLocally(result.entry);
       } catch (err) {
         console.error('Failed to update flags:', err);
         // Rollback would require storing old flags, simplified for now
       }
     },
-    [selectedEntry, setEntries]
+    [entries, backlogEntries, selectedEntry, placeEntryLocally]
   );
 
   const handleEdit = useCallback((entry: WorkLogEntry) => {
     setEditingEntry(entry);
     setDefaultDate(undefined);
+    setDefaultStatus(entry.status);
     setFormDialogOpen(true);
   }, []);
 
   const handleAddEntry = useCallback(() => {
     setEditingEntry(undefined);
     setDefaultDate(getTodayDate());
+    setDefaultStatus('todo');
+    setFormDialogOpen(true);
+  }, []);
+
+  const handleAddBacklog = useCallback(() => {
+    setEditingEntry(undefined);
+    setDefaultDate(getTodayDate());
+    setDefaultStatus('backlog');
     setFormDialogOpen(true);
   }, []);
 
@@ -1118,37 +1319,35 @@ export function JournalPage() {
       if (id) {
         // Optimistic update for edit (exclude reportedAt — null not valid on WorkLogEntry)
         const { reportedAt: _r, ...safeData } = data as UpdateWorkLogRequest;
-        setEntries((prev) =>
-          prev.map((e) =>
-            e.id === id
-              ? { ...e, ...safeData, updatedAt: new Date().toISOString() }
-              : e
-          )
-        );
+        const existing = [...entries, ...backlogEntries].find((entry) => entry.id === id);
+        if (existing) {
+          placeEntryLocally({ ...existing, ...safeData, updatedAt: new Date().toISOString() });
+        }
         if (selectedEntry?.id === id) {
           setSelectedEntry((prev) =>
             prev ? { ...prev, ...safeData, updatedAt: new Date().toISOString() } : prev
           );
         }
-        await workLogsApi.update(id, data as UpdateWorkLogRequest);
+        const result = await workLogsApi.update(id, data as UpdateWorkLogRequest);
+        placeEntryLocally(result.entry);
       } else {
         // For create, we need to refetch to get the new entry with proper ID
         const result = await workLogsApi.create(data as CreateWorkLogRequest);
-        setEntries((prev) => [result.entry, ...prev]);
+        placeEntryLocally(result.entry);
       }
       // Invalidate dashboard queries so changes appear immediately
       queryClient.invalidateQueries({ queryKey: queryKeys.workLogs.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.personalProjects.lists() });
     },
-    [selectedEntry, setEntries, queryClient]
+    [entries, backlogEntries, selectedEntry, placeEntryLocally, queryClient]
   );
 
   const handleDeleteEntry = useCallback(async () => {
     if (!deleteConfirmId) return;
-    const entryToDelete = entries.find((e) => e.id === deleteConfirmId);
+    const entryToDelete = [...entries, ...backlogEntries].find((e) => e.id === deleteConfirmId);
     
     // Optimistic delete
-    setEntries((prev) => prev.filter((e) => e.id !== deleteConfirmId));
+    removeEntryLocally(deleteConfirmId);
     if (selectedEntry?.id === deleteConfirmId) {
       setSelectedEntry(undefined);
     }
@@ -1162,12 +1361,12 @@ export function JournalPage() {
       console.error('Failed to delete entry:', err);
       // Rollback on error
       if (entryToDelete) {
-        setEntries((prev) => [...prev, entryToDelete]);
+        placeEntryLocally(entryToDelete);
       }
     } finally {
       setDeleteConfirmId(null);
     }
-  }, [deleteConfirmId, entries, selectedEntry, setEntries, queryClient]);
+  }, [deleteConfirmId, entries, backlogEntries, selectedEntry, removeEntryLocally, placeEntryLocally, queryClient]);
 
   const handleCreateTag = useCallback(
     async (name: string): Promise<Tag> => {
@@ -1438,6 +1637,15 @@ export function JournalPage() {
               }}
             >
               <div className="flex-1 flex gap-4 overflow-x-auto pb-4">
+                <BacklogPanel
+                  entries={backlogEntries}
+                  searchQuery={backlogSearchQuery}
+                  isLoading={backlogLoading}
+                  selectedEntry={selectedEntry}
+                  onSearchChange={setBacklogSearchQuery}
+                  onAddBacklog={handleAddBacklog}
+                  onSelectEntry={setSelectedEntry}
+                />
                 {KANBAN_COLUMNS.map((status, index) => (
                   <KanbanColumn
                     key={status}
@@ -1471,6 +1679,7 @@ export function JournalPage() {
         onOpenChange={setFormDialogOpen}
         entry={editingEntry}
         defaultDate={defaultDate}
+        defaultStatus={defaultStatus}
         tags={tags}
         projects={projects}
         onSave={handleSaveEntry}

@@ -186,7 +186,7 @@ export const workLogsService = {
     end.setDate(end.getDate() + 6);
     const weekEndDate = end.toISOString().split('T')[0];
 
-    return this.list({ from: weekStartDate, to: weekEndDate });
+    return this.list({ from: weekStartDate, to: weekEndDate, status: ['todo', 'in_progress', 'done'] });
   },
 
   /**

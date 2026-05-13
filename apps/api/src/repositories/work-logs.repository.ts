@@ -287,7 +287,7 @@ export const workLogsRepository = {
           SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as inProgress,
           SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as done
         FROM work_logs
-        WHERE project_id IN (${placeholders})
+        WHERE project_id IN (${placeholders}) AND status != 'backlog'
         GROUP BY project_id`
       )
       .all(...projectIds) as {
@@ -393,7 +393,7 @@ export const workLogsRepository = {
       .prepare(
         `SELECT * FROM work_logs 
          WHERE date = ? 
-         AND status NOT IN ('done', 'completed', 'Completed', 'Done')
+         AND status NOT IN ('done', 'completed', 'Completed', 'Done', 'backlog')
          ORDER BY created_at ASC`
       )
       .all(date) as unknown[];

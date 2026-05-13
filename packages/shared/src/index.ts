@@ -1298,7 +1298,7 @@ export interface OvertimeEntryResponse {
 /**
  * Status of a work log entry.
  */
-export type WorkLogStatus = 'todo' | 'in_progress' | 'done';
+export type WorkLogStatus = 'todo' | 'in_progress' | 'done' | 'backlog';
 
 /**
  * Priority level for work log entries.
@@ -2312,7 +2312,7 @@ export interface TeamCalendarEventsResponse {
 /**
  * Status of a team task.
  */
-export type TeamTaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
+export type TeamTaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled' | 'backlog';
 
 /**
  * Priority of a team task.

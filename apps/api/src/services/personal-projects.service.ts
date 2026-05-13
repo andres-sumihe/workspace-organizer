@@ -128,13 +128,14 @@ export const personalProjectsService = {
 
     // Get linked work logs (tasks) for this project
     const linkedTasks = await workLogsRepository.list({ projectId: id });
+    const activeTasks = linkedTasks.filter((task) => task.status !== 'backlog');
 
     // Calculate task statistics
     const taskStats: PersonalProjectTaskStats = {
-      total: linkedTasks.length,
-      todo: linkedTasks.filter((t) => t.status === 'todo').length,
-      inProgress: linkedTasks.filter((t) => t.status === 'in_progress').length,
-      done: linkedTasks.filter((t) => t.status === 'done').length
+      total: activeTasks.length,
+      todo: activeTasks.filter((t) => t.status === 'todo').length,
+      inProgress: activeTasks.filter((t) => t.status === 'in_progress').length,
+      done: activeTasks.filter((t) => t.status === 'done').length
     };
 
     // Get linked workspace info if exists

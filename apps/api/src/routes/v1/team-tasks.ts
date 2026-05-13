@@ -24,6 +24,17 @@ export const teamTasksRouter = Router({ mergeParams: true });
 
 teamTasksRouter.use(requireAuth as RequestHandler);
 
+const VALID_TEAM_TASK_STATUSES: TeamTaskStatus[] = [
+  'pending',
+  'in_progress',
+  'completed',
+  'cancelled',
+  'backlog'
+];
+
+const isTeamTaskStatus = (value: string): value is TeamTaskStatus =>
+  VALID_TEAM_TASK_STATUSES.includes(value as TeamTaskStatus);
+
 // Database row types
 interface TaskRow {
   id: string;
@@ -164,7 +175,17 @@ teamTasksRouter.get('/', requireTeamRole('member'), asyncHandler(async (req: Tea
   const values: unknown[] = [projectId, teamId];
   let paramIndex = 3;
 
-  if (status) { conditions.push(`t.status = $${paramIndex++}`); values.push(status); }
+  if (status) {
+    if (!isTeamTaskStatus(status)) {
+      throw new AppError(
+        `Invalid status. Valid values: ${VALID_TEAM_TASK_STATUSES.join(', ')}`,
+        400,
+        'INVALID_STATUS'
+      );
+    }
+    conditions.push(`t.status = $${paramIndex++}`);
+    values.push(status);
+  }
   if (priority) { conditions.push(`t.priority = $${paramIndex++}`); values.push(priority); }
   if (assignee) {
     conditions.push(`EXISTS (SELECT 1 FROM team_task_assignments a WHERE a.task_id = t.id AND a.email = $${paramIndex++})`);
@@ -257,6 +278,14 @@ teamTasksRouter.post('/', requireTeamRole('member'), asyncHandler(async (req: Te
     throw new AppError('Title is required', 400, 'INVALID_REQUEST');
   }
 
+  if (!isTeamTaskStatus(status)) {
+    throw new AppError(
+      `Invalid status. Valid values: ${VALID_TEAM_TASK_STATUSES.join(', ')}`,
+      400,
+      'INVALID_STATUS'
+    );
+  }
+
   const result = await query<TaskRow>(
     `INSERT INTO team_tasks (team_id, project_id, title, description, status, priority, due_date, created_by_email, updated_by_email)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)
@@ -318,7 +347,17 @@ teamTasksRouter.patch('/:taskId', requireTeamRole('member'), asyncHandler(async 
 
   if (typeof body.title === 'string') { updates.push(`title = $${paramIndex++}`); values.push(body.title); }
   if (typeof body.description === 'string') { updates.push(`description = $${paramIndex++}`); values.push(body.description); }
-  if (typeof body.status === 'string') { updates.push(`status = $${paramIndex++}`); values.push(body.status); }
+  if (typeof body.status === 'string') {
+    if (!isTeamTaskStatus(body.status)) {
+      throw new AppError(
+        `Invalid status. Valid values: ${VALID_TEAM_TASK_STATUSES.join(', ')}`,
+        400,
+        'INVALID_STATUS'
+      );
+    }
+    updates.push(`status = $${paramIndex++}`);
+    values.push(body.status);
+  }
   if (typeof body.priority === 'string') { updates.push(`priority = $${paramIndex++}`); values.push(body.priority); }
   if (typeof body.dueDate === 'string') { updates.push(`due_date = $${paramIndex++}`); values.push(body.dueDate); }
   if (Array.isArray(body.flags)) { updates.push(`flags = $${paramIndex++}`); values.push(JSON.stringify(body.flags)); }
