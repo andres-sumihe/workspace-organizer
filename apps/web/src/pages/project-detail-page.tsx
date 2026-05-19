@@ -1,8 +1,10 @@
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Archive,
   ArrowLeft,
   Calendar,
   Check,
+  ClipboardCheck,
   Circle,
   ExternalLink,
   FileText,
@@ -22,7 +24,6 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
 
 import type {
   PersonalProjectDetail,
@@ -32,16 +33,6 @@ import type {
   WorkLogStatus
 } from '@workspace/shared';
 
-import {
-  personalProjectsApi,
-  workLogsApi,
-  type CreateWorkLogRequest
-} from '@/features/journal/api/journal';
-import { TaskDetailModal, TASK_STATUS_CONFIG } from '@/features/journal/components';
-import { ProjectNotesPanel } from '@/features/notes/components/project-notes-panel';
-import { queryKeys } from '@/lib/query-client';
-import { extractPlainText } from '@/components/ui/mention-content-view';
-import { WorkspaceFilesTab } from '@/features/workspaces/components/workspace-project-tab';
 import { AppPage, AppPageContent, AppPageTabs } from '@/components/layout/app-page';
 import {
   AlertDialog,
@@ -72,9 +63,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { Label } from '@/components/ui/label';
-import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { extractPlainText } from '@/components/ui/mention-content-view';
+import { Progress } from '@/components/ui/progress';
 import {
   Select,
   SelectContent,
@@ -92,12 +84,22 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { ChecklistTemplatePanel } from '@/features/checklists';
+import {
+  personalProjectsApi,
+  workLogsApi,
+  type CreateWorkLogRequest
+} from '@/features/journal/api/journal';
+import { TaskDetailModal, TASK_STATUS_CONFIG } from '@/features/journal/components';
+import { ProjectNotesPanel } from '@/features/notes/components/project-notes-panel';
+import { WorkspaceFilesTab } from '@/features/workspaces/components/workspace-project-tab';
+import { queryKeys } from '@/lib/query-client';
 
 // ============================================================================
 // Types & Constants
 // ============================================================================
 
-type TabValue = 'overview' | 'tasks' | 'notes' | 'files';
+type TabValue = 'overview' | 'tasks' | 'checklist' | 'notes' | 'files';
 
 const PROJECT_STATUS_CONFIG: Record<
   PersonalProjectStatus,
@@ -605,6 +607,10 @@ export function ProjectDetailPage() {
                   </Badge>
                 )}
               </TabsTrigger>
+              <TabsTrigger value="checklist" className="gap-2">
+                <ClipboardCheck className="h-4 w-4" />
+                Checklist
+              </TabsTrigger>
               <TabsTrigger value="files" className="gap-2">
                 <FolderOpen className="h-4 w-4" />
                 Files
@@ -965,6 +971,11 @@ export function ProjectDetailPage() {
                 </Card>
               )}
             </div>
+          </TabsContent>
+
+          {/* Checklist Tab */}
+          <TabsContent value="checklist" className="flex-1 m-0 min-h-0 h-full overflow-auto p-6">
+            <ChecklistTemplatePanel mode="local" projectId={project.id} projectTitle={project.title} />
           </TabsContent>
 
           {/* Files Tab */}

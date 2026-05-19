@@ -176,6 +176,21 @@ export const queryKeys = {
       [...queryKeys.teamProjects.details(), teamId, projectId] as const,
   },
 
+  // Checklist Templates domain
+  checklistTemplates: {
+    all: ['checklistTemplates'] as const,
+    local: () => [...queryKeys.checklistTemplates.all, 'local'] as const,
+    team: (teamId: string) => [...queryKeys.checklistTemplates.all, 'team', teamId] as const,
+  },
+
+  // Project Checklists domain
+  projectChecklists: {
+    all: ['projectChecklists'] as const,
+    local: (projectId: string) => [...queryKeys.projectChecklists.all, 'local', projectId] as const,
+    team: (teamId: string, projectId: string) =>
+      [...queryKeys.projectChecklists.all, 'team', teamId, projectId] as const,
+  },
+
   // Team Notes domain
   teamNotes: {
     all: ['teamNotes'] as const,

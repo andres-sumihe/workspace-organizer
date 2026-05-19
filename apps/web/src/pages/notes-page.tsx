@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import {
   FileText,
   FolderOpen,
@@ -20,9 +21,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
 
-import { queryKeys } from '@/lib/query-client';
 
 import type {
   Note,
@@ -33,13 +32,7 @@ import type {
   CredentialData
 } from '@workspace/shared';
 
-import { notesApi, credentialsApi, vaultApi } from '@/features/notes/api/notes-vault';
-import { useNotesList } from '@/features/notes/hooks/use-notes';
-import { usePersonalProjectsList } from '@/features/journal/hooks/use-personal-projects';
-import { useVaultStatus, useCredentialsList } from '@/features/notes/hooks/use-vault';
 import { AppPage, AppPageContent } from '@/components/layout/app-page';
-import { NoteEditor } from '@/features/notes/components/note-editor';
-import { NoteViewer } from '@/features/notes/components/note-viewer';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -73,6 +66,13 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { usePersonalProjectsList } from '@/features/journal/hooks/use-personal-projects';
+import { notesApi, credentialsApi, vaultApi } from '@/features/notes/api/notes-vault';
+import { NoteEditor } from '@/features/notes/components/note-editor';
+import { NoteViewer } from '@/features/notes/components/note-viewer';
+import { useNotesList } from '@/features/notes/hooks/use-notes';
+import { useVaultStatus, useCredentialsList } from '@/features/notes/hooks/use-vault';
+import { queryKeys } from '@/lib/query-client';
 
 // ============================================================================
 // Constants
@@ -135,53 +135,64 @@ function VaultSetupDialog({ open, onOpenChange, onSetup, isUnlock }: VaultSetupD
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{isUnlock ? 'Unlock Vault' : 'Setup Vault'}</DialogTitle>
-          <DialogDescription>
-            {isUnlock
-              ? 'Enter your master password to unlock the vault.'
-              : 'Create a master password to protect your credentials. This password cannot be recovered if lost.'}
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-md">
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void handleSubmit();
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>{isUnlock ? 'Unlock Vault' : 'Setup Vault'}</DialogTitle>
+            <DialogDescription>
+              {isUnlock
+                ? 'Enter your master password to unlock the vault.'
+                : 'Create a master password to protect your credentials. This password cannot be recovered if lost.'}
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="password">Master Password</Label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter master password"
-            />
-          </div>
-
-          {!isUnlock && (
+          <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Label htmlFor="password">Master Password</Label>
               <Input
-                id="confirmPassword"
+                id="password"
                 type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirm master password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter master password"
+                className="min-w-0"
+                autoFocus
               />
             </div>
-          )}
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
-        </div>
+            {!isUnlock && (
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm master password"
+                  className="min-w-0"
+                />
+              </div>
+            )}
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={isLoading}>
-            {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            {isUnlock ? 'Unlock' : 'Setup Vault'}
-          </Button>
-        </DialogFooter>
+            {error && <p className="wrap-break-word text-sm text-destructive">{error}</p>}
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {isUnlock ? 'Unlock' : 'Setup Vault'}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
@@ -281,7 +292,7 @@ function CredentialFormDialog({ open, onOpenChange, credential, projects, onSave
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{credential ? 'Edit Credential' : 'New Credential'}</DialogTitle>
           <DialogDescription>
@@ -290,17 +301,18 @@ function CredentialFormDialog({ open, onOpenChange, credential, projects, onSave
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="min-w-0 space-y-2">
               <Label htmlFor="title">Title</Label>
               <Input
                 id="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g., Production DB"
+                className="min-w-0"
               />
             </div>
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2">
               <Label htmlFor="type">Type</Label>
               <Select value={type} onValueChange={(v) => setType(v as CredentialType)}>
                 <SelectTrigger>
@@ -336,17 +348,18 @@ function CredentialFormDialog({ open, onOpenChange, credential, projects, onSave
 
           {/* Type-specific fields */}
           {(type === 'password' || type === 'database' || type === 'ssh' || type === 'generic') && (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="min-w-0 space-y-2">
                 <Label htmlFor="username">Username</Label>
                 <Input
                   id="username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Username"
+                  className="min-w-0"
                 />
               </div>
-              <div className="space-y-2">
+              <div className="min-w-0 space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <Input
                   id="password"
@@ -354,6 +367,7 @@ function CredentialFormDialog({ open, onOpenChange, credential, projects, onSave
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Password"
+                  className="min-w-0"
                 />
               </div>
             </div>
@@ -368,22 +382,24 @@ function CredentialFormDialog({ open, onOpenChange, credential, projects, onSave
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 placeholder="API Key"
+                className="min-w-0"
               />
             </div>
           )}
 
           {type === 'database' && (
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="min-w-0 space-y-2">
                 <Label htmlFor="host">Host</Label>
                 <Input
                   id="host"
                   value={host}
                   onChange={(e) => setHost(e.target.value)}
                   placeholder="localhost"
+                  className="min-w-0"
                 />
               </div>
-              <div className="space-y-2">
+              <div className="min-w-0 space-y-2">
                 <Label htmlFor="port">Port</Label>
                 <Input
                   id="port"
@@ -391,15 +407,17 @@ function CredentialFormDialog({ open, onOpenChange, credential, projects, onSave
                   value={port}
                   onChange={(e) => setPort(e.target.value)}
                   placeholder="5432"
+                  className="min-w-0"
                 />
               </div>
-              <div className="space-y-2">
+              <div className="min-w-0 space-y-2">
                 <Label htmlFor="database">Database</Label>
                 <Input
                   id="database"
                   value={database}
                   onChange={(e) => setDatabase(e.target.value)}
                   placeholder="mydb"
+                  className="min-w-0"
                 />
               </div>
             </div>
@@ -474,23 +492,23 @@ function CredentialRevealDialog({ open, onOpenChange, credential }: CredentialRe
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[85vh] max-w-xl overflow-hidden">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <config.icon className="h-4 w-4" />
-            {credential.title}
+          <DialogTitle className="flex min-w-0 items-center gap-2 pr-6">
+            <config.icon className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 truncate">{credential.title}</span>
           </DialogTitle>
           <DialogDescription>
             Reveal or copy individual credential fields.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
+        <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
           {data.username && (
-            <div className="flex items-center justify-between p-3 rounded-md bg-muted">
-              <div>
+            <div className="flex min-w-0 items-center justify-between gap-2 p-3 rounded-md bg-muted">
+              <div className="min-w-0 flex-1">
                 <p className="text-xs text-muted-foreground">Username</p>
-                <p className="font-mono">{data.username}</p>
+                <p className="wrap-anywhere font-mono text-sm leading-relaxed">{data.username}</p>
               </div>
               <button
                 type="button"
@@ -504,10 +522,10 @@ function CredentialRevealDialog({ open, onOpenChange, credential }: CredentialRe
           )}
 
           {data.password && (
-            <div className="flex items-center justify-between p-3 rounded-md bg-muted">
+            <div className="flex min-w-0 items-center justify-between gap-2 p-3 rounded-md bg-muted">
               <div className="min-w-0 flex-1 mr-2">
                 <p className="text-xs text-muted-foreground">Password</p>
-                <p className="font-mono truncate">
+                <p className="wrap-anywhere font-mono text-sm leading-relaxed">
                   {revealedFields.has('password') ? data.password : '•'.repeat(12)}
                 </p>
               </div>
@@ -533,10 +551,10 @@ function CredentialRevealDialog({ open, onOpenChange, credential }: CredentialRe
           )}
 
           {data.apiKey && (
-            <div className="flex items-center justify-between p-3 rounded-md bg-muted">
+            <div className="flex min-w-0 items-center justify-between gap-2 p-3 rounded-md bg-muted">
               <div className="min-w-0 flex-1 mr-2">
                 <p className="text-xs text-muted-foreground">API Key</p>
-                <p className="font-mono truncate">
+                <p className="wrap-anywhere font-mono text-sm leading-relaxed">
                   {revealedFields.has('apiKey') ? data.apiKey : `${data.apiKey.slice(0, 8)}${'•'.repeat(20)}`}
                 </p>
               </div>
@@ -562,21 +580,21 @@ function CredentialRevealDialog({ open, onOpenChange, credential }: CredentialRe
           )}
 
           {data.host && (
-            <div className="flex items-center gap-4 p-3 rounded-md bg-muted">
-              <div>
+            <div className="grid gap-3 p-3 rounded-md bg-muted sm:grid-cols-3">
+              <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">Host</p>
-                <p className="font-mono">{data.host}</p>
+                <p className="wrap-anywhere font-mono text-sm leading-relaxed">{data.host}</p>
               </div>
               {data.port && (
-                <div>
+                <div className="min-w-0">
                   <p className="text-xs text-muted-foreground">Port</p>
-                  <p className="font-mono">{data.port}</p>
+                  <p className="wrap-anywhere font-mono text-sm leading-relaxed">{data.port}</p>
                 </div>
               )}
               {data.database && (
-                <div>
+                <div className="min-w-0">
                   <p className="text-xs text-muted-foreground">Database</p>
-                  <p className="font-mono">{data.database}</p>
+                  <p className="wrap-anywhere font-mono text-sm leading-relaxed">{data.database}</p>
                 </div>
               )}
             </div>
@@ -585,7 +603,7 @@ function CredentialRevealDialog({ open, onOpenChange, credential }: CredentialRe
           {data.notes && (
             <div className="p-3 rounded-md bg-muted">
               <p className="text-xs text-muted-foreground">Notes</p>
-              <p className="text-sm">{data.notes}</p>
+              <p className="whitespace-pre-wrap wrap-anywhere text-sm leading-relaxed">{data.notes}</p>
             </div>
           )}
         </div>

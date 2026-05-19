@@ -308,4 +308,6 @@ export interface TypedElectronAPI {
   // Power management
   setKeepAwake: (enabled: boolean) => Promise<{ ok: boolean; active: boolean }>;
   getKeepAwake: () => Promise<{ active: boolean }>;
+  setKeepAwakeTeams: (enabled: boolean) => Promise<{ ok: boolean; active: boolean }>;
+  getKeepAwakeTeams: () => Promise<{ active: boolean }>;
 }

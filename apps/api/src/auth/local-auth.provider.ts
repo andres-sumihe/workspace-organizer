@@ -406,6 +406,11 @@ export const localAuthProvider = {
       db.prepare('DELETE FROM work_logs').run();
       db.prepare('DELETE FROM notes').run();
       db.prepare('DELETE FROM credentials').run();
+      db.prepare('DELETE FROM project_checklist_items').run();
+      db.prepare('DELETE FROM project_checklist_sections').run();
+      db.prepare('DELETE FROM project_checklists').run();
+      db.prepare('DELETE FROM checklist_template_versions').run();
+      db.prepare('DELETE FROM checklist_templates').run();
       db.prepare('DELETE FROM vault_settings').run();
       db.prepare('DELETE FROM overtime_entries').run();
       db.prepare('DELETE FROM personal_projects').run();

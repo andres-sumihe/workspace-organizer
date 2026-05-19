@@ -921,6 +921,160 @@ VALUES ('0018-add-team-task-status-check', current_user)
 ON CONFLICT (id) DO NOTHING;
 `,
   },
+  {
+    id: '0019-create-checklist-templates',
+    description: 'Create team-scoped checklist template registry',
+    sql: `
+-- Migration: 0019-create-checklist-templates
+-- Description: Create team-scoped checklist template registry
+
+SET search_path TO workspace_organizer, public;
+
+CREATE TABLE IF NOT EXISTS checklist_templates (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT FALSE,
+  created_by_email VARCHAR(255),
+  updated_by_email VARCHAR(255),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS checklist_template_versions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  template_id UUID NOT NULL REFERENCES checklist_templates(id) ON DELETE CASCADE,
+  version_label VARCHAR(255) NOT NULL,
+  original_filename VARCHAR(255) NOT NULL,
+  mime_type VARCHAR(255) NOT NULL,
+  size_bytes BIGINT NOT NULL,
+  checksum_sha256 VARCHAR(64) NOT NULL,
+  xlsx_blob BYTEA NOT NULL,
+  mapping_json JSONB,
+  mapping_status VARCHAR(32) NOT NULL DEFAULT 'pending' CHECK (mapping_status IN ('pending', 'parsed', 'failed')),
+  is_active BOOLEAN NOT NULL DEFAULT FALSE,
+  uploaded_by_email VARCHAR(255),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_checklist_templates_team ON checklist_templates (team_id);
+CREATE INDEX IF NOT EXISTS idx_checklist_template_versions_template ON checklist_template_versions (template_id);
+CREATE INDEX IF NOT EXISTS idx_checklist_template_versions_checksum ON checklist_template_versions (checksum_sha256);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_checklist_templates_one_active_per_team
+  ON checklist_templates (team_id)
+  WHERE is_active = TRUE;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_checklist_template_versions_one_active
+  ON checklist_template_versions (template_id)
+  WHERE is_active = TRUE;
+
+DROP TRIGGER IF EXISTS trg_checklist_templates_updated_at ON checklist_templates;
+CREATE TRIGGER trg_checklist_templates_updated_at
+BEFORE UPDATE ON checklist_templates
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by)
+VALUES ('0019-create-checklist-templates', current_user)
+ON CONFLICT (id) DO NOTHING;
+`,
+  },
+  {
+    id: '0020-create-project-checklists',
+    description: 'Create generated team project checklist tables',
+    sql: `
+-- Migration: 0020-create-project-checklists
+-- Description: Create generated team project checklist tables
+
+SET search_path TO workspace_organizer, public;
+
+CREATE TABLE IF NOT EXISTS project_checklists (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  project_id UUID NOT NULL REFERENCES team_projects(id) ON DELETE CASCADE,
+  template_id UUID NOT NULL REFERENCES checklist_templates(id) ON DELETE RESTRICT,
+  template_version_id UUID NOT NULL REFERENCES checklist_template_versions(id) ON DELETE RESTRICT,
+  title VARCHAR(255) NOT NULL,
+  created_by_email VARCHAR(255),
+  updated_by_email VARCHAR(255),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS project_checklist_sections (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  checklist_id UUID NOT NULL REFERENCES project_checklists(id) ON DELETE CASCADE,
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  sort_order INTEGER NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS project_checklist_items (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  checklist_id UUID NOT NULL REFERENCES project_checklists(id) ON DELETE CASCADE,
+  section_id UUID NOT NULL REFERENCES project_checklist_sections(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT,
+  status VARCHAR(32) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed', 'blocked', 'not_applicable')),
+  owner VARCHAR(255),
+  notes TEXT,
+  evidence_url TEXT,
+  completed_by_email VARCHAR(255),
+  completed_at TIMESTAMP WITH TIME ZONE,
+  sort_order INTEGER NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_project_checklists_team_project ON project_checklists (team_id, project_id);
+CREATE INDEX IF NOT EXISTS idx_project_checklist_sections_checklist ON project_checklist_sections (checklist_id, sort_order);
+CREATE INDEX IF NOT EXISTS idx_project_checklist_items_checklist ON project_checklist_items (checklist_id, sort_order);
+CREATE INDEX IF NOT EXISTS idx_project_checklist_items_section ON project_checklist_items (section_id, sort_order);
+
+DROP TRIGGER IF EXISTS trg_project_checklists_updated_at ON project_checklists;
+CREATE TRIGGER trg_project_checklists_updated_at
+BEFORE UPDATE ON project_checklists
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS trg_project_checklist_items_updated_at ON project_checklist_items;
+CREATE TRIGGER trg_project_checklist_items_updated_at
+BEFORE UPDATE ON project_checklist_items
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by)
+VALUES ('0020-create-project-checklists', current_user)
+ON CONFLICT (id) DO NOTHING;
+`,
+  },
+  {
+    id: '0021-add-checklist-sheet-row-fields',
+    description: 'Add worksheet row fields to team project checklist items',
+    sql: `
+-- Migration: 0021-add-checklist-sheet-row-fields
+-- Description: Add worksheet row fields to team project checklist items
+
+SET search_path TO workspace_organizer, public;
+
+ALTER TABLE project_checklist_items
+  ADD COLUMN IF NOT EXISTS group_title TEXT,
+  ADD COLUMN IF NOT EXISTS planned_date DATE,
+  ADD COLUMN IF NOT EXISTS planned_time VARCHAR(16),
+  ADD COLUMN IF NOT EXISTS location VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS pic VARCHAR(255);
+
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by)
+VALUES ('0021-add-checklist-sheet-row-fields', current_user)
+ON CONFLICT (id) DO NOTHING;
+`,
+  },
 ];
 
 /**

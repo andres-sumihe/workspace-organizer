@@ -900,7 +900,11 @@ export type AuditAction =
   | 'TEAM_NOTE_RESTORE'
   | 'TEAM_TASK_CREATE'
   | 'TEAM_TASK_UPDATE'
-  | 'TEAM_TASK_DELETE';
+  | 'TEAM_TASK_DELETE'
+  | 'TEAM_CHECKLIST_GENERATE'
+  | 'TEAM_CHECKLIST_ITEM_CREATE'
+  | 'TEAM_CHECKLIST_ITEM_UPDATE'
+  | 'TEAM_CHECKLIST_ITEM_DELETE';
 
 /**
  * Audit log entry stored in shared PostgreSQL.
@@ -2017,6 +2021,179 @@ export interface TeamProjectListResponse {
  */
 export interface TeamProjectResponse {
   project: TeamProject;
+}
+
+// ============================================================================
+// Checklist Template Types
+// ============================================================================
+
+export type ChecklistTemplateStorageScope = 'local' | 'shared';
+
+export type ChecklistTemplateMappingStatus = 'pending' | 'parsed' | 'failed';
+
+export type ChecklistItemStatus = 'pending' | 'in_progress' | 'completed' | 'blocked' | 'not_applicable';
+
+export interface ChecklistTemplateVersionSummary {
+  id: string;
+  templateId: string;
+  versionLabel: string;
+  originalFilename: string;
+  mimeType: string;
+  sizeBytes: number;
+  checksumSha256: string;
+  mappingStatus: ChecklistTemplateMappingStatus;
+  hasMapping: boolean;
+  isActive: boolean;
+  uploadedByEmail?: string;
+  createdAt: string;
+}
+
+export interface ChecklistTemplateSummary {
+  id: string;
+  teamId?: string;
+  name: string;
+  description?: string;
+  storageScope: ChecklistTemplateStorageScope;
+  isActive: boolean;
+  activeVersion?: ChecklistTemplateVersionSummary;
+  createdByEmail?: string;
+  updatedByEmail?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChecklistTemplateDetail extends ChecklistTemplateSummary {
+  versions: ChecklistTemplateVersionSummary[];
+}
+
+export interface ChecklistTemplateListResponse {
+  items: ChecklistTemplateSummary[];
+}
+
+export interface ChecklistTemplateResponse {
+  template: ChecklistTemplateDetail;
+}
+
+export interface ActivateChecklistTemplateVersionRequest {
+  versionId: string;
+}
+
+export interface ChecklistTemplateSection {
+  id: string;
+  title: string;
+  description?: string;
+  sortOrder: number;
+  sourceKey?: string;
+}
+
+export interface ChecklistTemplateItem {
+  id: string;
+  sectionId: string;
+  title: string;
+  description?: string;
+  sortOrder: number;
+  sourceKey?: string;
+  defaultStatus?: ChecklistItemStatus;
+}
+
+export interface ProjectChecklist {
+  id: string;
+  projectId: string;
+  teamId?: string;
+  templateId: string;
+  templateVersionId: string;
+  title: string;
+  stats: ChecklistStats;
+  createdByEmail?: string;
+  updatedByEmail?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProjectChecklistDetail extends ProjectChecklist {
+  sections: ProjectChecklistSection[];
+  items: ProjectChecklistItem[];
+}
+
+export interface ProjectChecklistSection {
+  id: string;
+  checklistId: string;
+  title: string;
+  description?: string;
+  sortOrder: number;
+}
+
+export interface ProjectChecklistItem {
+  id: string;
+  checklistId: string;
+  sectionId: string;
+  groupTitle?: string;
+  title: string;
+  description?: string;
+  plannedDate?: string;
+  plannedTime?: string;
+  location?: string;
+  pic?: string;
+  status: ChecklistItemStatus;
+  owner?: string;
+  notes?: string;
+  evidenceUrl?: string;
+  completedByEmail?: string;
+  completedAt?: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChecklistStats {
+  total: number;
+  completed: number;
+  inProgress: number;
+  blocked: number;
+  notApplicable: number;
+}
+
+export interface ProjectChecklistResponse {
+  checklist: ProjectChecklistDetail | null;
+}
+
+export interface GenerateProjectChecklistRequest {
+  templateId?: string;
+  templateVersionId?: string;
+  title?: string;
+  overwrite?: boolean;
+}
+
+export interface UpdateProjectChecklistItemRequest {
+  groupTitle?: string | null;
+  title?: string;
+  description?: string | null;
+  plannedDate?: string | null;
+  plannedTime?: string | null;
+  location?: string | null;
+  pic?: string | null;
+  status?: ChecklistItemStatus;
+  owner?: string | null;
+  notes?: string | null;
+  evidenceUrl?: string | null;
+}
+
+export interface CreateProjectChecklistItemRequest {
+  sectionId: string;
+  groupTitle?: string | null;
+  title?: string;
+  description?: string | null;
+  plannedDate?: string | null;
+  plannedTime?: string | null;
+  location?: string | null;
+  pic?: string | null;
+  status?: ChecklistItemStatus;
+}
+
+export interface ProjectChecklistExportResponse {
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
 }
 
 // ============================================================================

@@ -257,4 +257,6 @@ export interface DesktopApi {
   invokeMainAction: (actionId: string, args?: unknown) => Promise<unknown>;
   setKeepAwake: (enabled: boolean) => Promise<{ ok: boolean; active: boolean }>;
   getKeepAwake: () => Promise<{ active: boolean }>;
+  setKeepAwakeTeams: (enabled: boolean) => Promise<{ ok: boolean; active: boolean }>;
+  getKeepAwakeTeams: () => Promise<{ active: boolean }>;
 }
