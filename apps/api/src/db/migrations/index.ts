@@ -23,6 +23,9 @@ import * as migration0022 from './0022-create-task-updates.js';
 import * as migration0023 from './0023-task-updates-add-parent-id.js';
 import * as migration0024 from './0024-add-reported-at-to-work-logs.js';
 import * as migration0025 from './0025-add-backlog-work-log-status.js';
+import * as migration0026 from './0026-create-checklist-templates.js';
+import * as migration0027 from './0027-create-project-checklists.js';
+import * as migration0028 from './0028-add-checklist-sheet-row-fields.js';
 
 import type Database from 'better-sqlite3';
 
@@ -56,7 +59,10 @@ const migrations: Migration[] = [
   { id: migration0022.id, up: migration0022.up },
   { id: migration0023.id, up: migration0023.up },
   { id: migration0024.id, up: migration0024.up },
-  { id: migration0025.id, up: migration0025.up }
+  { id: migration0025.id, up: migration0025.up },
+  { id: migration0026.id, up: migration0026.up },
+  { id: migration0027.id, up: migration0027.up },
+  { id: migration0028.id, up: migration0028.up }
 ];
 
 export const runMigrations = async (db: Database.Database) => {

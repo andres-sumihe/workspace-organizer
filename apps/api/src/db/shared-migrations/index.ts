@@ -17,6 +17,9 @@ import * as migration0015 from './0015-create-team-yjs-updates.js';
 import * as migration0016 from './0016-enhance-note-revisions.js';
 import * as migration0017 from './0017-create-team-calendar-wfh.js';
 import * as migration0018 from './0018-add-team-task-status-check.js';
+import * as migration0019 from './0019-create-checklist-templates.js';
+import * as migration0020 from './0020-create-project-checklists.js';
+import * as migration0021 from './0021-add-checklist-sheet-row-fields.js';
 import { SHARED_SCHEMA, getSearchPath, qualifyTable } from '../shared-schema.js';
 
 import type { Pool, PoolClient } from 'pg';
@@ -58,6 +61,9 @@ const migrations: SharedMigration[] = [
   { id: migration0016.id, up: migration0016.up },
   { id: migration0017.id, up: migration0017.up },
   { id: migration0018.id, up: migration0018.up },
+  { id: migration0019.id, up: migration0019.up },
+  { id: migration0020.id, up: migration0020.up },
+  { id: migration0021.id, up: migration0021.up },
 ];
 
 // Re-export schema utilities

@@ -10,6 +10,7 @@ import {
   Check,
   ChevronsLeft,
   ChevronsRight,
+  ClipboardCheck,
   Circle,
   Clock,
   ExternalLink,
@@ -90,6 +91,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ChecklistTemplatePanel } from '@/features/checklists';
 import { parseContentForSuggestions } from '@/features/journal/utils/journal-parser';
 import {
   useTeamProjectDetail,
@@ -116,7 +118,7 @@ import { readFileAsBase64 } from '@/lib/base64-image';
 // Types & Constants
 // ============================================================================
 
-type TabValue = 'overview' | 'tasks' | 'notes';
+type TabValue = 'overview' | 'tasks' | 'checklist' | 'notes';
 
 const PROJECT_STATUS_CONFIG: Record<
   TeamProjectStatus,
@@ -1309,6 +1311,10 @@ export const TeamProjectDetailPage = () => {
                   </Badge>
                 )}
               </TabsTrigger>
+              <TabsTrigger value="checklist" className="gap-2">
+                <ClipboardCheck className="h-4 w-4" />
+                Checklist
+              </TabsTrigger>
               <TabsTrigger value="notes" className="gap-2">
                 <StickyNote className="h-4 w-4" />
                 Notes
@@ -1656,6 +1662,11 @@ export const TeamProjectDetailPage = () => {
                 </DragDropProvider>
               )}
             </div>
+          </TabsContent>
+
+          {/* Checklist Tab */}
+          <TabsContent value="checklist" className="flex-1 m-0 min-h-0 h-full overflow-auto p-6">
+            <ChecklistTemplatePanel mode="team" teamId={teamId} projectId={project.id} projectTitle={project.title} />
           </TabsContent>
 
           {/* Notes Tab */}

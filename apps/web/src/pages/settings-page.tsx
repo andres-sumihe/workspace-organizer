@@ -144,6 +144,8 @@ export const SettingsPage = () => {
   // Keep Awake setting state
   const [keepAwakeEnabled, setKeepAwakeEnabled] = useState(false);
   const [isLoadingKeepAwake, setIsLoadingKeepAwake] = useState(true);
+  const [keepAwakeTeamsEnabled, setKeepAwakeTeamsEnabled] = useState(false);
+  const [isLoadingKeepAwakeTeams, setIsLoadingKeepAwakeTeams] = useState(true);
 
   const navigate = useNavigate();
 
@@ -219,6 +221,21 @@ export const SettingsPage = () => {
     });
   }, []);
 
+  // Load keep-awake-teams state from Electron main process
+  useEffect(() => {
+    if (!window.api?.getKeepAwakeTeams) {
+      setIsLoadingKeepAwakeTeams(false);
+      return;
+    }
+    window.api.getKeepAwakeTeams().then(({ active }) => {
+      setKeepAwakeTeamsEnabled(active);
+    }).catch(() => {
+      // default stays false
+    }).finally(() => {
+      setIsLoadingKeepAwakeTeams(false);
+    });
+  }, []);
+
   const handleKeepAwakeToggle = async (enabled: boolean) => {
     if (!window.api?.setKeepAwake) return;
     setKeepAwakeEnabled(enabled);
@@ -228,6 +245,18 @@ export const SettingsPage = () => {
     } catch {
       toast.error('Failed to toggle Keep Awake');
       setKeepAwakeEnabled(!enabled);
+    }
+  };
+
+  const handleKeepAwakeTeamsToggle = async (enabled: boolean) => {
+    if (!window.api?.setKeepAwakeTeams) return;
+    setKeepAwakeTeamsEnabled(enabled);
+    try {
+      await window.api.setKeepAwakeTeams(enabled);
+      toast.success(enabled ? 'Teams activity simulation enabled' : 'Teams activity simulation disabled');
+    } catch {
+      toast.error('Failed to toggle Teams activity simulation');
+      setKeepAwakeTeamsEnabled(!enabled);
     }
   };
 
@@ -804,6 +833,22 @@ export const SettingsPage = () => {
                           checked={keepAwakeEnabled}
                           onCheckedChange={handleKeepAwakeToggle}
                           disabled={isLoadingKeepAwake}
+                        />
+                      </div>
+
+                      <div className="mt-4 pt-4 border-t flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">Simulate activity (keep Teams green)</p>
+                          <p className="text-xs text-muted-foreground">
+                            Nudges the mouse cursor by 1 px every 60 s so Windows never detects an idle session.
+                            Prevents Teams from showing <span className="font-medium text-yellow-600 dark:text-yellow-400">Away</span> due to inactivity.
+                            Does <span className="font-medium">not</span> override a manual screen lock (Win+L).
+                          </p>
+                        </div>
+                        <Switch
+                          checked={keepAwakeTeamsEnabled}
+                          onCheckedChange={handleKeepAwakeTeamsToggle}
+                          disabled={isLoadingKeepAwakeTeams}
                         />
                       </div>
                     </div>

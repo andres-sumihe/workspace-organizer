@@ -118,4 +118,7 @@ contextBridge.exposeInMainWorld('api', {
   // Keep Awake — prevent system/screen sleep
   setKeepAwake: (enabled) => ipcRenderer.invoke('keep-awake:set', enabled),
   getKeepAwake: () => ipcRenderer.invoke('keep-awake:get'),
+  // Keep Awake Teams — mouse jiggler to prevent Teams Away status from idle detection
+  setKeepAwakeTeams: (enabled) => ipcRenderer.invoke('keep-awake-teams:set', enabled),
+  getKeepAwakeTeams: () => ipcRenderer.invoke('keep-awake-teams:get'),
 });

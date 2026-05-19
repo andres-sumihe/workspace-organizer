@@ -154,6 +154,82 @@ export const apiRequest = async <TResponse>(
   return (await response.json()) as TResponse;
 };
 
+export const apiFormDataRequest = async <TResponse>(
+  path: string,
+  formData: FormData,
+  { query, headers, ...init }: RequestOptions = {}
+): Promise<TResponse> => {
+  const url = buildUrl(path, query);
+  const token = getAuthToken();
+
+  const response = await fetch(url, {
+    ...init,
+    method: init.method ?? 'POST',
+    cache: init?.cache ?? 'no-store',
+    body: formData,
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...headers,
+    },
+  });
+
+  if (!response.ok) {
+    const { message, code } = await parseErrorBody(response);
+
+    if (response.status === 401) {
+      if (code === 'TOKEN_EXPIRED' || code === 'SESSION_EXPIRED') {
+        clearAccessToken();
+        emitAuthError('session_expired', message);
+      } else {
+        clearAuthTokens();
+        emitAuthError('unauthorized', message);
+      }
+    }
+
+    throw new ApiError(message, response.status);
+  }
+
+  return (await response.json()) as TResponse;
+};
+
+export const apiBlobRequest = async (
+  path: string,
+  { query, headers, ...init }: RequestOptions = {}
+): Promise<{ blob: Blob; filename?: string }> => {
+  const url = buildUrl(path, query);
+  const token = getAuthToken();
+
+  const response = await fetch(url, {
+    ...init,
+    cache: init?.cache ?? 'no-store',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...headers,
+    },
+  });
+
+  if (!response.ok) {
+    const { message, code } = await parseErrorBody(response);
+
+    if (response.status === 401) {
+      if (code === 'TOKEN_EXPIRED' || code === 'SESSION_EXPIRED') {
+        clearAccessToken();
+        emitAuthError('session_expired', message);
+      } else {
+        clearAuthTokens();
+        emitAuthError('unauthorized', message);
+      }
+    }
+
+    throw new ApiError(message, response.status);
+  }
+
+  const disposition = response.headers.get('content-disposition');
+  const filename = disposition?.match(/filename="([^"]+)"/)?.[1];
+  return { blob: await response.blob(), filename };
+};
+
 export const apiClient = {
   get: <T>(path: string, options?: RequestOptions) =>
     apiRequest<T>(path, { ...options, method: 'GET' }),

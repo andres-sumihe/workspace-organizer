@@ -2,11 +2,13 @@ import { Router } from 'express';
 
 import { auditRouter } from './audit.js';
 import { authRouter } from './auth.js';
+import { checklistTemplatesRouter } from './checklist-templates.js';
 import { collaborationRouter } from './collaboration.js';
 import { controlmJobsRouter } from './controlm-jobs.js';
 import { credentialsRouter, vaultRouter } from './credentials.js';
 import { installationRouter } from './installation.js';
 import { notesRouter } from './notes.js';
+import { projectChecklistsRouter } from './project-checklists.js';
 import { personalProjectsRouter } from './personal-projects.js';
 import { schemaValidationRouter } from './schema-validation.js';
 import { scriptsRouter } from './scripts.js';
@@ -16,10 +18,12 @@ import { setupRouter } from './setup.js';
 import { tagsRouter } from './tags.js';
 import { taskUpdatesRouter } from './task-updates.js';
 import { teamCalendarRouter } from './team-calendar.js';
+import { teamChecklistTemplatesRouter } from './team-checklist-templates.js';
 import { teamConfigRouter } from './team-config.js';
 import { teamControlmJobsRouter } from './team-controlm-jobs.js';
 import { teamEventsRouter } from './team-events.js';
 import { teamNotesRouter } from './team-notes.js';
+import { teamProjectChecklistsRouter } from './team-project-checklists.js';
 import { teamProjectsRouter } from './team-projects.js';
 import { teamScriptsRouter } from './team-scripts.js';
 import { teamTaskUpdatesRouter } from './team-task-updates.js';
@@ -59,7 +63,9 @@ v1Router.use('/tools/overtime', toolsOvertimeRouter);
 v1Router.use('/tags', tagsRouter);
 v1Router.use('/work-logs', workLogsRouter);
 v1Router.use('/personal-projects', personalProjectsRouter);
+v1Router.use('/personal-projects/:projectId/checklist', projectChecklistsRouter);
 v1Router.use('/task-updates', taskUpdatesRouter);
+v1Router.use('/checklist-templates', checklistTemplatesRouter);
 
 // Notes & Vault routes - always available (local data only)
 v1Router.use('/notes', notesRouter);
@@ -102,8 +108,10 @@ v1Router.use('/collaboration', requireSharedDb, collaborationRouter);
 // Team-scoped routes - require shared DB and team membership
 v1Router.use('/teams', requireSharedDb, teamsRouter);
 v1Router.use('/teams/:teamId/scripts', requireSharedDb, teamScriptsRouter);
+v1Router.use('/teams/:teamId/checklist-templates', requireSharedDb, teamChecklistTemplatesRouter);
 v1Router.use('/teams/:teamId/controlm-jobs', requireSharedDb, teamControlmJobsRouter);
 v1Router.use('/teams/:teamId/projects', requireSharedDb, teamProjectsRouter);
+v1Router.use('/teams/:teamId/projects/:projectId/checklist', requireSharedDb, teamProjectChecklistsRouter);
 v1Router.use('/teams/:teamId/projects/:projectId/notes', requireSharedDb, teamNotesRouter);
 v1Router.use('/teams/:teamId/projects/:projectId/tasks', requireSharedDb, teamTasksRouter);
 v1Router.use(

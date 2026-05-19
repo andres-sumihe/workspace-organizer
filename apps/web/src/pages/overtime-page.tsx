@@ -1,10 +1,8 @@
-import { DatePicker } from '@/components/ui/date-picker';
 import { Calculator, Clock, Eye, EyeOff, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import type { OvertimeEntry } from '@workspace/shared';
 
-import { useOvertimeList, useToolsGeneralSettings, useCreateOvertimeEntry, useDeleteOvertimeEntry } from '@/features/overtime/hooks/use-overtime';
 import { AppPage, AppPageContent, AppPageTabs } from '@/components/layout/app-page';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -20,6 +18,15 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { DatePicker } from '@/components/ui/date-picker';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -39,6 +46,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { useOvertimeList, useToolsGeneralSettings, useCreateOvertimeEntry, useDeleteOvertimeEntry } from '@/features/overtime/hooks/use-overtime';
 import { cn } from '@/lib/utils';
 
 
@@ -57,6 +65,8 @@ interface FilterState {
   month: string; // '01' - '12' or 'all'
   year: string;  // '2024', '2025', etc. or 'all'
 }
+
+type DisplayMode = 'month' | 'year';
 
 const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('id-ID', {
@@ -79,6 +89,11 @@ const formatDate = (dateString: string): string => {
 const formatTime = (timeString: string): string => {
   if (!timeString) return '-';
   return timeString;
+};
+
+const formatHoursWithMinutes = (hours: number): string => {
+  const minutes = Math.round(hours * 60);
+  return `${hours.toFixed(1)}h (${minutes} ${minutes === 1 ? 'minute' : 'minutes'})`;
 };
 
 /**
@@ -190,6 +205,7 @@ export const OvertimePage = () => {
     month: String(getCurrentMonth()).padStart(2, '0'),
     year: String(getCurrentYear())
   });
+  const [displayMode, setDisplayMode] = useState<DisplayMode>('month');
   
   // Visibility state for salary (shared between calculator and tracker)
   const [showSalary, setShowSalary] = useState(false);
@@ -198,6 +214,7 @@ export const OvertimePage = () => {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [entryToDelete, setEntryToDelete] = useState<OvertimeEntry | null>(null);
+  const [entryToView, setEntryToView] = useState<OvertimeEntry | null>(null);
 
   // Derive isSaving from mutation state
   const isSaving = createMutation.isPending || deleteMutation.isPending;
@@ -225,12 +242,25 @@ export const OvertimePage = () => {
       const entryMonth = String(entryDate.getMonth() + 1).padStart(2, '0');
       const entryYear = String(entryDate.getFullYear());
       
-      const monthMatch = filter.month === 'all' || entryMonth === filter.month;
+      const monthMatch = displayMode === 'year' || filter.month === 'all' || entryMonth === filter.month;
       const yearMatch = filter.year === 'all' || entryYear === filter.year;
       
       return monthMatch && yearMatch;
     });
-  }, [entries, filter]);
+  }, [entries, filter, displayMode]);
+
+  const handleDisplayModeChange = (mode: DisplayMode) => {
+    setDisplayMode(mode);
+    setFilter(prev => ({
+      ...prev,
+      month: mode === 'year'
+        ? 'all'
+        : prev.month === 'all'
+          ? String(getCurrentMonth()).padStart(2, '0')
+          : prev.month,
+      year: prev.year === 'all' ? String(getCurrentYear()) : prev.year
+    }));
+  };
 
   // Handler for date changes to auto-detect day type
   const handleDateChange = (dateStr: string) => {
@@ -342,12 +372,22 @@ export const OvertimePage = () => {
 
   // Get filter label for display
   const filterLabel = useMemo(() => {
+    if (displayMode === 'year') {
+      return filter.year === 'all' ? 'All Years' : `Year ${filter.year}`;
+    }
     if (filter.month === 'all' && filter.year === 'all') return 'All Time';
     if (filter.month === 'all') return `Year ${filter.year}`;
     if (filter.year === 'all') return MONTHS.find(m => m.value === filter.month)?.label || '';
     const monthName = MONTHS.find(m => m.value === filter.month)?.label || '';
     return `${monthName} ${filter.year}`;
-  }, [filter]);
+  }, [filter, displayMode]);
+
+  const showingLabel = useMemo(() => {
+    if (displayMode === 'year') {
+      return `Showing Year: ${filter.year === 'all' ? 'All Years' : filter.year}`;
+    }
+    return `Showing Month: ${filterLabel}`;
+  }, [displayMode, filter.year, filterLabel]);
 
   if (settingsLoading) {
     return (
@@ -632,13 +672,43 @@ export const OvertimePage = () => {
               {/* Filter Controls */}
               <Card className="p-4">
                 <div className="flex flex-wrap items-center gap-4">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 rounded-md border bg-muted/30 p-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={displayMode === 'month' ? 'default' : 'ghost'}
+                      className="h-8 px-3"
+                      onClick={() => handleDisplayModeChange('month')}
+                    >
+                      Month
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={displayMode === 'year' ? 'default' : 'ghost'}
+                      className="h-8 px-3"
+                      onClick={() => handleDisplayModeChange('year')}
+                    >
+                      Year
+                    </Button>
+                  </div>
+
+                  <div
+                    className={cn(
+                      'flex items-center gap-2 overflow-hidden transition-all duration-300 ease-in-out',
+                      displayMode === 'year'
+                        ? 'w-0 -translate-x-2 opacity-0 pointer-events-none'
+                        : 'w-55 translate-x-0 opacity-100'
+                    )}
+                    aria-hidden={displayMode === 'year'}
+                  >
                     <Label htmlFor="filterMonth" className="text-sm font-medium">Month:</Label>
                     <Select
                       value={filter.month}
                       onValueChange={(value) => setFilter(prev => ({ ...prev, month: value }))}
+                      disabled={displayMode === 'year'}
                     >
-                      <SelectTrigger id="filterMonth" className="w-[140px]">
+                      <SelectTrigger id="filterMonth" className="w-35">
                         <SelectValue placeholder="Select month" />
                       </SelectTrigger>
                       <SelectContent>
@@ -650,13 +720,13 @@ export const OvertimePage = () => {
                     </Select>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 transition-transform duration-300 ease-in-out">
                     <Label htmlFor="filterYear" className="text-sm font-medium">Year:</Label>
                     <Select
                       value={filter.year}
                       onValueChange={(value) => setFilter(prev => ({ ...prev, year: value }))}
                     >
-                      <SelectTrigger id="filterYear" className="w-[100px]">
+                      <SelectTrigger id="filterYear" className="w-25">
                         <SelectValue placeholder="Select year" />
                       </SelectTrigger>
                       <SelectContent>
@@ -671,7 +741,7 @@ export const OvertimePage = () => {
                   <div className="flex-1" />
 
                   <Badge variant="outline" className="text-sm">
-                    Showing: {filterLabel}
+                    {showingLabel}
                   </Badge>
                 </div>
               </Card>
@@ -684,7 +754,7 @@ export const OvertimePage = () => {
                 </Card>
                 <Card className="p-4">
                   <p className="text-sm font-medium text-muted-foreground">Total Hours</p>
-                  <p className="text-2xl font-bold">{totals.hours.toFixed(1)}h</p>
+                  <p className="text-2xl font-bold tabular-nums">{formatHoursWithMinutes(totals.hours)}</p>
                 </Card>
                 <Card className="p-4">
                   <p className="text-sm font-medium text-muted-foreground">Total Earnings</p>
@@ -731,7 +801,7 @@ export const OvertimePage = () => {
                         </TableHead>
                         <TableHead className="text-right">Pay</TableHead>
                         <TableHead>Note</TableHead>
-                        <TableHead className="w-[50px]"></TableHead>
+                        <TableHead className="w-12.5"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -751,7 +821,7 @@ export const OvertimePage = () => {
                             {formatTime(entry.startTime)} - {formatTime(entry.endTime)}
                           </TableCell>
                           <TableCell className="text-right font-mono">
-                            {entry.totalHours.toFixed(1)}h
+                            {formatHoursWithMinutes(entry.totalHours)}
                           </TableCell>
                           <TableCell className="text-right font-mono text-muted-foreground">
                             {showSalary ? formatCurrency(entry.baseSalary) : '••••••'}
@@ -759,18 +829,30 @@ export const OvertimePage = () => {
                           <TableCell className="text-right font-mono font-medium text-primary">
                             {formatCurrency(entry.payAmount)}
                           </TableCell>
-                          <TableCell className="max-w-[200px] truncate text-muted-foreground">
+                          <TableCell className="max-w-50 truncate text-muted-foreground">
                             {entry.note || '-'}
                           </TableCell>
                           <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="size-8 text-muted-foreground hover:text-destructive"
-                              onClick={() => setEntryToDelete(entry)}
-                            >
-                              <Trash2 className="size-4" />
-                            </Button>
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-8 text-muted-foreground hover:text-foreground"
+                                onClick={() => setEntryToView(entry)}
+                                title="View overtime entry"
+                              >
+                                <Eye className="size-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-8 text-muted-foreground hover:text-destructive"
+                                onClick={() => setEntryToDelete(entry)}
+                                title="Delete overtime entry"
+                              >
+                                <Trash2 className="size-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -783,6 +865,57 @@ export const OvertimePage = () => {
         </AppPageTabs>
       </Tabs>
 
+      {/* Entry Details Dialog */}
+      <Dialog open={!!entryToView} onOpenChange={(open) => !open && setEntryToView(null)}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Overtime Entry</DialogTitle>
+            <DialogDescription>
+              Detailed overtime record for {entryToView ? formatDate(entryToView.date) : '-'}.
+            </DialogDescription>
+          </DialogHeader>
+
+          {entryToView && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-md bg-muted p-3">
+                <p className="text-xs text-muted-foreground">Date</p>
+                <p className="font-medium">{formatDate(entryToView.date)}</p>
+              </div>
+              <div className="rounded-md bg-muted p-3">
+                <p className="text-xs text-muted-foreground">Type</p>
+                <Badge variant={entryToView.dayType === 'workday' ? 'secondary' : 'warning'}>
+                  {entryToView.dayType === 'workday' ? 'Work Day' : 'Holiday'}
+                </Badge>
+              </div>
+              <div className="rounded-md bg-muted p-3">
+                <p className="text-xs text-muted-foreground">Time</p>
+                <p className="font-mono">{formatTime(entryToView.startTime)} - {formatTime(entryToView.endTime)}</p>
+              </div>
+              <div className="rounded-md bg-muted p-3">
+                <p className="text-xs text-muted-foreground">Total Hours</p>
+                <p className="font-mono font-medium">{formatHoursWithMinutes(entryToView.totalHours)}</p>
+              </div>
+              <div className="rounded-md bg-muted p-3">
+                <p className="text-xs text-muted-foreground">Base Salary</p>
+                <p className="font-mono">{showSalary ? formatCurrency(entryToView.baseSalary) : '••••••'}</p>
+              </div>
+              <div className="rounded-md bg-muted p-3">
+                <p className="text-xs text-muted-foreground">Pay</p>
+                <p className="font-mono font-medium text-primary">{formatCurrency(entryToView.payAmount)}</p>
+              </div>
+              <div className="rounded-md bg-muted p-3 sm:col-span-2">
+                <p className="text-xs text-muted-foreground">Note</p>
+                <p className="whitespace-pre-wrap wrap-break-word text-sm">{entryToView.note || '-'}</p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button onClick={() => setEntryToView(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!entryToDelete} onOpenChange={() => setEntryToDelete(null)}>
         <AlertDialogContent>
@@ -791,7 +924,7 @@ export const OvertimePage = () => {
             <AlertDialogDescription>
               This will permanently delete the overtime entry for{' '}
               <strong>{entryToDelete && formatDate(entryToDelete.date)}</strong> (
-              {entryToDelete?.totalHours.toFixed(1)}h, {entryToDelete && formatCurrency(entryToDelete.payAmount)}
+              {entryToDelete && formatHoursWithMinutes(entryToDelete.totalHours)}, {entryToDelete && formatCurrency(entryToDelete.payAmount)}
               ). This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
