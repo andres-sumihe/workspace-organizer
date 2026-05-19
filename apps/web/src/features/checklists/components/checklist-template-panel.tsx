@@ -580,7 +580,7 @@ export function ChecklistTemplatePanel({ mode, projectId, teamId, projectTitle }
                           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
                             <Input
                               value={subheaderDraft}
-                              placeholder="Sub header, e.g. DBA"
+                              placeholder="Optional sub header"
                               disabled={isBusy}
                               className="h-8 bg-background/80 text-foreground placeholder:text-muted-foreground"
                               onChange={(event) => updateSubheaderDraft(section.id, event.target.value)}

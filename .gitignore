@@ -10,7 +10,11 @@ coverage/
 yarn.lock
 .npmrc
 /apps/api/data/*.sqlite
+/apps/api/data/*.db
+/apps/api/data/*.db-*
 /apps/data/*.sqlite
+/apps/data/*.db
+/apps/data/*.db-*
 /apps/api/data/uploads/
 
 # Electron build outputs
