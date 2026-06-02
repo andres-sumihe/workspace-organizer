@@ -1065,8 +1065,8 @@ ipcMain.handle('keep-awake-teams:set', (_event, enabled) => {
   if (enabled) {
     if (!keepAwakeTeamsInterval) {
       jiggleMouse(); // immediate first nudge
-      keepAwakeTeamsInterval = setInterval(jiggleMouse, 60_000);
-      log('[KeepAwakeTeams] Started mouse jiggler (60s interval)');
+      keepAwakeTeamsInterval = setInterval(jiggleMouse, 15_000);
+      log('[KeepAwakeTeams] Started mouse jiggler (15s interval)');
     }
   } else {
     if (keepAwakeTeamsInterval) {

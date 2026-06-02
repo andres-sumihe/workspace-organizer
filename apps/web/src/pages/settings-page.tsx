@@ -3,8 +3,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
-import { schemaValidationApi, type ValidationResponse } from '@/features/settings/api/schema-validation';
-import { settingsApi } from '@/features/settings/api/settings';
 import { toolsApi } from '@/api/tools';
 import { AppPage, AppPageContent, AppPageTabs } from '@/components/layout/app-page';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -19,6 +17,8 @@ import { useAuth } from '@/contexts/auth-context';
 import { useInstallation } from '@/contexts/installation-context';
 import { useMode } from '@/contexts/mode-context';
 import { useValidationSettings } from '@/contexts/validation-settings-context';
+import { schemaValidationApi, type ValidationResponse } from '@/features/settings/api/schema-validation';
+import { settingsApi } from '@/features/settings/api/settings';
 import { extractBICFromLT } from '@/features/settings/utils/swift-mt-validator';
 
 type ConnectionFormState = {
@@ -840,7 +840,7 @@ export const SettingsPage = () => {
                         <div>
                           <p className="text-sm font-medium">Simulate activity (keep Teams green)</p>
                           <p className="text-xs text-muted-foreground">
-                            Nudges the mouse cursor by 1 px every 60 s so Windows never detects an idle session.
+                            Nudges the mouse cursor by 1 px every 15 seconds so Windows never detects an idle session.
                             Prevents Teams from showing <span className="font-medium text-yellow-600 dark:text-yellow-400">Away</span> due to inactivity.
                             Does <span className="font-medium">not</span> override a manual screen lock (Win+L).
                           </p>
