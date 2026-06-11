@@ -184,9 +184,9 @@ function KanbanCard({ entry, index, isSelected, onSelect }: KanbanCardProps) {
           </Badge>
         )}
         {entry.project && (
-          <Badge variant="secondary" className={`text-[10px] h-4 px-1 gap-1 border-none bg-zinc-200/80 dark:bg-zinc-800 text-muted-foreground rounded-[2px]`}>
-            <FolderOpen className="h-3 w-3" />
-            {entry.project.title}
+          <Badge variant="secondary" title={entry.project.title} className={`text-[10px] h-4 px-1 gap-1 border-none bg-zinc-200/80 dark:bg-zinc-800 text-muted-foreground rounded-[2px] max-w-[140px] overflow-hidden`}>
+            <FolderOpen className="h-3 w-3 shrink-0" />
+            <span className="truncate">{entry.project.title}</span>
           </Badge>
         )}
         {entry.reportedAt && (
@@ -440,8 +440,8 @@ function BacklogPanel({
                         </Badge>
                       )}
                       {entry.project && (
-                        <Badge variant="secondary" className="h-4 rounded-[2px] border-none bg-zinc-200/80 px-1 text-[10px] text-muted-foreground dark:bg-zinc-800">
-                          {entry.project.title}
+                        <Badge variant="secondary" title={entry.project.title} className="h-4 rounded-[2px] border-none bg-zinc-200/80 px-1 text-[10px] text-muted-foreground dark:bg-zinc-800 max-w-[140px] overflow-hidden">
+                          <span className="truncate">{entry.project.title}</span>
                         </Badge>
                       )}
                     </div>
