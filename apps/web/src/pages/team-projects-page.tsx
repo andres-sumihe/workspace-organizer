@@ -207,7 +207,12 @@ function ProjectRow({ project, teamId, onEdit, onDelete }: ProjectRowProps) {
               Start: {formatDate(project.startDate)}
             </span>
           )}
-          {project.dueDate && (
+          {project.actualEndDate && (
+            <span className="text-xs text-green-600 font-medium">
+              End: {formatDate(project.actualEndDate)}
+            </span>
+          )}
+          {project.dueDate && !project.actualEndDate && (
             <span className={`text-xs ${dueInfo?.urgent ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
               Due: {formatDate(project.dueDate)}
               {dueInfo && project.status !== 'completed' && (
@@ -215,7 +220,7 @@ function ProjectRow({ project, teamId, onEdit, onDelete }: ProjectRowProps) {
               )}
             </span>
           )}
-          {!project.startDate && !project.dueDate && (
+          {!project.startDate && !project.dueDate && !project.actualEndDate && (
             <span className="text-muted-foreground">-</span>
           )}
         </div>

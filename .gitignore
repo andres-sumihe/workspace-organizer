@@ -49,3 +49,4 @@ scripts/setup-local-node.js
 
 graphify-out
 .github/context-mode
+.codentic

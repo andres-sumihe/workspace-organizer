@@ -470,13 +470,13 @@ function ProjectFilter({ projects, selectedProjectId, onSelectProject }: Project
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          <Filter className="h-4 w-4" />
-          {selectedProject ? selectedProject.title : 'All Projects'}
-          <ChevronDown className="h-4 w-4" />
+        <Button variant="outline" size="sm" className="gap-2 max-w-[180px]">
+          <Filter className="h-4 w-4 shrink-0" />
+          <span className="truncate">{selectedProject ? selectedProject.title : 'All Projects'}</span>
+          <ChevronDown className="h-4 w-4 shrink-0" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56">
+      <DropdownMenuContent align="start" className="w-64">
         <DropdownMenuItem onClick={() => onSelectProject(undefined)}>
           All Projects
         </DropdownMenuItem>
@@ -486,11 +486,12 @@ function ProjectFilter({ projects, selectedProjectId, onSelectProject }: Project
             key={project.id}
             onClick={() => onSelectProject(project.id)}
             className="gap-2"
+            title={project.title}
           >
-            <FolderOpen className="h-4 w-4" />
-            {project.title}
+            <FolderOpen className="h-4 w-4 shrink-0" />
+            <span className="truncate flex-1">{project.title}</span>
             {project.id === selectedProjectId && (
-              <Check className="h-4 w-4 ml-auto" />
+              <Check className="h-4 w-4 shrink-0 ml-auto" />
             )}
           </DropdownMenuItem>
         ))}
