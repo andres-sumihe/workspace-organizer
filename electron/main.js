@@ -1249,6 +1249,15 @@ ipcMain.handle('workspace:write-text', async (event, payload) => {
   }
 });
 
+ipcMain.handle('workspace:write-binary', async (event, payload) => {
+  try {
+    const result = await workspaceFs.writeBinaryFile(payload?.rootPath, payload?.relativePath, payload?.base64);
+    return { ok: true, ...result };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
 ipcMain.handle('workspace:rename', async (event, payload) => {
   try {
     const result = await workspaceFs.renameEntry(payload?.rootPath, payload?.oldRelativePath, payload?.newName);

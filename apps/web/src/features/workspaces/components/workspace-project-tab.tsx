@@ -232,7 +232,8 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath, highlightPath }
     handleDuplicate,
     handleImportExternalFiles,
     handleArchive,
-    handleExtract
+    handleExtract,
+    handleUnpackTransfer
   } = useFileOperations({
     getEffectiveRootPath,
     currentPath,
@@ -740,7 +741,7 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath, highlightPath }
         <FileOperationsToolbar
           selectedCount={selectedFiles.size}
           onTransfer={() => setPayloadDialogOpen(true)}
-          onExtract={() => openSplitDialog(true)}
+          onExtract={handleUnpackTransfer}
           onDelete={handleDeleteBulk}
           onNewFile={openNewFileDialog}
           onNewFolder={openNewFolderDialog}

@@ -2,6 +2,10 @@ import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 
 import { markCutMode, clearCutMode, isCutMode } from '../stores/clipboard-store';
+import {
+  parseTransferPayload,
+  extractTransferFiles
+} from '../utils/payload';
 
 import type { SplitFormValues } from '../types';
 import type { WorkspaceDirectoryEntry, WorkspaceFilePreview } from '@/types/desktop';
@@ -35,6 +39,7 @@ interface UseFileOperationsReturn {
   handleImportExternalFiles: (externalPaths: string[]) => Promise<void>;
   handleArchive: (paths?: string[]) => Promise<void>;
   handleExtract: (archivePath: string) => Promise<void>;
+  handleUnpackTransfer: () => Promise<void>;
 }
 
 export const useFileOperations = ({
@@ -511,6 +516,82 @@ export const useFileOperations = ({
     }
   }, [getEffectiveRootPath, onRefreshDirectory]);
 
+  // ─── Unpack Transfer Payload ────────────────────────────────────────────
+
+  const handleUnpackTransfer = useCallback(async () => {
+    const effectiveRoot = getEffectiveRootPath();
+    if (!effectiveRoot || !window.api?.writeBinaryFile) {
+      toast.error('Desktop bridge unavailable.');
+      return;
+    }
+
+    try {
+      // Read clipboard text
+      const clipboardText = await navigator.clipboard.readText();
+      if (!clipboardText || !clipboardText.trim()) {
+        throw new Error('Clipboard is empty');
+      }
+
+      // Parse the transfer payload
+      const payload = parseTransferPayload(clipboardText);
+      const extractedFiles = await extractTransferFiles(payload);
+
+      if (extractedFiles.length === 0) {
+        throw new Error('No files found in payload');
+      }
+
+      // Write each file to the current directory
+      const created: string[] = [];
+      const warnings: string[] = [];
+
+      for (const { hashMatches, fileName, base64Data } of extractedFiles) {
+        // Resolve collision: append (1), (2), etc. if file exists
+        let targetRelPath = fileName;
+        const existingNames = new Set(entries.map(e => e.name));
+        
+        if (existingNames.has(fileName)) {
+          const baseName = fileName.replace(/\.[^.]+$/, '');
+          const ext = fileName.includes('.') ? `.${fileName.split('.').pop()}` : '';
+          let i = 1;
+          while (existingNames.has(`${baseName} (${i})${ext}`)) {
+            i++;
+          }
+          targetRelPath = `${baseName} (${i})${ext}`;
+        }
+
+        // Write to current directory (not workspace root)
+        const fullPath = currentPath ? `${currentPath}/${targetRelPath}` : targetRelPath;
+
+        // Write via Electron API (base64Data comes directly from payload)
+        const response = await window.api.writeBinaryFile({
+          rootPath: effectiveRoot,
+          relativePath: fullPath,
+          base64: base64Data,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to write ${fileName}: ${response.error}`);
+        }
+
+        created.push(targetRelPath);
+
+        if (!hashMatches) {
+          warnings.push(fileName);
+        }
+      }
+
+      let message = `✓ Unpacked ${created.length} file(s) to current directory`;
+      if (warnings.length > 0) {
+        message += ` (⚠ checksum mismatch: ${warnings.join(', ')})`;
+      }
+      toast.success(message);
+      await onRefreshDirectory();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to unpack transfer payload';
+      toast.error(message);
+    }
+  }, [getEffectiveRootPath, currentPath, entries, onRefreshDirectory]);
+
   return {
     selectedFiles,
     setSelectedFiles,
@@ -531,5 +612,6 @@ export const useFileOperations = ({
     handleImportExternalFiles,
     handleArchive,
     handleExtract,
+    handleUnpackTransfer,
   };
 };

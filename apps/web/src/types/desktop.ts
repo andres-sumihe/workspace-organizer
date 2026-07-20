@@ -139,6 +139,11 @@ export interface DesktopApi {
     content: string;
     encoding?: string;
   }) => Promise<{ ok: boolean; error?: string; path?: string }>;
+  writeBinaryFile: (payload: {
+    rootPath: string;
+    relativePath: string;
+    base64: string;
+  }) => Promise<{ ok: boolean; error?: string; path?: string }>;
   renameEntry: (payload: {
     rootPath: string;
     oldRelativePath: string;
