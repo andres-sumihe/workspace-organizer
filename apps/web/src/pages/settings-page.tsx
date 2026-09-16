@@ -255,9 +255,9 @@ export const SettingsPage = () => {
     setKeepAwakeTeamsEnabled(enabled);
     try {
       await window.api.setKeepAwakeTeams(enabled);
-      toast.success(enabled ? 'Teams activity simulation enabled' : 'Teams activity simulation disabled');
+      toast.success(enabled ? 'Idle guard enabled' : 'Idle guard disabled');
     } catch {
-      toast.error('Failed to toggle Teams activity simulation');
+      toast.error('Failed to toggle idle guard');
       setKeepAwakeTeamsEnabled(!enabled);
     }
   };
@@ -820,7 +820,7 @@ export const SettingsPage = () => {
                       <Monitor className="size-6 text-primary" />
                     </div>
                     <div className="flex-1">
-                      <h2 className="text-lg font-semibold mb-1">Keep Awake</h2>
+                      <h2 className="text-lg font-semibold mb-1">Power &amp; Idle</h2>
                       <p className="text-sm text-muted-foreground mb-4">
                         Prevent the system and screen from going to sleep while the app is open.
                       </p>
@@ -840,10 +840,9 @@ export const SettingsPage = () => {
 
                       <div className="mt-4 pt-4 border-t flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium">Simulate activity (keep Teams green)</p>
+                          <p className="text-sm font-medium">Idle guard</p>
                           <p className="text-xs text-muted-foreground">
-                            Nudges the mouse cursor by 1 px every 60 s so Windows never detects an idle session.
-                            Prevents Teams from showing <span className="font-medium text-yellow-600 dark:text-yellow-400">Away</span> due to inactivity.
+                            Sends a silent F15 key press every 60 s so the system never registers an idle session.
                             Does <span className="font-medium">not</span> override a manual screen lock (Win+L).
                           </p>
                         </div>

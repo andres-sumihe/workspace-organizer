@@ -18,7 +18,7 @@ let expressApp = null;
 let httpServer = null;
 let mainWindow = null;
 let keepAwakeBlockerId = null; // powerSaveBlocker id, null when inactive
-let keepAwakeTeamsInterval = null; // mouse-jiggle interval id, null when inactive
+let keepAwakeTeamsInterval = null; // idle-guard interval id, null when inactive
 
 // --- helper: command registry & menu builder ---
 function buildAppMenu(win) {
@@ -1046,33 +1046,28 @@ ipcMain.handle('keep-awake:get', () => {
   return { active };
 });
 
-// Keep Awake Teams — periodic mouse jiggle to prevent Teams "Away" status from idle detection
-function jiggleMouse() {
+// Idle guard — F15 is unbound on Windows, so the key press resets the idle timer without side effects
+function pressIdleKey() {
   if (process.platform !== 'win32') return;
   const { execFile } = require('child_process');
-  const script = [
-    'Add-Type -AssemblyName System.Windows.Forms;',
-    '$p = [System.Windows.Forms.Cursor]::Position;',
-    '[System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(($p.X + 1), $p.Y);',
-    '[System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point($p.X, $p.Y)',
-  ].join(' ');
+  const script = "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('{F15}')";
   execFile('powershell.exe', ['-NonInteractive', '-WindowStyle', 'Hidden', '-Command', script], (err) => {
-    if (err) log(`[KeepAwakeTeams] Jiggle error: ${err.message}`);
+    if (err) log(`[IdleGuard] key error: ${err.message}`);
   });
 }
 
 ipcMain.handle('keep-awake-teams:set', (_event, enabled) => {
   if (enabled) {
     if (!keepAwakeTeamsInterval) {
-      jiggleMouse(); // immediate first nudge
-      keepAwakeTeamsInterval = setInterval(jiggleMouse, 60_000);
-      log('[KeepAwakeTeams] Started mouse jiggler (60s interval)');
+      pressIdleKey();
+      keepAwakeTeamsInterval = setInterval(pressIdleKey, 60_000);
+      log('[IdleGuard] started (60s interval)');
     }
   } else {
     if (keepAwakeTeamsInterval) {
       clearInterval(keepAwakeTeamsInterval);
       keepAwakeTeamsInterval = null;
-      log('[KeepAwakeTeams] Stopped mouse jiggler');
+      log('[IdleGuard] stopped');
     }
   }
   return { ok: true, active: keepAwakeTeamsInterval !== null };
