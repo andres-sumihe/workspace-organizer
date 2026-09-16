@@ -482,12 +482,12 @@ export function ChecklistTemplatePanel({ mode, projectId, teamId, projectTitle }
   return (
     <div className="flex w-full max-w-none flex-col gap-5">
       <div className="relative overflow-hidden rounded-lg border bg-card">
-        <div className="absolute inset-x-0 top-0 h-1 bg-linear-to-r from-emerald-500 via-sky-500 to-amber-400" />
+        <div className="absolute inset-x-0 top-0 h-1 bg-linear-to-r from-success via-info to-warning" />
         <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="space-y-5 p-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex h-10 w-10 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-300">
+                <div className="flex h-10 w-10 items-center justify-center rounded-md bg-success/10 text-success ">
                   <ShieldCheck className="h-5 w-5" />
                 </div>
                 <div>
@@ -514,7 +514,7 @@ export function ChecklistTemplatePanel({ mode, projectId, teamId, projectTitle }
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      <CheckCircle2 className="h-4 w-4 text-success" />
                       <span className="font-medium">{activeTemplate.name}</span>
                       <Badge variant="secondary">Active Template</Badge>
                     </div>
@@ -574,7 +574,7 @@ export function ChecklistTemplatePanel({ mode, projectId, teamId, projectTitle }
                     const subheaderDraft = subheaderDrafts.get(section.id) ?? '';
                     return (
                       <div key={section.id} className="overflow-hidden rounded-md border bg-background">
-                        <div className="border-b bg-sky-100 px-4 py-3 text-sky-950 dark:bg-sky-950/40 dark:text-sky-50">
+                        <div className="border-b bg-info/15 px-4 py-3 text-info ">
                           <div className="font-semibold">{section.title}</div>
                           <div className="text-xs opacity-75">{sectionItems.length} rows</div>
                           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -608,18 +608,18 @@ export function ChecklistTemplatePanel({ mode, projectId, teamId, projectTitle }
                             return (
                               <div key={group.key} className="overflow-x-auto">
                                 {group.title && (
-                                  <div className="flex items-center gap-2 border-b bg-amber-200 px-4 py-2 text-amber-950 dark:bg-amber-400/80 dark:text-amber-950">
+                                  <div className="flex items-center gap-2 border-b bg-warning/15 px-4 py-2 text-warning ">
                                     <Input
                                       defaultValue={group.title}
                                       disabled={isBusy}
-                                      className="h-8 border-amber-500/40 bg-white/70 text-sm font-semibold text-amber-950 shadow-none"
+                                      className="h-8 border-warning/40 bg-white/70 text-sm font-semibold text-warning shadow-none"
                                       onBlur={(event) => void handleUpdateSubheader(section.id, group, event.currentTarget.value)}
                                     />
                                     <Button
                                       type="button"
                                       variant="ghost"
                                       size="icon"
-                                      className="h-8 w-8 shrink-0 text-amber-950 hover:bg-amber-300/70 hover:text-amber-950"
+                                      className="h-8 w-8 shrink-0 text-warning hover:bg-warning/70 hover:text-warning"
                                       disabled={isBusy}
                                       onClick={() => void handleRemoveSubheader(section.id, group)}
                                     >

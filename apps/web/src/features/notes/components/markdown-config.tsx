@@ -99,7 +99,7 @@ export const markdownComponents = {
 
     return (
       <a
-        className="text-blue-500 hover:text-blue-700 underline cursor-pointer"
+        className="text-info hover:text-info underline cursor-pointer"
         href={href}
         target={target}
         rel={rel}
@@ -117,8 +117,8 @@ export const markdownComponents = {
   hr: (props: React.ComponentProps<'hr'>) => <hr className="my-8 border-border" {...props} />,
   img: (props: React.ComponentProps<'img'>) => <img className="max-w-full h-auto rounded-lg my-4" {...props} />,
   del: (props: React.ComponentProps<'del'>) => <del className="line-through opacity-60" {...props} />,
-  ins: (props: React.ComponentProps<'ins'>) => <ins className="decoration-green-500 underline bg-green-100 dark:bg-green-900/30" {...props} />,
-  mark: (props: React.ComponentProps<'mark'>) => <mark className="bg-yellow-200 dark:bg-yellow-900/40 px-1" {...props} />,
+  ins: (props: React.ComponentProps<'ins'>) => <ins className="decoration-green-500 underline bg-success/15 " {...props} />,
+  mark: (props: React.ComponentProps<'mark'>) => <mark className="bg-warning/15 px-1" {...props} />,
   sup: (props: React.ComponentProps<'sup'>) => <sup className="text-[0.75em] relative -top-[0.5em]" {...props} />,
   sub: (props: React.ComponentProps<'sub'>) => <sub className="text-[0.75em] relative top-[0.25em]" {...props} />,
   dl: (props: React.ComponentProps<'dl'>) => <dl className="my-4" {...props} />,

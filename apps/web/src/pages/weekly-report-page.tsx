@@ -422,7 +422,7 @@ export function WeeklyReportPage() {
                 disabled={bulkMarkReported.isPending || filteredItems.filter((i) => !i.reportedAt).length === 0}
                 onClick={handleMarkAllReported}
               >
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                <CheckCircle2 className="h-3.5 w-3.5 text-success" />
                 Mark all as reported
                 {filteredItems.filter((i) => !i.reportedAt).length > 0 && (
                   <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0 h-4">

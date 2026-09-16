@@ -45,27 +45,27 @@ const TASK_STATUS_CONFIG: Record<
   backlog: {
     label: 'Backlog',
     icon: Archive,
-    color: 'text-amber-600 dark:text-amber-300'
+    color: 'text-warning '
   },
   pending: {
     label: 'Todo',
     icon: Circle,
-    color: 'text-gray-500'
+    color: 'text-muted-foreground'
   },
   in_progress: {
     label: 'In Progress',
     icon: Clock,
-    color: 'text-blue-500'
+    color: 'text-info'
   },
   completed: {
     label: 'Completed',
     icon: Check,
-    color: 'text-green-500'
+    color: 'text-success'
   },
   cancelled: {
     label: 'Cancelled',
     icon: X,
-    color: 'text-red-500'
+    color: 'text-destructive'
   }
 };
 

@@ -30,7 +30,7 @@ export const ValidationResult = ({ result }: ValidationResultProps) => {
   // Determine badge color based on type
   const typeBadgeClass = result.type === 'iso20022'
     ? 'bg-purple-100 text-purple-700 border border-purple-300'
-    : 'bg-cyan-100 text-cyan-700 border border-cyan-300';
+    : 'bg-info/15 text-info border border-info/40';
   
   const typeLabel = result.type === 'iso20022' ? 'MX' : 'MT';
 
@@ -64,7 +64,7 @@ export const ValidationResult = ({ result }: ValidationResultProps) => {
 
       {/* Format (MT only) */}
       {format && format !== 'unknown' && (
-        <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-300 font-mono uppercase">
+        <span className="px-2 py-0.5 rounded-md bg-muted text-foreground border border-border font-mono uppercase">
           {format === 'dos_pcc' ? 'DOS-PCC' : format === 'rje' ? 'RJE' : 'FIN'}
         </span>
       )}

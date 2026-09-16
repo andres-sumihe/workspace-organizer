@@ -204,13 +204,13 @@ function buildInlineHighlightedLines(
     wordDiff.forEach((part, idx) => {
       if (part.removed) {
         removedFragments.push(
-          <span key={idx} className="bg-red-500/30 rounded-sm">
+          <span key={idx} className="bg-destructive/30 rounded-sm">
             {part.value}
           </span>,
         );
       } else if (part.added) {
         addedFragments.push(
-          <span key={idx} className="bg-green-500/30 rounded-sm">
+          <span key={idx} className="bg-success/30 rounded-sm">
             {part.value}
           </span>,
         );
@@ -399,12 +399,12 @@ function UnifiedDiffView({
           {lines.length} lines
         </span>
         {added > 0 && (
-          <span className="text-green-600 dark:text-green-400 font-medium">
+          <span className="text-success font-medium">
             +{added} added
           </span>
         )}
         {removed > 0 && (
-          <span className="text-red-600 dark:text-red-400 font-medium">
+          <span className="text-destructive font-medium">
             &minus;{removed} removed
           </span>
         )}
@@ -418,9 +418,9 @@ function UnifiedDiffView({
               key={i}
               className={
                 line.type === "added"
-                  ? "flex bg-green-500/10 border-l-2 border-green-500"
+                  ? "flex bg-success/10 border-l-2 border-success"
                   : line.type === "removed"
-                    ? "flex bg-red-500/10 border-l-2 border-red-500"
+                    ? "flex bg-destructive/10 border-l-2 border-destructive"
                     : "flex border-l-2 border-transparent"
               }
             >
@@ -436,9 +436,9 @@ function UnifiedDiffView({
               <span
                 className={`w-5 shrink-0 text-center select-none font-medium ${
                   line.type === "added"
-                    ? "text-green-600 dark:text-green-400"
+                    ? "text-success "
                     : line.type === "removed"
-                      ? "text-red-600 dark:text-red-400"
+                      ? "text-destructive "
                       : "text-transparent"
                 }`}
               >
@@ -452,9 +452,9 @@ function UnifiedDiffView({
               <span
                 className={`flex-1 whitespace-pre-wrap break-all pr-4 ${
                   line.type === "removed"
-                    ? "text-red-700 dark:text-red-300"
+                    ? "text-destructive "
                     : line.type === "added"
-                      ? "text-green-700 dark:text-green-300"
+                      ? "text-success "
                       : "text-foreground/80"
                 }`}
               >

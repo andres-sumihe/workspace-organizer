@@ -196,7 +196,7 @@ export function TeamNoteContentViewer({ note, onEdit, onDelete, teamId, projectI
           const mark = document.createElement('mark');
           mark.setAttribute('data-search-highlight', 'true');
           mark.setAttribute('data-match-index', String(totalMatches));
-          mark.className = 'bg-blue-200/50 dark:bg-blue-500/30 text-inherit';
+          mark.className = 'bg-info/15  text-inherit';
           mark.textContent = match;
           fragment.appendChild(mark);
           totalMatches++;
@@ -220,10 +220,10 @@ export function TeamNoteContentViewer({ note, onEdit, onDelete, teamId, projectI
     marks.forEach((mark, idx) => {
       const el = mark as HTMLElement;
       if (idx === currentMatch) {
-        el.className = 'bg-blue-300/70 dark:bg-blue-400/50 text-inherit';
+        el.className = 'bg-info/25  text-inherit';
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       } else {
-        el.className = 'bg-blue-200/50 dark:bg-blue-500/30 text-inherit';
+        el.className = 'bg-info/15  text-inherit';
       }
     });
   }, [currentMatch, matchCount]);

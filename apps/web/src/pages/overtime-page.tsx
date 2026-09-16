@@ -437,7 +437,7 @@ export const OvertimePage = () => {
               )}
 
               {successMessage && (
-                <Alert className="border-green-500 bg-green-50 text-green-900 dark:bg-green-900/20 dark:text-green-100">
+                <Alert className="border-success bg-success/15 text-success ">
                   <AlertDescription>{successMessage}</AlertDescription>
                 </Alert>
               )}
@@ -578,7 +578,7 @@ export const OvertimePage = () => {
                       <p className={`text-xs ${!durationValid && preview.totalHours > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
                         Duration: {preview.totalHours > 0 ? `${preview.totalHours.toFixed(1)} hours` : '-'}
                         {calc.startTime && calc.endTime && calc.endTime < calc.startTime && (
-                          <span className="text-amber-500"> (overnight)</span>
+                          <span className="text-warning"> (overnight)</span>
                         )}
                         {!durationValid && preview.totalHours > 0 && (
                           <span> - Must be at least 1 hour</span>
@@ -664,7 +664,7 @@ export const OvertimePage = () => {
               )}
 
               {successMessage && (
-                <Alert className="border-green-500 bg-green-50 text-green-900 dark:bg-green-900/20 dark:text-green-100">
+                <Alert className="border-success bg-success/15 text-success ">
                   <AlertDescription>{successMessage}</AlertDescription>
                 </Alert>
               )}

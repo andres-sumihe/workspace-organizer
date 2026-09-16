@@ -127,26 +127,26 @@ const PROJECT_STATUS_CONFIG: Record<
   active: {
     label: 'Active',
     icon: Circle,
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-100 dark:bg-blue-900/30'
+    color: 'text-info',
+    bgColor: 'bg-info/15 '
   },
   completed: {
     label: 'Completed',
     icon: Check,
-    color: 'text-green-500',
-    bgColor: 'bg-green-100 dark:bg-green-900/30'
+    color: 'text-success',
+    bgColor: 'bg-success/15 '
   },
   on_hold: {
     label: 'On Hold',
     icon: Pause,
-    color: 'text-yellow-500',
-    bgColor: 'bg-yellow-100 dark:bg-yellow-900/30'
+    color: 'text-warning',
+    bgColor: 'bg-warning/15 '
   },
   archived: {
     label: 'Archived',
     icon: Archive,
-    color: 'text-gray-500',
-    bgColor: 'bg-gray-100 dark:bg-gray-900/30'
+    color: 'text-muted-foreground',
+    bgColor: 'bg-muted '
   }
 };
 
@@ -157,37 +157,37 @@ const TASK_STATUS_CONFIG: Record<
   backlog: {
     label: 'Backlog',
     icon: Archive,
-    color: 'text-amber-600 dark:text-amber-300',
-    bgColor: 'bg-amber-50 dark:bg-amber-950/20',
-    accent: 'before:bg-amber-500'
+    color: 'text-warning ',
+    bgColor: 'bg-warning/15 ',
+    accent: 'before:bg-warning'
   },
   pending: {
     label: 'Todo',
     icon: Circle,
-    color: 'text-gray-500',
-    bgColor: 'bg-gray-50 dark:bg-gray-900/20',
-    accent: 'before:bg-gray-400'
+    color: 'text-muted-foreground',
+    bgColor: 'bg-muted ',
+    accent: 'before:bg-secondary'
   },
   in_progress: {
     label: 'In Progress',
     icon: Clock,
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-50 dark:bg-blue-900/20',
-    accent: 'before:bg-blue-400'
+    color: 'text-info',
+    bgColor: 'bg-info/15 ',
+    accent: 'before:bg-info'
   },
   completed: {
     label: 'Completed',
     icon: Check,
-    color: 'text-green-500',
-    bgColor: 'bg-green-50 dark:bg-green-900/20',
-    accent: 'before:bg-green-400'
+    color: 'text-success',
+    bgColor: 'bg-success/15 ',
+    accent: 'before:bg-success'
   },
   cancelled: {
     label: 'Cancelled',
     icon: X,
-    color: 'text-red-500',
-    bgColor: 'bg-red-50 dark:bg-red-900/20',
-    accent: 'before:bg-red-400'
+    color: 'text-destructive',
+    bgColor: 'bg-destructive/15 ',
+    accent: 'before:bg-destructive'
   }
 };
 
@@ -314,13 +314,13 @@ function KanbanCard({ task, index, onEdit, onDelete }: KanbanCardProps) {
           {TASK_PRIORITY_CONFIG[task.priority].label}
         </Badge>
         {task.dueDate && (
-          <Badge variant="outline" className="text-[10px] h-4 px-1 gap-1 border-none bg-zinc-200/80 dark:bg-zinc-800 text-muted-foreground rounded-[2px]">
+          <Badge variant="outline" className="text-[10px] h-4 px-1 gap-1 border-none bg-muted text-muted-foreground rounded-[2px]">
             <Calendar className="h-3 w-3" />
             {formatDateShort(task.dueDate)}
           </Badge>
         )}
         {task.assignees.length > 0 && (
-          <Badge variant="secondary" className="text-[10px] h-4 px-1 gap-1 border-none bg-zinc-200/80 dark:bg-zinc-800 text-muted-foreground rounded-[2px]">
+          <Badge variant="secondary" className="text-[10px] h-4 px-1 gap-1 border-none bg-muted text-muted-foreground rounded-[2px]">
             <UsersIcon className="h-3 w-3" />
             {task.assignees.length}
           </Badge>
@@ -389,7 +389,7 @@ function KanbanColumn({ status, index, tasks, onDeleteTask, onViewTask }: Kanban
           >
             <ArrowUpDown className="h-3.5 w-3.5" />
           </Button>
-          <Badge className="text-[11px] font-bold text-muted-foreground bg-zinc-200/50 dark:bg-white/5 px-2 py-0.5 rounded-[2px]">
+          <Badge className="text-[11px] font-bold text-muted-foreground bg-muted dark:bg-white/5 px-2 py-0.5 rounded-[2px]">
             {columnTasks.length}
           </Badge>
         </div>
@@ -453,7 +453,7 @@ function TeamBacklogPanel({
           >
             <ChevronsRight className="h-4 w-4" />
           </Button>
-          <Archive className="h-4 w-4 text-amber-600 dark:text-amber-300 mt-2" />
+          <Archive className="h-4 w-4 text-warning mt-2" />
           {total > 0 && (
             <span className="text-xs font-semibold text-muted-foreground">{total}</span>
           )}
@@ -462,7 +462,7 @@ function TeamBacklogPanel({
         <>
           <div className="border-b p-3 space-y-3">
             <div className="flex items-center gap-2">
-              <Archive className="h-4 w-4 text-amber-600 dark:text-amber-300" />
+              <Archive className="h-4 w-4 text-warning " />
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-semibold leading-none">Backlog</div>
                 <div className="text-xs text-muted-foreground mt-1">{total} planned</div>
@@ -559,12 +559,12 @@ function TeamBacklogPanel({
                         {TASK_PRIORITY_CONFIG[task.priority].label}
                       </Badge>
                       {task.dueDate && (
-                        <Badge variant="outline" className="h-4 rounded-[2px] border-none bg-zinc-200/80 px-1 text-[10px] text-muted-foreground dark:bg-zinc-800">
+                        <Badge variant="outline" className="h-4 rounded-[2px] border-none bg-muted px-1 text-[10px] text-muted-foreground ">
                           {formatDateShort(task.dueDate)}
                         </Badge>
                       )}
                       {task.assignees.length > 0 && (
-                        <Badge variant="secondary" className="h-4 rounded-[2px] border-none bg-zinc-200/80 px-1 text-[10px] text-muted-foreground dark:bg-zinc-800">
+                        <Badge variant="secondary" className="h-4 rounded-[2px] border-none bg-muted px-1 text-[10px] text-muted-foreground ">
                           {task.assignees.length} assigned
                         </Badge>
                       )}
@@ -1373,19 +1373,19 @@ export const TeamProjectDetailPage = () => {
                     {/* Task Stats Grid */}
                     <div className="grid grid-cols-5 gap-4 pt-2">
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-gray-500">{taskStats.pending}</div>
+                        <div className="text-2xl font-bold text-muted-foreground">{taskStats.pending}</div>
                         <div className="text-xs text-muted-foreground">Pending</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-amber-600 dark:text-amber-300">{taskStats.backlog}</div>
+                        <div className="text-2xl font-bold text-warning ">{taskStats.backlog}</div>
                         <div className="text-xs text-muted-foreground">Backlog</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-blue-500">{taskStats.inProgress}</div>
+                        <div className="text-2xl font-bold text-info">{taskStats.inProgress}</div>
                         <div className="text-xs text-muted-foreground">In Progress</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-green-500">{taskStats.completed}</div>
+                        <div className="text-2xl font-bold text-success">{taskStats.completed}</div>
                         <div className="text-xs text-muted-foreground">Completed</div>
                       </div>
                       <div className="text-center">
@@ -1510,10 +1510,10 @@ export const TeamProjectDetailPage = () => {
                     {project.actualEndDate && (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 text-sm">
-                          <Check className="h-4 w-4 text-green-500" />
+                          <Check className="h-4 w-4 text-success" />
                           <span className="text-muted-foreground">Completed</span>
                         </div>
-                        <div className="text-sm font-medium pl-6 text-green-600">
+                        <div className="text-sm font-medium pl-6 text-success">
                           {formatDate(project.actualEndDate)}
                         </div>
                       </div>
@@ -1544,13 +1544,13 @@ export const TeamProjectDetailPage = () => {
                   <span>
                     <strong className="text-foreground">{taskStats.total}</strong> active
                   </span>
-                  <span className="text-amber-600 dark:text-amber-300">
+                  <span className="text-warning ">
                     <strong>{taskStats.backlog}</strong> backlog
                   </span>
-                  <span className="text-green-500">
+                  <span className="text-success">
                     <strong>{taskStats.completed}</strong> done
                   </span>
-                  <span className="text-blue-500">
+                  <span className="text-info">
                     <strong>{taskStats.inProgress}</strong> in progress
                   </span>
                   <span>

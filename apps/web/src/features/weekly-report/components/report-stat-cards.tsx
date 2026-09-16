@@ -21,13 +21,13 @@ export function ReportStatCards({ summary }: ReportStatCardsProps) {
       value: summary.byStatus.done,
       subtitle: `${summary.completionRate}%`,
       icon: CheckCircle2,
-      iconColor: 'text-emerald-500',
+      iconColor: 'text-success',
     },
     {
       label: 'In Progress',
       value: summary.byStatus.inProgress,
       icon: Clock,
-      iconColor: 'text-blue-500',
+      iconColor: 'text-info',
     },
     {
       label: 'To Do',
@@ -41,7 +41,7 @@ export function ReportStatCards({ summary }: ReportStatCardsProps) {
             label: 'Flagged',
             value: summary.flaggedCount,
             icon: AlertTriangle,
-            iconColor: 'text-amber-500',
+            iconColor: 'text-warning',
           },
         ]
       : []),

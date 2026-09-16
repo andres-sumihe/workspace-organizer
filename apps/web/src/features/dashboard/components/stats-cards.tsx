@@ -292,7 +292,7 @@ export const StreakCard = () => {
               </div>
             </PopoverContent>
           </Popover>
-          <Flame className={cn("h-4 w-4", streak > 0 ? "text-orange-500 fill-orange-500" : "text-muted-foreground")} />
+          <Flame className={cn("h-4 w-4", streak > 0 ? "text-warning fill-warning" : "text-muted-foreground")} />
         </div>
       </CardHeader>
       <CardContent>

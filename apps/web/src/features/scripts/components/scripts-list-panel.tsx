@@ -156,7 +156,7 @@ export const ScriptsListPanel = ({
                       {script.type}
                     </Badge>
                     {script.hasCredentials && (
-                      <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">
+                      <Badge variant="outline" className="text-xs text-warning border-warning/40">
                         🔐 Creds
                       </Badge>
                     )}

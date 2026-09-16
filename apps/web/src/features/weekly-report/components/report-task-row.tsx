@@ -32,8 +32,8 @@ const STATUS_DISPLAY: Record<
   { label: string; icon: typeof Circle; color: string; bgHover: string }
 > = {
   todo: { label: 'To Do', icon: Circle, color: 'text-muted-foreground', bgHover: 'hover:bg-muted' },
-  inProgress: { label: 'In Progress', icon: Clock, color: 'text-blue-500', bgHover: 'hover:bg-blue-500/10' },
-  done: { label: 'Done', icon: Check, color: 'text-emerald-500', bgHover: 'hover:bg-emerald-500/10' },
+  inProgress: { label: 'In Progress', icon: Clock, color: 'text-info', bgHover: 'hover:bg-info/10' },
+  done: { label: 'Done', icon: Check, color: 'text-success', bgHover: 'hover:bg-success/10' },
 };
 
 const PRIORITY_BADGE: Record<
@@ -47,11 +47,11 @@ const PRIORITY_BADGE: Record<
 };
 
 const FLAG_CONFIG: Record<string, { label: string; color: string }> = {
-  blocked: { label: 'Blocked', color: 'text-red-500 border-red-500/50' },
-  needs_confirmation: { label: 'Needs Confirmation', color: 'text-amber-500 border-amber-500/50' },
-  urgent: { label: 'Urgent', color: 'text-red-600 border-red-600/50' },
-  on_hold: { label: 'On Hold', color: 'text-yellow-600 border-yellow-600/50' },
-  waiting_feedback: { label: 'Waiting Feedback', color: 'text-blue-500 border-blue-500/50' },
+  blocked: { label: 'Blocked', color: 'text-destructive border-destructive/40' },
+  needs_confirmation: { label: 'Needs Confirmation', color: 'text-warning border-warning/40' },
+  urgent: { label: 'Urgent', color: 'text-destructive border-destructive/40' },
+  on_hold: { label: 'On Hold', color: 'text-warning border-warning/40' },
+  waiting_feedback: { label: 'Waiting Feedback', color: 'text-info border-info/40' },
 };
 
 const ALL_FLAGS: TaskUpdateFlag[] = ['blocked', 'needs_confirmation', 'urgent', 'on_hold', 'waiting_feedback'];
@@ -254,7 +254,7 @@ export function ReportTaskRow({
           >
             <Badge
               variant="outline"
-              className="text-[10px] px-1.5 py-0 h-5 text-emerald-600 border-emerald-500/50 cursor-pointer hover:bg-emerald-500/10"
+              className="text-[10px] px-1.5 py-0 h-5 text-success border-success/40 cursor-pointer hover:bg-success/10"
             >
               <CheckCircle2 className="h-3 w-3 mr-0.5" />
               Reported
@@ -266,9 +266,9 @@ export function ReportTaskRow({
               type="button"
               title="Mark as reported"
               onClick={() => onMarkReported(item.id, new Date().toISOString())}
-              className="shrink-0 p-0.5 rounded transition-colors opacity-0 group-hover/row:opacity-100 hover:bg-emerald-500/10"
+              className="shrink-0 p-0.5 rounded transition-colors opacity-0 group-hover/row:opacity-100 hover:bg-success/10"
             >
-              <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground hover:text-emerald-600" />
+              <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground hover:text-success" />
             </button>
           )
         )}
@@ -300,7 +300,7 @@ export function ReportTaskRow({
             {item.reportedAt && (
               <>
                 <span>•</span>
-                <span className="text-emerald-600">Reported: {formatTimestampDisplay(item.reportedAt)}</span>
+                <span className="text-success">Reported: {formatTimestampDisplay(item.reportedAt)}</span>
               </>
             )}
           </div>

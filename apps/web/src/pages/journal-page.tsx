@@ -178,19 +178,19 @@ function KanbanCard({ entry, index, isSelected, onSelect }: KanbanCardProps) {
           </Badge>
         )}
         {entry.dueDate && (
-          <Badge variant="outline" className={`text-[10px] h-4 px-1 gap-1 border-none bg-zinc-200/80 dark:bg-zinc-800 text-muted-foreground rounded-[2px]`}>
+          <Badge variant="outline" className={`text-[10px] h-4 px-1 gap-1 border-none bg-muted  text-muted-foreground rounded-[2px]`}>
             <Calendar className="h-3 w-3" />
             {formatDateDisplay(entry.dueDate)}
           </Badge>
         )}
         {entry.project && (
-          <Badge variant="secondary" className={`text-[10px] h-4 px-1 gap-1 border-none bg-zinc-200/80 dark:bg-zinc-800 text-muted-foreground rounded-[2px]`}>
+          <Badge variant="secondary" className={`text-[10px] h-4 px-1 gap-1 border-none bg-muted  text-muted-foreground rounded-[2px]`}>
             <FolderOpen className="h-3 w-3" />
             {entry.project.title}
           </Badge>
         )}
         {entry.reportedAt && (
-          <Badge variant="outline" className="text-[10px] h-4 px-1.5 gap-0.5 text-emerald-600 border-emerald-500/50 rounded-[2px]">
+          <Badge variant="outline" className="text-[10px] h-4 px-1.5 gap-0.5 text-success border-success/40 rounded-[2px]">
             <CheckCircle2 className="h-2.5 w-2.5" />
             Reported
           </Badge>
@@ -204,7 +204,7 @@ function KanbanCard({ entry, index, isSelected, onSelect }: KanbanCardProps) {
             <Badge
               key={tag.id}
               variant="secondary"
-              className="text-[10px] h-4 px-1 bg-zinc-200/80 dark:bg-zinc-800 border-none text-muted-foreground rounded-[2px]"
+              className="text-[10px] h-4 px-1 bg-muted border-none text-muted-foreground rounded-[2px]"
               style={{ backgroundColor: tag.color ? `${tag.color}20` : undefined }}
             >
               #{tag.name}
@@ -283,7 +283,7 @@ function KanbanColumn({ status, index, entries, selectedEntry, onSelectEntry }: 
           >
             <ArrowUpDown className="h-3.5 w-3.5" />
           </Button>
-          <Badge className="text-[11px] font-bold text-muted-foreground bg-zinc-200/50 dark:bg-white/5 px-2 py-0.5 rounded-[2px]">
+          <Badge className="text-[11px] font-bold text-muted-foreground bg-muted dark:bg-white/5 px-2 py-0.5 rounded-[2px]">
             {columnEntries.length}
           </Badge>
         </div>
@@ -358,7 +358,7 @@ function BacklogPanel({
           >
             <ChevronsRight className="h-4 w-4" />
           </Button>
-          <Archive className="h-4 w-4 text-amber-600 dark:text-amber-300 mt-2" />
+          <Archive className="h-4 w-4 text-warning mt-2" />
           {entries.length > 0 && (
             <span className="text-xs font-semibold text-muted-foreground">{entries.length}</span>
           )}
@@ -367,7 +367,7 @@ function BacklogPanel({
         <>
           <div className="border-b p-3 space-y-3">
             <div className="flex items-center gap-2">
-              <Archive className="h-4 w-4 text-amber-600 dark:text-amber-300" />
+              <Archive className="h-4 w-4 text-warning " />
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-semibold leading-none">Backlog</div>
                 <div className="text-xs text-muted-foreground mt-1">{entries.length} planned</div>
@@ -435,12 +435,12 @@ function BacklogPanel({
                         </Badge>
                       )}
                       {entry.dueDate && (
-                        <Badge variant="outline" className="h-4 rounded-[2px] border-none bg-zinc-200/80 px-1 text-[10px] text-muted-foreground dark:bg-zinc-800">
+                        <Badge variant="outline" className="h-4 rounded-[2px] border-none bg-muted px-1 text-[10px] text-muted-foreground ">
                           {formatDateDisplay(entry.dueDate)}
                         </Badge>
                       )}
                       {entry.project && (
-                        <Badge variant="secondary" className="h-4 rounded-[2px] border-none bg-zinc-200/80 px-1 text-[10px] text-muted-foreground dark:bg-zinc-800">
+                        <Badge variant="secondary" className="h-4 rounded-[2px] border-none bg-muted px-1 text-[10px] text-muted-foreground ">
                           {entry.project.title}
                         </Badge>
                       )}
@@ -1521,10 +1521,10 @@ export function JournalPage() {
             <span>
               <strong className="text-foreground">{weekStats.total}</strong> entries
             </span>
-            <span className="text-green-500">
+            <span className="text-success">
               <strong>{weekStats.done}</strong> done
             </span>
-            <span className="text-blue-500">
+            <span className="text-info">
               <strong>{weekStats.inProgress}</strong> in progress
             </span>
             <span>

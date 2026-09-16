@@ -99,7 +99,7 @@ export function RecoveryPage() {
             )}
 
             {success && (
-              <Alert className="border-green-500 text-green-700 bg-green-50">
+              <Alert className="border-success text-success bg-success/15">
                 <AlertDescription>{success}</AlertDescription>
               </Alert>
             )}

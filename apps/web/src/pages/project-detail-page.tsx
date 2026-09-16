@@ -108,26 +108,26 @@ const PROJECT_STATUS_CONFIG: Record<
   active: {
     label: 'Active',
     icon: Circle,
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-100 dark:bg-blue-900/30'
+    color: 'text-info',
+    bgColor: 'bg-info/15 '
   },
   completed: {
     label: 'Completed',
     icon: Check,
-    color: 'text-green-500',
-    bgColor: 'bg-green-100 dark:bg-green-900/30'
+    color: 'text-success',
+    bgColor: 'bg-success/15 '
   },
   on_hold: {
     label: 'On Hold',
     icon: Pause,
-    color: 'text-yellow-500',
-    bgColor: 'bg-yellow-100 dark:bg-yellow-900/30'
+    color: 'text-warning',
+    bgColor: 'bg-warning/15 '
   },
   archived: {
     label: 'Archived',
     icon: Archive,
-    color: 'text-gray-500',
-    bgColor: 'bg-gray-100 dark:bg-gray-900/30'
+    color: 'text-muted-foreground',
+    bgColor: 'bg-muted '
   }
 };
 
@@ -664,15 +664,15 @@ export function ProjectDetailPage() {
                     {/* Task Stats */}
                     <div className="grid grid-cols-4 gap-4 pt-2">
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-gray-500">{project.taskStats.todo}</div>
+                        <div className="text-2xl font-bold text-muted-foreground">{project.taskStats.todo}</div>
                         <div className="text-xs text-muted-foreground">To Do</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-blue-500">{project.taskStats.inProgress}</div>
+                        <div className="text-2xl font-bold text-info">{project.taskStats.inProgress}</div>
                         <div className="text-xs text-muted-foreground">In Progress</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-green-500">{project.taskStats.done}</div>
+                        <div className="text-2xl font-bold text-success">{project.taskStats.done}</div>
                         <div className="text-xs text-muted-foreground">Done</div>
                       </div>
                     </div>
@@ -793,10 +793,10 @@ export function ProjectDetailPage() {
                     {project.actualEndDate && (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 text-sm">
-                          <Check className="h-4 w-4 text-green-500" />
+                          <Check className="h-4 w-4 text-success" />
                           <span className="text-muted-foreground">Completed</span>
                         </div>
-                        <div className="text-sm font-medium pl-6 text-green-600">
+                        <div className="text-sm font-medium pl-6 text-success">
                           {formatDate(project.actualEndDate)}
                         </div>
                       </div>

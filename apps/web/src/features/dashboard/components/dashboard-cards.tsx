@@ -225,7 +225,7 @@ export const RecentActivityCard = () => {
           <div className="space-y-4">
             {items.map(item => (
               <div key={`${item.type}-${item.id}`} className="flex items-center gap-3">
-                <div className={cn("p-1.5 rounded-full shrink-0", item.type === 'task' ? "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400" : "bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400")}>
+                <div className={cn("p-1.5 rounded-full shrink-0", item.type === 'task' ? "bg-info/15 text-info  " : "bg-warning/15 text-warning  ")}>
                   {item.type === 'task' ? <CheckCircle2 className="h-3 w-3" /> : <StickyNote className="h-3 w-3" />}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -280,7 +280,7 @@ export const PinnedNotesCard = () => {
         ) : (
           pinnedNotes.map((note) => (
             <div key={note.id} className="flex items-start gap-2 p-2 border rounded-md cursor-pointer hover:bg-muted/50 transition-colors min-w-0" onClick={() => navigate(`/notes?noteId=${note.id}`)}>
-              <StickyNote className="h-4 w-4 mt-0.5 text-yellow-500 shrink-0" />
+              <StickyNote className="h-4 w-4 mt-0.5 text-warning shrink-0" />
               <div className="space-y-1 overflow-hidden min-w-0 flex-1">
                 <p className="text-sm font-medium leading-none truncate">{note.title}</p>
                 <p className="text-xs text-muted-foreground line-clamp-2 break-words">{note.content}</p>

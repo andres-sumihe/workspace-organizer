@@ -66,7 +66,7 @@ export const WorkspaceListPanel = ({
                     <p className="text-base font-semibold text-foreground">{ws.name}</p>
                     <p className="mt-1 text-xs text-muted-foreground break-all">{ws.rootPath}</p>
                   </div>
-                  <Badge variant={status === 'healthy' ? 'default' : status === 'degraded' ? 'secondary' : 'outline'}>
+                  <Badge variant={status === 'healthy' ? 'success' : status === 'degraded' ? 'warning' : 'outline'}>
                     {status}
                   </Badge>
                 </div>

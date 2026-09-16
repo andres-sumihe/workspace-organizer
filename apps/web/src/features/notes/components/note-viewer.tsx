@@ -226,7 +226,7 @@ export function NoteViewer({ note, onEdit, onDelete, onPopout, isPipEditing, isP
           const mark = document.createElement('mark');
           mark.setAttribute('data-search-highlight', 'true');
           mark.setAttribute('data-match-index', String(totalMatches));
-          mark.className = 'bg-blue-200/50 dark:bg-blue-500/30 text-inherit';
+          mark.className = 'bg-info/15  text-inherit';
           mark.textContent = match;
           fragment.appendChild(mark);
           totalMatches++;
@@ -252,10 +252,10 @@ export function NoteViewer({ note, onEdit, onDelete, onPopout, isPipEditing, isP
     marks.forEach((mark, idx) => {
       const element = mark as HTMLElement;
       if (idx === currentMatch) {
-        element.className = 'bg-blue-300/70 dark:bg-blue-400/50 text-inherit';
+        element.className = 'bg-info/25  text-inherit';
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
       } else {
-        element.className = 'bg-blue-200/50 dark:bg-blue-500/30 text-inherit';
+        element.className = 'bg-info/15  text-inherit';
       }
     });
   }, [currentMatch, matchCount]);
@@ -305,7 +305,7 @@ export function NoteViewer({ note, onEdit, onDelete, onPopout, isPipEditing, isP
           {isPipOpen && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <MonitorSmartphone className="h-4 w-4 text-blue-500" />
+                <MonitorSmartphone className="h-4 w-4 text-info" />
               </TooltipTrigger>
               <TooltipContent>
                 {isPipEditing ? 'Being edited in another window' : 'Open in another window'}

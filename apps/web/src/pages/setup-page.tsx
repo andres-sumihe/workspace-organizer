@@ -135,21 +135,21 @@ export function SetupPage() {
   if (recoveryKey) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md border-green-200 shadow-lg">
+        <Card className="w-full max-w-md border-success/40 shadow-lg">
           <CardHeader className="text-center">
             <div className="flex justify-center mb-4">
-              <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
-                <CheckCircle className="h-8 w-8 text-green-600" />
+              <div className="h-16 w-16 rounded-full bg-success/15 flex items-center justify-center">
+                <CheckCircle className="h-8 w-8 text-success" />
               </div>
             </div>
-            <CardTitle className="text-2xl font-bold text-green-700">Account Created!</CardTitle>
+            <CardTitle className="text-2xl font-bold text-success">Account Created!</CardTitle>
             <CardDescription>
               Your local account has been successfully created.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Alert className="bg-amber-50 border-amber-200 text-amber-800">
-              <FileKey className="h-4 w-4 text-amber-600" />
+            <Alert className="bg-warning/15 border-warning/40 text-warning">
+              <FileKey className="h-4 w-4 text-warning" />
               <AlertDescription>
                 <span className="font-semibold">IMPORTANT:</span> SQL Recovery Key.
                 Save this key in a secure location. It is the <strong>ONLY</strong> way to recover your account if you forget your password.
@@ -173,7 +173,7 @@ export function SetupPage() {
                   onClick={copyToClipboard}
                   title="Copy to clipboard"
                 >
-                  {copied ? <CheckCircle className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                  {copied ? <CheckCircle className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground text-center">

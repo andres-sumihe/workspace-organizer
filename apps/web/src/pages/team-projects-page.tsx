@@ -95,26 +95,26 @@ const STATUS_CONFIG: Record<
   active: {
     label: 'Active',
     icon: Circle,
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-100 dark:bg-blue-900/30'
+    color: 'text-info',
+    bgColor: 'bg-info/15 '
   },
   completed: {
     label: 'Completed',
     icon: Check,
-    color: 'text-green-500',
-    bgColor: 'bg-green-100 dark:bg-green-900/30'
+    color: 'text-success',
+    bgColor: 'bg-success/15 '
   },
   on_hold: {
     label: 'On Hold',
     icon: Pause,
-    color: 'text-yellow-500',
-    bgColor: 'bg-yellow-100 dark:bg-yellow-900/30'
+    color: 'text-warning',
+    bgColor: 'bg-warning/15 '
   },
   archived: {
     label: 'Archived',
     icon: Archive,
-    color: 'text-gray-500',
-    bgColor: 'bg-gray-100 dark:bg-gray-900/30'
+    color: 'text-muted-foreground',
+    bgColor: 'bg-muted '
   }
 };
 
@@ -225,7 +225,7 @@ function ProjectRow({ project, teamId, onEdit, onDelete }: ProjectRowProps) {
           <div className="flex flex-col gap-0.5 text-xs">
             <span>{project.taskStats.total} tasks</span>
             {project.taskStats.completed > 0 && (
-              <span className="text-green-600">{project.taskStats.completed} done</span>
+              <span className="text-success">{project.taskStats.completed} done</span>
             )}
           </div>
         ) : (
@@ -768,25 +768,25 @@ export const TeamProjectsPage = () => {
           <Card>
             <CardHeader className="pb-2">
               <CardDescription className="flex items-center gap-1">
-                <Circle className="h-3 w-3 text-blue-500" /> Active
+                <Circle className="h-3 w-3 text-info" /> Active
               </CardDescription>
-              <CardTitle className="text-2xl text-blue-500">{stats.active}</CardTitle>
+              <CardTitle className="text-2xl text-info">{stats.active}</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-2">
               <CardDescription className="flex items-center gap-1">
-                <Check className="h-3 w-3 text-green-500" /> Completed
+                <Check className="h-3 w-3 text-success" /> Completed
               </CardDescription>
-              <CardTitle className="text-2xl text-green-500">{stats.completed}</CardTitle>
+              <CardTitle className="text-2xl text-success">{stats.completed}</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-2">
               <CardDescription className="flex items-center gap-1">
-                <Pause className="h-3 w-3 text-yellow-500" /> On Hold
+                <Pause className="h-3 w-3 text-warning" /> On Hold
               </CardDescription>
-              <CardTitle className="text-2xl text-yellow-500">{stats.onHold}</CardTitle>
+              <CardTitle className="text-2xl text-warning">{stats.onHold}</CardTitle>
             </CardHeader>
           </Card>
           <Card>

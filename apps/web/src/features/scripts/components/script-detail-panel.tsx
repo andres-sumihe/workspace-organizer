@@ -85,7 +85,7 @@ export const ScriptDetailPanel = ({ script, loading, onEdit, onDelete, conflicts
           <Badge variant="outline">Inactive</Badge>
         )}
         {script.hasCredentials && (
-          <Badge variant="outline" className="border-orange-600 text-orange-600">
+          <Badge variant="outline" className="border-warning text-warning">
             <AlertTriangle className="mr-1 h-3 w-3" />
             Has Credentials
           </Badge>
@@ -150,7 +150,7 @@ export const ScriptDetailPanel = ({ script, loading, onEdit, onDelete, conflicts
                       <TableCell>{mapping.serverName || '—'}</TableCell>
                       <TableCell>
                         {mapping.hasCredentials ? (
-                          <Badge variant="outline" className="text-orange-600">
+                          <Badge variant="outline" className="text-warning">
                             {mapping.username || 'Yes'}
                           </Badge>
                         ) : (

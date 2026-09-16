@@ -14,18 +14,18 @@ interface ScriptActivityLogProps {
 }
 
 const actionIcons: Partial<Record<AuditAction, React.ReactNode>> = {
-  CREATE: <FilePlus className="h-4 w-4 text-green-500" />,
-  UPDATE: <FileEdit className="h-4 w-4 text-blue-500" />,
-  DELETE: <Trash2 className="h-4 w-4 text-red-500" />,
+  CREATE: <FilePlus className="h-4 w-4 text-success" />,
+  UPDATE: <FileEdit className="h-4 w-4 text-info" />,
+  DELETE: <Trash2 className="h-4 w-4 text-destructive" />,
   READ: <History className="h-4 w-4 text-muted-foreground" />,
   LOGIN: <User className="h-4 w-4 text-muted-foreground" />,
   LOGOUT: <User className="h-4 w-4 text-muted-foreground" />,
-  SCRIPT_CREATE: <FilePlus className="h-4 w-4 text-green-500" />,
-  SCRIPT_UPDATE: <FileEdit className="h-4 w-4 text-blue-500" />,
-  SCRIPT_DELETE: <Trash2 className="h-4 w-4 text-red-500" />,
-  JOB_LINK: <Link2 className="h-4 w-4 text-blue-500" />,
-  JOB_UNLINK: <Link2 className="h-4 w-4 text-orange-500" />,
-  ROLE_CHANGE: <RefreshCcw className="h-4 w-4 text-orange-500" />,
+  SCRIPT_CREATE: <FilePlus className="h-4 w-4 text-success" />,
+  SCRIPT_UPDATE: <FileEdit className="h-4 w-4 text-info" />,
+  SCRIPT_DELETE: <Trash2 className="h-4 w-4 text-destructive" />,
+  JOB_LINK: <Link2 className="h-4 w-4 text-info" />,
+  JOB_UNLINK: <Link2 className="h-4 w-4 text-warning" />,
+  ROLE_CHANGE: <RefreshCcw className="h-4 w-4 text-warning" />,
 };
 
 const actionLabels: Partial<Record<AuditAction, string>> = {

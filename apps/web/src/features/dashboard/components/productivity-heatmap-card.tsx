@@ -101,10 +101,10 @@ const ProductivityHeatmap = memo(function ProductivityHeatmap({ logs, year }: { 
 
   // Improved color scheme with better visibility in both themes
   const getColor = (count: number) => {
-    if (count === 0) return "bg-neutral-200 dark:bg-neutral-700 border-neutral-300 dark:border-neutral-600";
-    if (count <= 2) return "bg-green-300 dark:bg-green-800 border-green-400 dark:border-green-700";
-    if (count <= 5) return "bg-green-500 dark:bg-green-600 border-green-600 dark:border-green-500";
-    return "bg-green-700 dark:bg-green-400 border-green-800 dark:border-green-300";
+    if (count === 0) return "bg-muted  border-border ";
+    if (count <= 2) return "bg-success/40  border-success/40 ";
+    if (count <= 5) return "bg-success  border-success ";
+    return "bg-success  border-success ";
   };
 
   // Determine starting weekday of the year (0=Sun, 6=Sat)
@@ -157,10 +157,10 @@ const ProductivityHeatmap = memo(function ProductivityHeatmap({ logs, year }: { 
       <div className="flex items-center justify-end gap-2 mt-3 text-xs text-muted-foreground">
         <span>Less</span>
         <div className="flex gap-[2px]">
-          <div className="w-3 h-3 rounded-[2px] border bg-neutral-200 dark:bg-neutral-700 border-neutral-300 dark:border-neutral-600" />
-          <div className="w-3 h-3 rounded-[2px] border bg-green-300 dark:bg-green-800 border-green-400 dark:border-green-700" />
-          <div className="w-3 h-3 rounded-[2px] border bg-green-500 dark:bg-green-600 border-green-600 dark:border-green-500" />
-          <div className="w-3 h-3 rounded-[2px] border bg-green-700 dark:bg-green-400 border-green-800 dark:border-green-300" />
+          <div className="w-3 h-3 rounded-[2px] border bg-muted border-border " />
+          <div className="w-3 h-3 rounded-[2px] border bg-success/40 border-success/40 " />
+          <div className="w-3 h-3 rounded-[2px] border bg-success border-success " />
+          <div className="w-3 h-3 rounded-[2px] border bg-success border-success " />
         </div>
         <span>More</span>
       </div>

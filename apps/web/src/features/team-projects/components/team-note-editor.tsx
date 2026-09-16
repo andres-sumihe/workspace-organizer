@@ -588,7 +588,7 @@ export function TeamNoteEditor({ note, teamId, projectId, onSave, onClose, colla
           )}
           {note?.id && saveStatus === 'saved' && (
             <>
-              <Check className="h-3 w-3 text-green-500" />
+              <Check className="h-3 w-3 text-success" />
               <span>Saved</span>
             </>
           )}

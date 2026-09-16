@@ -537,7 +537,7 @@ function CredentialRevealDialog({ open, onOpenChange, credential }: CredentialRe
                 className="p-1.5 rounded-md hover:bg-background/60 transition-colors text-muted-foreground hover:text-foreground"
                 title={copiedField === 'username' ? 'Copied!' : 'Copy'}
               >
-                {copiedField === 'username' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                {copiedField === 'username' ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
               </button>
             </div>
           )}
@@ -565,7 +565,7 @@ function CredentialRevealDialog({ open, onOpenChange, credential }: CredentialRe
                   className="p-1.5 rounded-md hover:bg-background/60 transition-colors text-muted-foreground hover:text-foreground"
                   title={copiedField === 'password' ? 'Copied!' : 'Copy'}
                 >
-                  {copiedField === 'password' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                  {copiedField === 'password' ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
                 </button>
               </div>
             </div>
@@ -594,7 +594,7 @@ function CredentialRevealDialog({ open, onOpenChange, credential }: CredentialRe
                   className="p-1.5 rounded-md hover:bg-background/60 transition-colors text-muted-foreground hover:text-foreground"
                   title={copiedField === 'apiKey' ? 'Copied!' : 'Copy'}
                 >
-                  {copiedField === 'apiKey' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                  {copiedField === 'apiKey' ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
                 </button>
               </div>
             </div>
@@ -1051,8 +1051,8 @@ export function NotesPage() {
               <TabsTrigger value="vault" className="gap-2">
                 <Key className="h-4 w-4" />
                 Vault
-                {vaultStatus.isUnlocked && <LockOpen className="h-3 w-3 text-green-500" />}
-                {vaultStatus.isSetup && !vaultStatus.isUnlocked && <Lock className="h-3 w-3 text-orange-500" />}
+                {vaultStatus.isUnlocked && <LockOpen className="h-3 w-3 text-success" />}
+                {vaultStatus.isSetup && !vaultStatus.isUnlocked && <Lock className="h-3 w-3 text-warning" />}
               </TabsTrigger>
             </TabsList>
 
@@ -1207,7 +1207,7 @@ export function NotesPage() {
               <div className="flex-1 flex items-center justify-center">
                 <Card className="w-96">
                   <CardHeader className="text-center">
-                    <Lock className="h-12 w-12 mx-auto mb-2 text-orange-500" />
+                    <Lock className="h-12 w-12 mx-auto mb-2 text-warning" />
                     <CardTitle>Vault Locked</CardTitle>
                     <CardDescription>
                       Enter your master password to access your credentials.
