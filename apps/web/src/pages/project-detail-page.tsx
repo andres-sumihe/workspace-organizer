@@ -88,12 +88,17 @@ import { ChecklistTemplatePanel } from '@/features/checklists';
 import {
   personalProjectsApi,
   workLogsApi,
-  type CreateWorkLogRequest
+  type CreateWorkLogRequest,
+  type UpdatePersonalProjectRequest
 } from '@/features/journal/api/journal';
 import { TaskDetailModal, TASK_STATUS_CONFIG } from '@/features/journal/components';
+import { useUpdatePersonalProject } from '@/features/journal/hooks/use-personal-projects';
+import { useCreateTag, useTagsList } from '@/features/journal/hooks/use-tags';
 import { ProjectNotesPanel } from '@/features/notes/components/project-notes-panel';
 import { WorkspaceFilesTab } from '@/features/workspaces/components/workspace-project-tab';
+import { useWorkspacesList } from '@/features/workspaces/hooks/use-workspaces';
 import { queryKeys } from '@/lib/query-client';
+import { ProjectFormDialog } from '@/pages/projects-page';
 
 // ============================================================================
 // Types & Constants
@@ -412,6 +417,11 @@ export function ProjectDetailPage() {
   const queryClient = useQueryClient();
 
   const [project, setProject] = useState<PersonalProjectDetail | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const { data: workspacesData } = useWorkspacesList({ page: 1, pageSize: 100 });
+  const { data: tagsData } = useTagsList();
+  const updateProjectMutation = useUpdatePersonalProject();
+  const createTagMutation = useCreateTag();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabValue>(
@@ -538,9 +548,7 @@ export function ProjectDetailPage() {
     }
   };
 
-  const handleEditProject = () => {
-    navigate(`/projects?edit=${projectId}`);
-  };
+  const handleEditProject = () => setEditOpen(true);
 
   // Loading & Error states
   if (isLoading) {
@@ -1053,6 +1061,20 @@ export function ProjectDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {project ? (
+        <ProjectFormDialog
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          project={project}
+          workspaces={workspacesData?.items ?? []}
+          tags={tagsData?.items ?? []}
+          onSave={async (data, id) => {
+            await updateProjectMutation.mutateAsync({ projectId: id ?? project.id, data: data as UpdatePersonalProjectRequest });
+            await fetchProject();
+          }}
+          onCreateTag={async (name) => (await createTagMutation.mutateAsync({ name })).tag}
+        />
+      ) : null}
     </AppPage>
   );
 }

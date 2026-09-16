@@ -22,15 +22,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import type { PersonalProject, PersonalProjectStatus, Tag, WorkspaceSummary } from '@workspace/shared';
 
-import { type CreatePersonalProjectRequest, type UpdatePersonalProjectRequest } from '@/features/journal/api/journal';
-import {
-  usePersonalProjectsList,
-  useCreatePersonalProject,
-  useUpdatePersonalProject,
-  useDeletePersonalProject
-} from '@/features/journal/hooks/use-personal-projects';
-import { useTagsList, useCreateTag } from '@/features/journal/hooks/use-tags';
-import { useWorkspacesList } from '@/features/workspaces/hooks/use-workspaces';
 import { AppPage, AppPageContent } from '@/components/layout/app-page';
 import {
   AlertDialog,
@@ -82,6 +73,15 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { type CreatePersonalProjectRequest, type UpdatePersonalProjectRequest } from '@/features/journal/api/journal';
+import {
+  usePersonalProjectsList,
+  useCreatePersonalProject,
+  useUpdatePersonalProject,
+  useDeletePersonalProject
+} from '@/features/journal/hooks/use-personal-projects';
+import { useTagsList, useCreateTag } from '@/features/journal/hooks/use-tags';
+import { useWorkspacesList } from '@/features/workspaces/hooks/use-workspaces';
 
 // ============================================================================
 // Types & Constants
@@ -309,7 +309,7 @@ interface ProjectFormDialogProps {
   onCreateTag: (name: string) => Promise<Tag>;
 }
 
-function ProjectFormDialog({
+export function ProjectFormDialog({
   open,
   onOpenChange,
   project,
