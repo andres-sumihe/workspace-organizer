@@ -1,108 +1,107 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/jetbrains-mono";
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Default theme (HSL) */
-  --background: hsl(0 0% 100%);
-  --foreground: hsl(0 0% 3.9%);
-  --card: hsl(0 0% 100%);
-  --card-foreground: hsl(0 0% 3.9%);
-  --popover: hsl(0 0% 100%);
-  --popover-foreground: hsl(0 0% 3.9%);
-  --primary: hsl(0 0% 9%);
-  --primary-foreground: hsl(0 0% 98%);
-  --secondary: hsl(0 0% 96.1%);
-  --secondary-foreground: hsl(0 0% 9%);
-  --muted: hsl(0 0% 96.1%);
-  --muted-foreground: hsl(0 0% 45.1%);
-  --accent: hsl(0 0% 96.1%);
-  --accent-foreground: hsl(0 0% 9%);
-  --destructive: hsl(0 84.2% 60.2%);
-  --destructive-foreground: hsl(0 0% 98%);
-  --border: hsl(0 0% 89.8%);
-  --input: hsl(0 0% 89.8%);
-  --ring: hsl(0 0% 3.9%);
+  --background: oklch(0.975 0.004 255);
+  --foreground: oklch(0.21 0.012 255);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.012 255);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.012 255);
+  --primary: oklch(0.53 0.17 252);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.945 0.006 255);
+  --secondary-foreground: oklch(0.28 0.012 255);
+  --muted: oklch(0.955 0.005 255);
+  --muted-foreground: oklch(0.50 0.014 255);
+  --accent: oklch(0.935 0.008 255);
+  --accent-foreground: oklch(0.21 0.012 255);
+  --destructive: oklch(0.58 0.2 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0 0 0 / 9%);
+  --input: oklch(0 0 0 / 14%);
+  --ring: oklch(0.53 0.17 252);
   --radius: 0.5rem;
-  --chart-1: hsl(12 76% 61%);
-  --chart-2: hsl(173 58% 39%);
-  --chart-3: hsl(197 37% 24%);
-  --chart-4: hsl(43 74% 66%);
-  --chart-5: hsl(27 87% 67%);
-  
-  /* Preserved auxiliary colors (OKLCH) */
-  --success: oklch(0.765 0.177 163);
-  --success-foreground: oklch(0.985 0 0);
-  --success-muted: oklch(0.962 0.044 163);
-  --warning: oklch(0.828 0.189 84.429);
-  --warning-foreground: oklch(0.21 0.034 264.665);
-  --warning-muted: oklch(0.962 0.047 84.429);
-  --info: oklch(0.623 0.214 259);
-  --info-foreground: oklch(0.985 0 0);
-  --info-muted: oklch(0.962 0.044 259);
+  --chart-1: oklch(0.55 0.18 248);
+  --chart-2: oklch(0.62 0.13 190);
+  --chart-3: oklch(0.72 0.16 80);
+  --chart-4: oklch(0.6 0.18 300);
+  --chart-5: oklch(0.62 0.19 25);
 
-  /* Sidebar */
-  --sidebar-width: 12rem;
-  --sidebar: hsl(0 0% 100%);
-  --sidebar-foreground: hsl(0 0% 3.9%);
-  --sidebar-primary: hsl(0 0% 9%);
-  --sidebar-primary-foreground: hsl(0 0% 98%);
-  --sidebar-accent: hsl(0 0% 96.1%);
-  --sidebar-accent-foreground: hsl(0 0% 9%);
-  --sidebar-border: hsl(0 0% 89.8%);
-  --sidebar-ring: hsl(0 0% 3.9%);
+  --success: oklch(0.52 0.12 190);
+  --success-foreground: oklch(0.99 0 0);
+  --success-muted: oklch(0.52 0.12 190 / 12%);
+  --warning: oklch(0.66 0.16 70);
+  --warning-foreground: oklch(0.99 0 0);
+  --warning-muted: oklch(0.66 0.16 70 / 14%);
+  --info: oklch(0.55 0.18 248);
+  --info-foreground: oklch(0.99 0 0);
+  --info-muted: oklch(0.55 0.18 248 / 12%);
+
+  --sidebar-width: 14rem;
+  --sidebar: oklch(0.955 0.005 255);
+  --sidebar-foreground: oklch(0.36 0.012 255);
+  --sidebar-primary: oklch(0.55 0.18 248);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(0 0 0 / 5%);
+  --sidebar-accent-foreground: oklch(0.18 0.012 255);
+  --sidebar-border: oklch(0 0 0 / 8%);
+  --sidebar-ring: oklch(0.55 0.18 248);
 }
 
 .dark {
-  --background: hsl(0 0% 5%);
-  --foreground: hsl(0 0% 98%);
-  --card: hsl(0 0% 10%);
-  --card-foreground: hsl(0 0% 98%);
-  --popover: hsl(0 0% 10%);
-  --popover-foreground: hsl(0 0% 98%);
-  --primary: hsl(0 0% 98%);
-  --primary-foreground: hsl(0 0% 9%);
-  --secondary: hsl(0 0% 17%);
-  --secondary-foreground: hsl(0 0% 98%);
-  --muted: hsl(0 0% 17%);
-  --muted-foreground: hsl(0 0% 63.9%);
-  --accent: hsl(0 0% 17%);
-  --accent-foreground: hsl(0 0% 98%);
-  --destructive: hsl(0 72% 51%);
-  --destructive-foreground: hsl(0 0% 98%);
-  --border: hsl(0 0% 100% / 15%);
-  --input: hsl(0 0% 100% / 18%);
-  --ring: hsl(0 0% 83.1%);
-  --chart-1: hsl(220 70% 50%);
-  --chart-2: hsl(160 60% 45%);
-  --chart-3: hsl(30 80% 55%);
-  --chart-4: hsl(280 65% 60%);
-  --chart-5: hsl(340 75% 55%);
+  --background: oklch(0.175 0.012 255);
+  --foreground: oklch(0.94 0.006 255);
+  --card: oklch(0.21 0.012 255);
+  --card-foreground: oklch(0.94 0.006 255);
+  --popover: oklch(0.24 0.013 255);
+  --popover-foreground: oklch(0.94 0.006 255);
+  --primary: oklch(0.62 0.16 250);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.27 0.012 255);
+  --secondary-foreground: oklch(0.92 0.006 255);
+  --muted: oklch(0.25 0.012 255);
+  --muted-foreground: oklch(0.66 0.012 255);
+  --accent: oklch(0.28 0.014 255);
+  --accent-foreground: oklch(0.97 0.004 255);
+  --destructive: oklch(0.64 0.19 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 13%);
+  --ring: oklch(0.62 0.16 250);
+  --chart-1: oklch(0.62 0.16 250);
+  --chart-2: oklch(0.76 0.13 190);
+  --chart-3: oklch(0.82 0.16 80);
+  --chart-4: oklch(0.7 0.16 300);
+  --chart-5: oklch(0.68 0.18 25);
 
-  /* Preserved auxiliary colors (OKLCH) */
-  --success: oklch(0.627 0.194 149);
-  --success-foreground: oklch(0.985 0 0);
-  --success-muted: oklch(0.269 0.05 163);
-  --warning: oklch(0.728 0.189 84.429);
-  --warning-foreground: oklch(0.985 0 0);
-  --warning-muted: oklch(0.269 0.05 84.429);
-  --info: oklch(0.523 0.214 259);
-  --info-foreground: oklch(0.985 0 0);
-  --info-muted: oklch(0.269 0.05 259);
+  --success: oklch(0.76 0.13 190);
+  --success-foreground: oklch(0.18 0.03 190);
+  --success-muted: oklch(0.76 0.13 190 / 14%);
+  --warning: oklch(0.82 0.16 80);
+  --warning-foreground: oklch(0.22 0.04 80);
+  --warning-muted: oklch(0.82 0.16 80 / 14%);
+  --info: oklch(0.72 0.14 240);
+  --info-foreground: oklch(0.16 0.03 240);
+  --info-muted: oklch(0.72 0.14 240 / 14%);
 
-  /* Sidebar */
-  --sidebar: hsl(0 0% 6%);
-  --sidebar-foreground: hsl(0 0% 98%);
-  --sidebar-primary: hsl(0 0% 98%);
-  --sidebar-primary-foreground: hsl(0 0% 9%);
-  --sidebar-accent: hsl(0 0% 17%);
-  --sidebar-accent-foreground: hsl(0 0% 98%);
-  --sidebar-border: hsl(0 0% 100% / 15%);
-  --sidebar-ring: hsl(0 0% 83.1%);
+  --sidebar: oklch(0.15 0.012 255);
+  --sidebar-foreground: oklch(0.78 0.01 255);
+  --sidebar-primary: oklch(0.64 0.17 245);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(1 0 0 / 6%);
+  --sidebar-accent-foreground: oklch(0.97 0.004 255);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.64 0.17 245);
 }
 
 @theme inline {
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -201,12 +200,10 @@
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
     
-    /* Slightly increase letter-spacing for legibility at small sizes */
-    letter-spacing: 0.01em; 
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
     /* Use 'Inter' or system font features for better small-text rendering */
     font-feature-settings: "rlig" 1, "calt" 1;
     text-rendering: optimizeLegibility;
@@ -412,39 +409,6 @@ ins.remark-ins {
   color: oklch(0.7 0.15 250);
 }
 
-/* ============================================================================
-   JetBrains Mono - self-hosted font setup
-   - Run `npm run fetch:fonts` from the repo root to download and extract
-     WOFF2 files into `apps/web/public/fonts/jetbrains-mono/` on Windows (PowerShell).
-   - The app will then use 'JetBrains Mono' as the preferred monospace font.
-   ============================================================================ */
-
-@font-face {
-  font-family: 'JetBrains Mono';
-  src: url('/fonts/jetbrains-mono/JetBrainsMono-Regular.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'JetBrains Mono';
-  src: url('/fonts/jetbrains-mono/JetBrainsMono-Medium.woff2') format('woff2');
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'JetBrains Mono';
-  src: url('/fonts/jetbrains-mono/JetBrainsMono-Bold.woff2') format('woff2');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-:root {
-  /* Prefer JetBrains Mono for editor and monospace areas */
-  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-}
 
 /* Ensure ALL CodeMirror instances use the preferred mono font and match app text-sm */
 .cm-scroller {

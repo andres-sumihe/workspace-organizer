@@ -32,10 +32,10 @@ export const AppPage = ({ title, description, actions, children, className }: Ap
       className
     )}>
       {/* Header - Fixed at top */}
-      <div className="border-b border-border bg-card px-6 py-4 shrink-0">
+      <div className="border-b border-border bg-background px-6 py-3.5 shrink-0">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+            <h1 className="text-lg font-semibold tracking-[-0.015em]">{title}</h1>
             {description && (
               <p className="text-sm text-muted-foreground">{description}</p>
             )}
@@ -74,7 +74,7 @@ interface AppPageTabsProps {
 export const AppPageTabs = ({ tabs, children, className }: AppPageTabsProps) => {
   return (
     <div className={cn('flex-1 flex flex-col min-h-0 overflow-hidden', className)}>
-      <div className="border-b border-border bg-muted px-6 shrink-0">
+      <div className="bg-background px-6 shrink-0">
         {tabs}
       </div>
       <div className="flex-1 min-h-0 flex flex-col">

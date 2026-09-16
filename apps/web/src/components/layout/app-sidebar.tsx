@@ -2,14 +2,13 @@ import { ChevronRight} from 'lucide-react';
 
 import type { LucideIcon } from 'lucide-react';
 
-import LogoMark from '@/assets/logo-rounded.png';
+import { LogoMark } from '@/components/layout/logo-mark';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuBadge,
@@ -46,16 +45,9 @@ export const AppSidebar = ({ items, activeKey, activeSubKey, onNavigate }: AppSi
     <Sidebar collapsible="icon">
       <SidebarHeader className="gap-3">
         <div className="flex h-12 items-center gap-2 text-sm font-semibold transition-all duration-200 ease-linear group-data-[collapsible=icon]:bg-transparent ">
-          <div className="shrink-0">
-            <img 
-              src={LogoMark} 
-              alt="Workspace Organizer" 
-              className="h-7 w-7 rounded-lg object-cover transition-all duration-200 ease-linear" 
-            />
-          </div>
-          <div className="flex flex-col min-w-0 overflow-hidden transition-all duration-200 ease-linear opacity-100 max-w-48 group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0">
-            <span className="text-xs text-muted-foreground truncate whitespace-nowrap">Workspace</span>
-            <span className="truncate whitespace-nowrap">Organizer</span>
+          <LogoMark className="h-7 w-7 shrink-0" />
+          <div className="flex min-w-0 flex-col overflow-hidden transition-all duration-200 ease-linear opacity-100 max-w-48 group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0">
+            <span className="truncate whitespace-nowrap text-sm font-semibold tracking-[-0.01em] text-sidebar-accent-foreground">Workspace Organizer</span>
           </div>
         </div>
         <SidebarSeparator className="mx-0" />
@@ -63,7 +55,6 @@ export const AppSidebar = ({ items, activeKey, activeSubKey, onNavigate }: AppSi
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="transition-all duration-200 ease-linear group-data-[collapsible=icon]:opacity-0">Overview</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (

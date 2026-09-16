@@ -26,11 +26,11 @@ export const TopNav = () => {
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-4 border-b border-border bg-background px-6">
+    <header className="sticky top-0 z-30 flex h-12 shrink-0 items-center gap-3 border-b border-border bg-background/85 px-4 backdrop-blur">
       <div className="flex items-center gap-2">
         {/* Mobile trigger (visible on small screens) */}
         <SidebarTrigger className="md:hidden" />
-        <Separator orientation="vertical" className="hidden h-6 md:block" />
+        <Separator orientation="vertical" className="hidden h-5 md:block" />
 
         {/* Desktop trigger positioned to the left of the header search */}
         <SidebarTrigger className="hidden md:inline-flex" />

@@ -56,6 +56,8 @@ const getResultSummary = (item: SearchResultItem) => {
   return item.preview ?? item.subtitle;
 };
 
+const SEARCH_HINT = navigator.platform.toUpperCase().includes('MAC') ? '⌘K' : 'Ctrl K';
+
 export const GlobalSearch = () => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -92,11 +94,12 @@ export const GlobalSearch = () => {
       <Button
         type="button"
         variant="outline"
-        className="hidden h-9 w-72 justify-start gap-2 px-3 text-sm font-normal text-muted-foreground md:flex"
+        className="hidden h-8 w-64 justify-start gap-2 rounded-md border border-border bg-card px-2.5 text-sm font-normal text-muted-foreground hover:border-foreground/25 hover:bg-card md:flex"
         onClick={() => setOpen(true)}
       >
         <Search className="size-4" />
         <span className="truncate">Search anything...</span>
+        <kbd className="ml-auto rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] leading-none text-muted-foreground">{SEARCH_HINT}</kbd>
       </Button>
       <Button
         type="button"
