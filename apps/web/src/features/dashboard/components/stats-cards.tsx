@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CheckCircle2,
@@ -7,20 +6,47 @@ import {
   Settings2,
   Zap
 } from 'lucide-react';
+import { useMemo, type ReactNode } from 'react';
 
-import { workLogsApi } from '@/features/journal/api/journal';
-import { settingsApi } from '@/features/settings/api/settings';
 import { toolsApi } from '@/api/tools';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
-import { cn } from '@/lib/utils';
+import { workLogsApi } from '@/features/journal/api/journal';
+import { settingsApi } from '@/features/settings/api/settings';
 import { queryKeys } from '@/lib/query-client';
+import { cn } from '@/lib/utils';
 
 const STALE_TIME = 2 * 60 * 1000; // 2 minutes
+
+interface StatCellProps {
+  label: string;
+  icon?: ReactNode;
+  extra?: ReactNode;
+  value: ReactNode;
+  hint: string;
+  loading?: boolean;
+}
+
+const StatCell = ({ label, icon, extra, value, hint, loading }: StatCellProps) => (
+  <div className="flex min-w-0 flex-col gap-2 px-5 py-4">
+    <div className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
+      <span className="truncate">{label}</span>
+      <span className="flex items-center gap-1 [&_svg]:size-4">
+        {extra}
+        {icon}
+      </span>
+    </div>
+    {loading ? (
+      <Skeleton className="h-7 w-24" />
+    ) : (
+      <div className="truncate text-2xl font-semibold tabular-nums tracking-[-0.02em]">{value}</div>
+    )}
+    <p className="truncate text-xs text-muted-foreground">{hint}</p>
+  </div>
+);
 
 // ============================================================================
 // Monthly Overtime Card
@@ -48,27 +74,13 @@ export const OvertimeStatCard = () => {
   };
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">Monthly Overtime</CardTitle>
-        <DollarSign className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        {isLoading && !overtimeStats ? (
-          <>
-            <Skeleton className="h-8 w-[80px] mb-2" />
-            <Skeleton className="h-3 w-[120px]" />
-          </>
-        ) : (
-          <>
-            <div className="text-2xl font-bold">{formatCurrency(overtimeStats?.totalPay ?? 0)}</div>
-            <p className="text-xs text-muted-foreground">
-              {overtimeStats?.totalHours ?? 0} hours recorded this month
-            </p>
-          </>
-        )}
-      </CardContent>
-    </Card>
+    <StatCell
+      label="Monthly overtime"
+      icon={<DollarSign />}
+      loading={isLoading && !overtimeStats}
+      value={formatCurrency(overtimeStats?.totalPay ?? 0)}
+      hint={`${overtimeStats?.totalHours ?? 0} hours recorded this month`}
+    />
   );
 };
 
@@ -108,25 +120,13 @@ export const TasksCompletedCard = () => {
   }, [historyRes, weekStartStr, weekEndStr]);
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">Tasks Completed</CardTitle>
-        <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        {isLoading && !historyRes ? (
-          <>
-            <Skeleton className="h-8 w-[40px] mb-2" />
-            <Skeleton className="h-3 w-[100px]" />
-          </>
-        ) : (
-          <>
-            <div className="text-2xl font-bold">{completedThisWeek}</div>
-            <p className="text-xs text-muted-foreground">Completed this week</p>
-          </>
-        )}
-      </CardContent>
-    </Card>
+    <StatCell
+      label="Tasks completed"
+      icon={<CheckCircle2 />}
+      loading={isLoading && !historyRes}
+      value={completedThisWeek}
+      hint="Completed this week"
+    />
   );
 };
 
@@ -144,25 +144,13 @@ export const ActiveFocusCountCard = () => {
   const count = activeTasksRes?.items.length ?? 0;
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">Active Focus</CardTitle>
-        <Zap className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        {isLoading && !activeTasksRes ? (
-          <>
-            <Skeleton className="h-8 w-[40px] mb-2" />
-            <Skeleton className="h-3 w-[140px]" />
-          </>
-        ) : (
-          <>
-            <div className="text-2xl font-bold">{count}</div>
-            <p className="text-xs text-muted-foreground">Tasks pending or in-progress</p>
-          </>
-        )}
-      </CardContent>
-    </Card>
+    <StatCell
+      label="Active focus"
+      icon={<Zap />}
+      loading={isLoading && !activeTasksRes}
+      value={count}
+      hint="Pending or in progress"
+    />
   );
 };
 
@@ -268,48 +256,30 @@ export const StreakCard = () => {
   };
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">Current Streak</CardTitle>
-        <div className="flex items-center gap-1">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6">
-                <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-56" align="end">
-              <div className="space-y-3">
-                <p className="text-sm font-medium">Streak Settings</p>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="workdays-only" className="text-xs text-muted-foreground">Workdays only (Mon-Fri)</Label>
-                  <Switch 
-                    id="workdays-only" 
-                    checked={streakWorkdaysOnly} 
-                    onCheckedChange={handleStreakModeChange}
-                  />
-                </div>
+    <StatCell
+      label="Current streak"
+      icon={<Flame className={cn(streak > 0 ? "text-warning fill-warning" : "text-muted-foreground")} />}
+      extra={
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-6 w-6">
+              <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56" align="end">
+            <div className="space-y-3">
+              <p className="text-sm font-medium">Streak settings</p>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="workdays-only" className="text-xs text-muted-foreground">Workdays only (Mon-Fri)</Label>
+                <Switch id="workdays-only" checked={streakWorkdaysOnly} onCheckedChange={handleStreakModeChange} />
               </div>
-            </PopoverContent>
-          </Popover>
-          <Flame className={cn("h-4 w-4", streak > 0 ? "text-warning fill-warning" : "text-muted-foreground")} />
-        </div>
-      </CardHeader>
-      <CardContent>
-        {isLoading && !historyRes ? (
-          <>
-            <Skeleton className="h-8 w-[60px] mb-2" />
-            <Skeleton className="h-3 w-[140px]" />
-          </>
-        ) : (
-          <>
-            <div className="text-2xl font-bold">{streak} Days</div>
-            <p className="text-xs text-muted-foreground">
-              {streakWorkdaysOnly ? 'Consecutive workdays active' : 'Consecutive days active'}
-            </p>
-          </>
-        )}
-      </CardContent>
-    </Card>
+            </div>
+          </PopoverContent>
+        </Popover>
+      }
+      loading={isLoading && !historyRes}
+      value={`${streak} ${streak === 1 ? 'day' : 'days'}`}
+      hint={streakWorkdaysOnly ? 'Consecutive workdays active' : 'Consecutive days active'}
+    />
   );
 };

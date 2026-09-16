@@ -1,3 +1,8 @@
+import { useQuery } from '@tanstack/react-query';
+import { memo, useMemo, useState } from 'react';
+
+import type { WorkLogEntry } from '@workspace/shared';
+
 import {
   Card,
   CardContent,
@@ -13,11 +18,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { workLogsApi } from '@/features/journal/api/journal';
-import { cn } from '@/lib/utils';
-import type { WorkLogEntry } from '@workspace/shared';
-import { memo, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-client';
+import { cn } from '@/lib/utils';
+
 
 export const ProductivityHeatmapCard = memo(function ProductivityHeatmapCard() {
   const currentYear = new Date().getFullYear();

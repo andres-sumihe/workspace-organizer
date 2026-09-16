@@ -1,18 +1,19 @@
-import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, Plus, StickyNote } from 'lucide-react';
+import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-import { personalProjectsApi, workLogsApi } from '@/features/journal/api/journal';
-import { notesApi } from '@/features/notes/api/notes-vault';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { extractPlainText } from '@/components/ui/mention-content-view';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
+import { personalProjectsApi, workLogsApi } from '@/features/journal/api/journal';
+import { notesApi } from '@/features/notes/api/notes-vault';
 import { queryKeys } from '@/lib/query-client';
-import { extractPlainText } from '@/components/ui/mention-content-view';
+import { cn } from '@/lib/utils';
 
 const STALE_TIME = 2 * 60 * 1000; // 2 minutes
 
@@ -55,11 +56,12 @@ export const ActiveFocusCard = () => {
             ))}
           </div>
         ) : activeTasks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
-            <CheckCircle2 className="h-8 w-8 mb-2 opacity-50" />
-            <p>All caught up!</p>
-            <Button variant="link" onClick={() => navigate('/journal')} className="mt-2">Add a task</Button>
-          </div>
+          <EmptyState
+            icon={CheckCircle2}
+            title="All caught up"
+            description="Nothing is pending or in progress."
+            action={<Button size="sm" variant="outline" onClick={() => navigate('/journal')}>Add a task</Button>}
+          />
         ) : (
           <div className="space-y-4">
             {activeTasks.map((task) => (
@@ -120,7 +122,12 @@ export const ProjectsWatchlistCard = () => {
             </div>
           ))
         ) : activeProjects.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No active projects.</p>
+          <EmptyState
+            compact
+            title="No active projects"
+            description="Projects marked active show up here."
+            action={<Button size="sm" variant="outline" onClick={() => navigate('/projects')}>Open projects</Button>}
+          />
         ) : (
           activeProjects.map((project) => (
             <div key={project.id} className="flex items-center justify-between space-x-4 cursor-pointer hover:bg-muted/50 p-2 rounded-md -mx-2 transition-colors" onClick={() => navigate(`/projects/${project.id}`)}>
@@ -276,7 +283,13 @@ export const PinnedNotesCard = () => {
             </div>
           ))
         ) : pinnedNotes.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No pinned notes.</p>
+          <EmptyState
+            compact
+            icon={StickyNote}
+            title="No pinned notes"
+            description="Pin a note to keep it within reach."
+            action={<Button size="sm" variant="outline" onClick={() => navigate('/notes')}>Open notes</Button>}
+          />
         ) : (
           pinnedNotes.map((note) => (
             <div key={note.id} className="flex items-start gap-2 p-2 border rounded-md cursor-pointer hover:bg-muted/50 transition-colors min-w-0" onClick={() => navigate(`/notes?noteId=${note.id}`)}>

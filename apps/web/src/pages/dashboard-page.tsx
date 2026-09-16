@@ -1,8 +1,17 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { Loader2, Plus } from 'lucide-react';
 import { useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 
-import { workLogsApi } from '@/features/journal/api/journal';
+import { AppPage, AppPageContent } from '@/components/layout/app-page';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import {
+  ActiveFocusCard,
+  ProjectsWatchlistCard,
+  RecentActivityCard,
+  PinnedNotesCard,
+} from '@/features/dashboard/components/dashboard-cards';
 import { ProductivityHeatmapCard } from '@/features/dashboard/components/productivity-heatmap-card';
 import {
   OvertimeStatCard,
@@ -10,14 +19,7 @@ import {
   ActiveFocusCountCard,
   StreakCard,
 } from '@/features/dashboard/components/stats-cards';
-import {
-  ActiveFocusCard,
-  ProjectsWatchlistCard,
-  RecentActivityCard,
-  PinnedNotesCard,
-} from '@/features/dashboard/components/dashboard-cards';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { workLogsApi } from '@/features/journal/api/journal';
 import { queryKeys } from '@/lib/query-client';
 
 export const DashboardPage = () => {
@@ -52,72 +54,47 @@ export const DashboardPage = () => {
   };
 
   return (
-    <div className="absolute inset-0 overflow-y-auto px-6 py-6">
-      <div className="flex w-full flex-col gap-6">
-        {/* 0. Header & Quick Capture */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-lg font-semibold tracking-[-0.015em]">Dashboard</h1>
-            <p className="text-muted-foreground">
-              Overview of your workspace productivity.
-            </p>
-          </div>
-          <form
-            onSubmit={handleQuickCapture}
-            className="flex w-full md:w-auto items-center gap-2"
-          >
-            <Input
-              placeholder="Quick capture task..."
-              value={quickCaptureText}
-              onChange={(e) => setQuickCaptureText(e.target.value)}
-              className="w-full md:w-[300px]"
-              disabled={isCapturing}
-            />
-            <Button
-              type="submit"
-              size="icon"
-              disabled={isCapturing || !quickCaptureText.trim()}
-            >
-              {isCapturing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Plus className="h-4 w-4" />
-              )}
-            </Button>
-          </form>
-        </div>
+    <AppPage
+      title="Dashboard"
+      description="Overview of your workspace productivity."
+      actions={
+        <form onSubmit={handleQuickCapture} className="flex items-center gap-2">
+          <Input
+            placeholder="Quick capture task..."
+            value={quickCaptureText}
+            onChange={(e) => setQuickCaptureText(e.target.value)}
+            className="w-[300px]"
+            disabled={isCapturing}
+          />
+          <Button type="submit" size="icon" disabled={isCapturing || !quickCaptureText.trim()}>
+            {isCapturing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          </Button>
+        </form>
+      }
+    >
+      <AppPageContent>
+        <div className="flex flex-col gap-5">
+          <Card className="grid grid-cols-2 divide-x divide-y divide-border lg:grid-cols-4 lg:divide-y-0">
+            <OvertimeStatCard />
+            <TasksCompletedCard />
+            <ActiveFocusCountCard />
+            <StreakCard />
+          </Card>
 
-        {/* 1. Stats Overview - Each card fetches its own data */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <OvertimeStatCard />
-          <TasksCompletedCard />
-          <ActiveFocusCountCard />
-          <StreakCard />
-        </div>
+          <ProductivityHeatmapCard />
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-          {/* Main Column */}
-          <div className="col-span-4 space-y-6">
-            {/* 2. Productivity Heatmap */}
-            <ProductivityHeatmapCard />
-
-            {/* 3. Active Focus */}
-            <ActiveFocusCard />
-          </div>
-
-          {/* Side Column */}
-          <div className="col-span-3 space-y-4 min-w-0 overflow-hidden">
-            {/* 4. Projects Watchlist */}
-            <ProjectsWatchlistCard />
-
-            {/* 5. Recent Activity */}
-            <RecentActivityCard />
-
-            {/* 6. Pinned Notes */}
-            <PinnedNotesCard />
+          <div className="grid gap-5 lg:grid-cols-7">
+            <div className="min-w-0 lg:col-span-4">
+              <ActiveFocusCard />
+            </div>
+            <div className="min-w-0 space-y-5 lg:col-span-3">
+              <ProjectsWatchlistCard />
+              <RecentActivityCard />
+              <PinnedNotesCard />
+            </div>
           </div>
         </div>
-      </div>
-    </div>
+      </AppPageContent>
+    </AppPage>
   );
 };
