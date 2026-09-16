@@ -202,6 +202,11 @@
     
   }
 
+  /* Stacked label + control with no spacing wrapper; flex rows and grids keep their own gap */
+  :where(:not(.flex, .inline-flex, .grid) > [data-slot="label"]:has(+ *)) {
+    margin-bottom: 0.375rem;
+  }
+
   body {
     @apply bg-background text-foreground font-sans;
     /* Use 'Inter' or system font features for better small-text rendering */
