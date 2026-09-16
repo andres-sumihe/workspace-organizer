@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { confirmDialog } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { PageLoader } from '@/components/ui/page-loader';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -60,7 +61,7 @@ export const JobList = ({ onJobSelect, selectedJobId }: JobListProps) => {
 
   const handleDelete = async (jobId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm('Delete this job?')) return;
+    if (!(await confirmDialog({ title: 'Delete this job?', confirmLabel: 'Delete', destructive: true }))) return;
     try {
       await deleteJobMutation.mutateAsync(jobId);
     } catch (err) {

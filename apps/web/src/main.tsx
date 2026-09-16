@@ -6,6 +6,7 @@ import { App } from '@/App';
 import { ApiConnectionGuard } from '@/components/api-connection-guard';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { ThemeProvider } from '@/components/theme-provider';
+import { ConfirmDialogHost } from '@/components/ui/confirm-dialog';
 import { Toaster } from '@/components/ui/sonner';
 import { AuthProvider } from '@/contexts/auth-context';
 import { InstallationProvider } from '@/contexts/installation-context';
@@ -24,8 +25,9 @@ ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider defaultTheme="light" storageKey="workspace-organizer-theme">
+        <ThemeProvider defaultTheme="dark" storageKey="workspace-organizer-theme">
           <Toaster position="top-right" richColors closeButton />
+          <ConfirmDialogHost />
           <ApiConnectionGuard>
             <InstallationProvider>
               <ModeProvider>

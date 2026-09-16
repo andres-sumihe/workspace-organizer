@@ -7,10 +7,10 @@ import type { BuilderMeta, CaptureFormValues, EditableFile, EditableFolder, Edit
 import type { WorkspaceFormValues } from '@/features/workspaces';
 import type { TemplateManifest, TemplateSummary, TemplateTokenEntry } from '@/types/desktop';
 
-import { createWorkspace } from '@/features/workspaces/api/workspaces';
 import { AppPage, AppPageContent } from '@/components/layout/app-page';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { confirmDialog } from '@/components/ui/confirm-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,6 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useWorkspaceContext } from '@/contexts/workspace-context';
 import { TemplateGrid, TemplatesToolbar, makeId, normalizePathInput } from '@/features/templates';
 import { WorkspaceListPanel } from '@/features/workspaces';
+import { createWorkspace } from '@/features/workspaces/api/workspaces';
 
 export function WorkspacesPage() {
   const navigate = useNavigate();
@@ -174,7 +175,7 @@ export function WorkspacesPage() {
 
   const handleDeleteTemplate = async (templateId: string) => {
     if (!desktopAvailable) return;
-    if (!window.confirm('Delete this template? This cannot be undone.')) return;
+    if (!(await confirmDialog({ title: 'Delete this template?', description: 'This cannot be undone.', confirmLabel: 'Delete', destructive: true }))) return;
     try {
       const response = await window.api?.deleteTemplate?.({ templateId });
       if (!response?.ok) {

@@ -6,6 +6,7 @@ import type { TemplateManifest, TemplateSummary, TemplateTokenEntry } from '@/ty
 
 import { AppPage, AppPageContent } from '@/components/layout/app-page';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { confirmDialog } from '@/components/ui/confirm-dialog';
 import { TemplateBuilderDialog, TemplateGrid, TemplatesToolbar, makeId, normalizePathInput } from '@/features/templates';
 
 export const TemplatesPage = () => {
@@ -117,7 +118,7 @@ export const TemplatesPage = () => {
 
   const handleDeleteTemplate = async (templateId: string) => {
     if (!desktopAvailable) return;
-    if (!window.confirm('Delete this template? This cannot be undone.')) return;
+    if (!(await confirmDialog({ title: 'Delete this template?', description: 'This cannot be undone.', confirmLabel: 'Delete', destructive: true }))) return;
     try {
       const response = await window.api?.deleteTemplate?.({ templateId });
       if (!response?.ok) {

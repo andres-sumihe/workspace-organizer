@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { confirmDialog } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -301,7 +302,7 @@ export const SettingsPage = () => {
       }
 
       await updateToolsSettings.mutateAsync({ baseSalary: salary });
-      toast.success('Tools settings saved successfully!');
+      toast.success('Tools settings saved');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save tools settings');
     } finally {
@@ -327,7 +328,7 @@ export const SettingsPage = () => {
       await updateCriteria(formData);
       await updateMTCriteria(processedMTFormData);
       setMTFormData(processedMTFormData);
-      toast.success('Settings saved successfully!');
+      toast.success('Settings saved');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save settings');
     } finally {
@@ -382,7 +383,7 @@ export const SettingsPage = () => {
       const data = await response.json();
       if (response.ok && data.success) {
         setRecoveryKey(data.recoveryKey);
-        toast.success('New recovery key generated successfully!');
+        toast.success('New recovery key generated');
       } else {
         toast.error(data.message || 'Failed to generate key');
       }
@@ -416,7 +417,7 @@ export const SettingsPage = () => {
       const data = await response.json();
       if (response.ok && data.success) {
         await refreshSessionConfig();
-        toast.success('Session settings updated successfully');
+        toast.success('Session settings updated');
       } else {
         toast.error(data.message || 'Failed to update session settings');
       }
@@ -457,7 +458,7 @@ export const SettingsPage = () => {
 
       const data = await response.json();
       if (response.ok && data.success) {
-        toast.success('Password changed successfully!');
+        toast.success('Password changed');
         setCurrentPassword('');
         setNewPassword('');
         setConfirmNewPassword('');
@@ -477,7 +478,7 @@ export const SettingsPage = () => {
       return;
     }
 
-    if (!confirm('Are you absolutely sure? This will permanently delete your account and all local data. This action cannot be undone.')) {
+    if (!(await confirmDialog({ title: 'Delete your account?', description: 'This permanently deletes your account and all local data. It cannot be undone.', confirmLabel: 'Delete account', destructive: true }))) {
       return;
     }
 
@@ -530,7 +531,7 @@ export const SettingsPage = () => {
       const data = await response.json();
       if (response.ok && data.success) {
         setConnectionTestResult({ success: true, message: 'Connection successful!' });
-        toast.success('Connection successful!');
+        toast.success('Connection successful');
       } else {
         setConnectionTestResult({ success: false, message: data.message || 'Connection failed' });
         toast.error(data.message || 'Connection failed');
@@ -561,7 +562,7 @@ export const SettingsPage = () => {
 
       const data = await response.json();
       if (response.ok && data.success) {
-        toast.success('Shared mode enabled successfully!');
+        toast.success('Shared mode enabled');
         setConnectionForm(defaultConnectionForm);
         setConnectionTestResult(null);
         await Promise.all([refreshStatus(), refreshAuth(), checkStatus()]);
@@ -576,7 +577,7 @@ export const SettingsPage = () => {
   };
 
   const handleDisableSharedMode = async () => {
-    if (!confirm('Are you sure you want to disable shared mode? You will return to Solo mode with local-only authentication.')) {
+    if (!(await confirmDialog({ title: 'Disable shared mode?', description: 'You will return to Solo mode with local-only authentication.', confirmLabel: 'Disable' }))) {
       return;
     }
 
@@ -633,7 +634,7 @@ export const SettingsPage = () => {
       setValidationResult(result);
       
       if (result.valid) {
-        toast.success('All schemas valid!');
+        toast.success('All schemas valid');
       } else {
         toast.warning(`Schema validation: ${result.summary.invalid} invalid, ${result.summary.missing} missing`);
       }
@@ -670,7 +671,7 @@ export const SettingsPage = () => {
       setSchemaCompatibility(result);
 
       if (result.compatible) {
-        toast.success('Schema is compatible! You can enable shared mode.');
+        toast.success('Schema is compatible. You can enable shared mode.');
       } else {
         toast.warning(result.message);
       }
