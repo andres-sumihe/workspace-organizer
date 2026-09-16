@@ -53,11 +53,11 @@ export const sessionService = {
    * Record session activity (heartbeat)
    * Updates last_activity_at for the session
    */
-  async recordActivity(sessionId: string): Promise<void> {
+  async recordActivity(userId: string): Promise<void> {
     const db = await getDb();
     const now = new Date().toISOString();
     
-    db.prepare('UPDATE local_sessions SET last_activity_at = ? WHERE id = ?').run(now, sessionId);
+    db.prepare('UPDATE local_sessions SET last_activity_at = ? WHERE user_id = ?').run(now, userId);
   },
 
   /**

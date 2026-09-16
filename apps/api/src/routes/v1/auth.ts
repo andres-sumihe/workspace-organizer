@@ -333,10 +333,9 @@ authRouter.post('/heartbeat', authMiddleware, async (req: AuthenticatedRequest, 
     // Record activity using user ID (session tracking)
     await sessionService.recordActivity(req.userId);
     
-    // Check if session is still valid
-    const sessionValid = await sessionService.checkSession(req.userId);
-    
-    if (!sessionValid) {
+    const sessionInfo = await sessionService.getSessionInfo(req.userId);
+
+    if (!sessionInfo?.isActive) {
       res.status(401).json({
         code: 'SESSION_EXPIRED',
         message: 'Session has expired due to inactivity'
