@@ -117,7 +117,7 @@ export const TeamPage = () => {
     try {
       setError(null);
       await updateMemberRole(currentTeam.team.id, memberId, newRole);
-      toast.success('Member role updated successfully');
+      toast.success('Member role updated');
       
       // Refresh members list
       const response = await listMembers(currentTeam.team.id);
@@ -133,7 +133,7 @@ export const TeamPage = () => {
     try {
       setError(null);
       await removeMember(currentTeam.team.id, memberId);
-      toast.success('Member removed successfully');
+      toast.success('Member removed');
       
       // Refresh members list
       const response = await listMembers(currentTeam.team.id);
