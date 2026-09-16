@@ -63,7 +63,8 @@ const mapRowToSummary = (row: WorkspaceSummaryRow): WorkspaceSummary => {
     projectCount: row.project_count,
     templateCount: row.template_count,
     lastIndexedAt: row.last_indexed_at,
-    rootPath: row.root_path
+    rootPath: row.root_path,
+    description: row.description ?? undefined
   } satisfies WorkspaceSummary;
 
   return summary;

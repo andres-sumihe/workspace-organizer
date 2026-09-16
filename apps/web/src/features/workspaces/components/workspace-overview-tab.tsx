@@ -101,6 +101,10 @@ export const WorkspaceOverviewTab = ({ workspace }: WorkspaceOverviewTabProps) =
               <span className="text-muted-foreground">Created:</span>
               <span>{new Date(workspace.lastIndexedAt).toLocaleString()}</span>
             </div>
+            <div className="flex items-start justify-between gap-4">
+              <span className="text-muted-foreground">Description:</span>
+              <span className="text-right">{workspace.description || '—'}</span>
+            </div>
           </div>
         </CardContent>
       </Card>

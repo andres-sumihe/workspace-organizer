@@ -144,6 +144,7 @@ export interface WorkspaceSummary {
   templateCount: number;
   lastIndexedAt: string;
   rootPath: string;
+  description?: string;
 }
 
 export interface WorkspaceStatistics {

@@ -68,7 +68,7 @@ export const WorkspaceDetailPage = () => {
       editForm.reset({
         name: workspace.name,
         rootPath: workspace.rootPath,
-        description: ''
+        description: workspace.description ?? ''
       });
     }
   }, [workspace, editForm]);
