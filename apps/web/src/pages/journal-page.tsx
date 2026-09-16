@@ -9,6 +9,7 @@ import {
   Calendar,
   Check,
   CheckCircle2,
+  ClipboardCopy,
   ChevronDown,
   ChevronsLeft,
   ChevronsRight,
@@ -24,7 +25,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-
+import { toast } from 'sonner';
 
 import type { WorkLogStatus, WorkLogPriority, PersonalProject, TaskUpdateFlag } from '@workspace/shared';
 
@@ -95,6 +96,7 @@ import {
   parseContentForSuggestions,
   formatFullDate
 } from '@/features/journal/utils/journal-parser';
+import { buildStandupText } from '@/features/journal/utils/standup';
 import { settingsApi, type AutoRolloverMode } from '@/features/settings/api/settings';
 import { useProjectFileMention } from '@/hooks/use-file-mention';
 import { queryKeys } from '@/lib/query-client';
@@ -1440,6 +1442,15 @@ export function JournalPage() {
     [unfinishedPast, queryClient]
   );
 
+  const handleCopyStandup = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(await buildStandupText());
+      toast.success('Standup copied to clipboard');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not build standup');
+    }
+  }, []);
+
   // Summary stats
   const weekStats = useMemo(() => {
     const total = entries.length;
@@ -1455,6 +1466,10 @@ export function JournalPage() {
       description="Track your daily tasks and activities"
       actions={
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => void handleCopyStandup()}>
+            <ClipboardCopy className="h-4 w-4" />
+            Copy standup
+          </Button>
           {/* Rollover Button */}
           {unfinishedPast.length > 0 && (
             <TooltipProvider>
