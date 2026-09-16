@@ -112,7 +112,6 @@ function ProtectedRoutes() {
 function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isSoloMode } = useAuth();
   const [aboutOpen, setAboutOpen] = useState(false);
   const [updateCheckerOpen, setUpdateCheckerOpen] = useState(false);
 
@@ -181,7 +180,6 @@ function AppContent() {
         key: 'teams',
         label: 'Teams',
         icon: Users,
-        badge: isSoloMode ? 'Team' : undefined,
         subItems: [
           { key: 'members', label: 'Members' },
           { key: 'team-projects', label: 'Projects' },
@@ -200,7 +198,7 @@ function AppContent() {
       },
       { key: 'settings', label: 'Settings', icon: Settings },
     ],
-    [isSoloMode],
+    [],
   );
 
   // Determine active key and subkey from route
