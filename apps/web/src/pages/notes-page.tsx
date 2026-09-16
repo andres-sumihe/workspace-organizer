@@ -210,7 +210,21 @@ interface CredentialFormDialogProps {
   onSave: (data: { title: string; type: CredentialType; projectId?: string; data: CredentialData }) => Promise<void>;
 }
 
+function SecretToggle({ shown, onToggle }: { shown: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+      title={shown ? 'Hide' : 'Show'}
+    >
+      {shown ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+    </button>
+  );
+}
+
 function CredentialFormDialog({ open, onOpenChange, credential, projects, onSave }: CredentialFormDialogProps) {
+  const [showSecret, setShowSecret] = useState(false);
   const [title, setTitle] = useState('');
   const [type, setType] = useState<CredentialType>('generic');
   const [projectId, setProjectId] = useState<string>('none');
@@ -224,6 +238,7 @@ function CredentialFormDialog({ open, onOpenChange, credential, projects, onSave
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
+    setShowSecret(false);
     if (open && credential) {
       setTitle(credential.title);
       setType(credential.type);
@@ -361,14 +376,17 @@ function CredentialFormDialog({ open, onOpenChange, credential, projects, onSave
               </div>
               <div className="min-w-0 space-y-2">
                 <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password"
-                  className="min-w-0"
-                />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showSecret ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Password"
+                    className="min-w-0 pr-9"
+                  />
+                  <SecretToggle shown={showSecret} onToggle={() => setShowSecret((v) => !v)} />
+                </div>
               </div>
             </div>
           )}
@@ -376,14 +394,17 @@ function CredentialFormDialog({ open, onOpenChange, credential, projects, onSave
           {type === 'api_key' && (
             <div className="space-y-2">
               <Label htmlFor="apiKey">API Key</Label>
-              <Input
-                id="apiKey"
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder="API Key"
-                className="min-w-0"
-              />
+              <div className="relative">
+                <Input
+                  id="apiKey"
+                  type={showSecret ? 'text' : 'password'}
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="API Key"
+                  className="min-w-0 pr-9"
+                />
+                <SecretToggle shown={showSecret} onToggle={() => setShowSecret((v) => !v)} />
+              </div>
             </div>
           )}
 
