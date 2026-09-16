@@ -1,8 +1,13 @@
+import { useQueryClient } from '@tanstack/react-query';
 import {
   BookOpen,
   Briefcase,
+  ClipboardCopy,
   Code2,
   FileText,
+  Lock,
+  Settings,
+  SunMoon,
   FolderGit2,
   Loader2,
   Search,
@@ -11,10 +16,12 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 import type { SearchResultItem, SearchResultType } from '@workspace/shared';
 import type { LucideIcon } from 'lucide-react';
 
+import { useTheme } from '@/components/theme-provider';
 import { Button } from '@/components/ui/button';
 import {
   Command,
@@ -31,7 +38,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { buildStandupText } from '@/features/journal/utils/standup';
+import { vaultApi } from '@/features/notes/api/notes-vault';
 import { useGlobalSearch } from '@/features/search/hooks/use-global-search';
+import { queryKeys } from '@/lib/query-client';
 
 interface ResultGroupConfig {
   type: SearchResultType;
@@ -63,6 +73,49 @@ export const GlobalSearch = () => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const { data, debouncedQuery, isFetching, isError } = useGlobalSearch(query);
+  const { theme, setTheme } = useTheme();
+  const queryClient = useQueryClient();
+
+  const actions = useMemo(
+    () => [
+      {
+        id: 'standup',
+        label: 'Copy standup summary',
+        icon: ClipboardCopy,
+        run: async () => {
+          await navigator.clipboard.writeText(await buildStandupText());
+          toast.success('Standup copied to clipboard');
+        },
+      },
+      { id: 'journal', label: "Open today's journal", icon: BookOpen, run: () => navigate('/journal') },
+      {
+        id: 'theme',
+        label: theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme',
+        icon: SunMoon,
+        run: () => setTheme(theme === 'dark' ? 'light' : 'dark'),
+      },
+      {
+        id: 'lock-vault',
+        label: 'Lock vault',
+        icon: Lock,
+        run: async () => {
+          await vaultApi.lock();
+          queryClient.invalidateQueries({ queryKey: queryKeys.vault.status() });
+          toast.success('Vault locked');
+        },
+      },
+      { id: 'settings', label: 'Open settings', icon: Settings, run: () => navigate('/settings') },
+    ],
+    [navigate, queryClient, setTheme, theme]
+  );
+  const visibleActions = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return q ? actions.filter((action) => action.label.toLowerCase().includes(q)) : actions;
+  }, [actions, query]);
+  const runAction = (run: () => void | Promise<void>) => {
+    setOpen(false);
+    void Promise.resolve(run()).catch((err) => toast.error(err instanceof Error ? err.message : 'Action failed'));
+  };
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -139,8 +192,26 @@ export const GlobalSearch = () => {
                 </div>
               ) : null}
 
-              {!isFetching && !isError && debouncedQuery.length >= 2 && groupedResults.length === 0 ? (
+              {!isFetching && !isError && debouncedQuery.length >= 2 && groupedResults.length === 0 && visibleActions.length === 0 ? (
                 <CommandEmpty>No results found.</CommandEmpty>
+              ) : null}
+
+              {!isFetching && !isError && visibleActions.length > 0 ? (
+                <CommandGroup heading="Actions">
+                  {visibleActions.map((action) => (
+                    <CommandItem
+                      key={action.id}
+                      value={`action:${action.id}:${action.label}`}
+                      onSelect={() => runAction(action.run)}
+                      className="gap-3 rounded-md px-3 py-2"
+                    >
+                      <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                        <action.icon className="size-4" />
+                      </div>
+                      <span className="text-sm font-medium text-foreground">{action.label}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
               ) : null}
 
               {!isFetching && !isError
