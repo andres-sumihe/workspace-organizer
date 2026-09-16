@@ -21,6 +21,7 @@ import type { SplitFormValues, FileFormValues, FolderFormValues, FsDialogState }
 import type { CheckedState } from '@radix-ui/react-checkbox';
 
 import { Button } from '@/components/ui/button';
+import { confirmDialog } from '@/components/ui/confirm-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -597,14 +598,14 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath, highlightPath }
 
   const handleProjectDelete = useCallback(async () => {
     if (!workspaceId || !projectToEdit) return;
-    if (!confirm('Delete this project? This will not delete files on disk.')) return;
+    if (!(await confirmDialog({ title: 'Delete this project?', description: 'Files on disk are not deleted.', confirmLabel: 'Delete', destructive: true }))) return;
     try {
       const { deleteWorkspaceProject } = await import('@/features/workspaces/api/workspaces');
       await deleteWorkspaceProject(workspaceId, projectToEdit.id);
       setSelectedProjectId(null);
       setProjectDialogOpen(false);
       await loadProjects();
-      toast.success('Project deleted successfully');
+      toast.success('Project deleted');
     } catch (err) {
       console.error('Failed to delete project:', err);
       toast.error(err instanceof Error ? err.message : 'Failed to delete project');
@@ -635,7 +636,7 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath, highlightPath }
   const handleSaveEdit = useCallback(async () => {
     try {
       await saveEdit();
-      toast.success('File saved successfully');
+      toast.success('File saved');
     } catch {
       // Error already set by saveEdit
     }
@@ -710,6 +711,12 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath, highlightPath }
   // Main render
   // ─────────────────────────────────────────────────────────────────────────
   
+  const previewColumnRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!preview && !binaryPreview && !mediaPreview) return;
+    previewColumnRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [preview, binaryPreview, mediaPreview]);
+
   return (
     <div className="space-y-4">
       {/* Status messages */}
@@ -768,7 +775,7 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath, highlightPath }
           <p>Select a project from the dropdown to browse its files.</p>
         </div>
       ) : (
-        <div className="grid gap-6 xl:grid-cols-[1fr,1fr] 2xl:grid-cols-[2fr,1fr]">
+        <div className="grid gap-4 @3xl/content:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <div className="min-w-0">
             <DirectoryBrowser
               ref={directoryBrowserRef}
@@ -800,7 +807,7 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath, highlightPath }
             />
           </div>
 
-          <div className="min-w-0">
+          <div ref={previewColumnRef} className="min-w-0">
             <PreviewPanel
               preview={preview}
               previewError={previewError}
