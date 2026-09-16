@@ -42,13 +42,13 @@ export function LockScreen() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-warning-muted">
             <Lock className="h-8 w-8 text-warning" />
           </div>
-          <CardTitle className="text-xl">Session Locked</CardTitle>
+          <CardTitle className="text-xl font-semibold tracking-[-0.01em]">Session locked</CardTitle>
           <CardDescription>
             Your session has been locked due to inactivity.
             {user && (

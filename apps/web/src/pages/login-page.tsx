@@ -4,6 +4,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 
 import type { FormEvent } from 'react';
 
+import { LogoMark } from '@/components/layout/logo-mark';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -50,8 +51,9 @@ export function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-bold">Workspace Organizer</CardTitle>
+        <CardHeader className="items-center space-y-1 text-center">
+          <LogoMark className="mb-2 size-10" />
+          <CardTitle className="text-xl font-semibold tracking-[-0.01em]">Workspace Organizer</CardTitle>
           <CardDescription>Sign in to access your workspace</CardDescription>
         </CardHeader>
         <CardContent>
