@@ -3,8 +3,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
-import { schemaValidationApi, type ValidationResponse } from '@/features/settings/api/schema-validation';
-import { settingsApi } from '@/features/settings/api/settings';
 import { toolsApi } from '@/api/tools';
 import { AppPage, AppPageContent, AppPageTabs } from '@/components/layout/app-page';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -19,6 +17,9 @@ import { useAuth } from '@/contexts/auth-context';
 import { useInstallation } from '@/contexts/installation-context';
 import { useMode } from '@/contexts/mode-context';
 import { useValidationSettings } from '@/contexts/validation-settings-context';
+import { useUpdateToolsGeneralSettings } from '@/features/overtime/hooks/use-overtime';
+import { schemaValidationApi, type ValidationResponse } from '@/features/settings/api/schema-validation';
+import { settingsApi } from '@/features/settings/api/settings';
 import { extractBICFromLT } from '@/features/settings/utils/swift-mt-validator';
 
 type ConnectionFormState = {
@@ -72,6 +73,7 @@ export const SettingsPage = () => {
   const { status: installationStatus, isLoading: installLoading, checkStatus } = useInstallation();
   const { isSoloMode, isSharedMode, refreshAuth, sessionConfig, refreshSessionConfig, isLoading: authLoading } = useAuth();
   const { refreshStatus } = useMode();
+  const updateToolsSettings = useUpdateToolsGeneralSettings();
   const {
     criteria,
     updateCriteria,
@@ -298,7 +300,7 @@ export const SettingsPage = () => {
         return;
       }
 
-      await toolsApi.updateGeneralSettings({ baseSalary: salary });
+      await updateToolsSettings.mutateAsync({ baseSalary: salary });
       toast.success('Tools settings saved successfully!');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save tools settings');
