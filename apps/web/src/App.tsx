@@ -32,6 +32,7 @@ import { useInstallation } from '@/contexts/installation-context';
 import { useMode } from '@/contexts/mode-context';
 import { WorkspaceProvider } from '@/contexts/workspace-context';
 import { useDashboardPrefetch } from '@/features/dashboard/hooks/use-dashboard-prefetch';
+import { useAutoRollover } from '@/features/journal/hooks/use-auto-rollover';
 import { useMenuCommands } from '@/hooks/use-menu-commands';
 import { AuthenticatedLayout } from '@/layouts/authenticated-layout';
 import { DashboardPage } from '@/pages/dashboard-page';
@@ -117,6 +118,7 @@ function AppContent() {
 
   // Prefetch dashboard data in background on app mount
   useDashboardPrefetch();
+  useAutoRollover();
 
   // Store the last visited workspace route so we can return to it
   const lastWorkspaceRoute = useRef<string>('/workspaces');

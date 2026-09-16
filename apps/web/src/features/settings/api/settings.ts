@@ -1,7 +1,8 @@
-import { apiClient } from '@/api/client';
 
 import type { ISO20022ValidationCriteria } from '@/features/settings/utils/iso20022-validator';
 import type { SwiftMTValidationCriteria } from '@/features/settings/utils/swift-mt-validator';
+
+import { apiClient } from '@/api/client';
 
 export interface ValidationSettings {
   iso20022: {
@@ -14,8 +15,11 @@ export interface ValidationSettings {
   };
 }
 
+export type AutoRolloverMode = 'off' | 'move' | 'copy';
+
 export interface DashboardSettings {
   streakWorkdaysOnly: boolean;
+  autoRolloverMode?: AutoRolloverMode;
 }
 
 export const settingsApi = {

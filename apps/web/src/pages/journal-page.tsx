@@ -1,6 +1,6 @@
 import { DragDropProvider } from '@dnd-kit/react';
 import { useSortable } from '@dnd-kit/react/sortable';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Archive,
   ArrowLeft,
@@ -95,6 +95,7 @@ import {
   parseContentForSuggestions,
   formatFullDate
 } from '@/features/journal/utils/journal-parser';
+import { settingsApi, type AutoRolloverMode } from '@/features/settings/api/settings';
 import { useProjectFileMention } from '@/hooks/use-file-mention';
 import { queryKeys } from '@/lib/query-client';
 
@@ -975,6 +976,16 @@ interface RolloverDialogProps {
 
 function RolloverDialog({ open, onOpenChange, onRollover, unfinishedCount }: RolloverDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const queryClient = useQueryClient();
+  const { data: dashboardSettings } = useQuery({
+    queryKey: queryKeys.settings.dashboard(),
+    queryFn: () => settingsApi.getDashboardSettings(),
+  });
+  const autoMode: AutoRolloverMode = dashboardSettings?.autoRolloverMode ?? 'off';
+  const updateAutoMode = useMutation({
+    mutationFn: (mode: AutoRolloverMode) => settingsApi.updateDashboardSettings({ autoRolloverMode: mode }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.settings.dashboard() }),
+  });
 
   const handleRollover = async (mode: 'move' | 'copy') => {
     setIsLoading(true);
@@ -1027,6 +1038,23 @@ function RolloverDialog({ open, onOpenChange, onRollover, unfinishedCount }: Rol
               Create copies in today.
             </CardContent>
           </Card>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 rounded-md border border-border bg-muted/40 px-3 py-2">
+          <div>
+            <p className="text-sm font-medium">Do this automatically</p>
+            <p className="text-xs text-muted-foreground">Runs once a day when you open the app.</p>
+          </div>
+          <Select value={autoMode} onValueChange={(value) => updateAutoMode.mutate(value as AutoRolloverMode)}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="off">Off</SelectItem>
+              <SelectItem value="move">Move to today</SelectItem>
+              <SelectItem value="copy">Copy to today</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {isLoading && (

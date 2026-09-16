@@ -49,10 +49,12 @@ const DEFAULT_TOOLS_GENERAL_SETTINGS: ToolsGeneralSettings = {
 
 export interface DashboardSettings {
   streakWorkdaysOnly: boolean;
+  autoRolloverMode: 'off' | 'move' | 'copy';
 }
 
 const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
-  streakWorkdaysOnly: false
+  streakWorkdaysOnly: false,
+  autoRolloverMode: 'off'
 };
 
 export const settingsService = {
