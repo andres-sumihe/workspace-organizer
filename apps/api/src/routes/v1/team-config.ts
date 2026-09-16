@@ -6,15 +6,27 @@ import {
   isSharedDbConnected,
   getSharedPool
 } from '../../db/shared-client.js';
-import { SCHEMA_VERSION, MIN_SCHEMA_VERSION } from '../../db/shared-schema.js';
 import { getUnifiedSchemaSQL, getUpgradeSQL } from '../../db/shared-migrations/sql-exports.js';
+import { SCHEMA_VERSION, MIN_SCHEMA_VERSION } from '../../db/shared-schema.js';
 import { settingsRepository } from '../../repositories/settings.repository.js';
-import { teamConfigService } from '../../services/team-config.service.js';
+import { startCollaborationServer } from '../../services/collaboration.service.js';
 import { schemaCompatibilityService } from '../../services/schema-compatibility.service.js';
+import { teamConfigService } from '../../services/team-config.service.js';
+import { teamEventsService } from '../../services/team-events.service.js';
+import { dbLogger } from '../../utils/logger.js';
 
 import type { Request, Response } from 'express';
 
 export const teamConfigRouter = Router();
+
+const startRealtimeServices = async (): Promise<void> => {
+  try {
+    await startCollaborationServer();
+    await teamEventsService.start();
+  } catch (error) {
+    dbLogger.error({ err: error }, 'Failed to start realtime services after shared DB connect');
+  }
+};
 
 const extractConnectionString = (req: Request): string | null => {
   const { connectionString } = req.body ?? {};
@@ -175,6 +187,7 @@ teamConfigRouter.post('/configure', async (req: Request, res: Response) => {
 
   try {
     const result = await teamConfigService.connectExistingTeam(connectionString);
+    await startRealtimeServices();
     res.json({
       success: true,
       message: result.needsTeamSetup
@@ -208,6 +221,7 @@ teamConfigRouter.post('/reconnect', async (_req: Request, res: Response) => {
 
     // Try to reconnect
     await initializeSharedDb(connectionString);
+    await startRealtimeServices();
 
     // Validate schema after reconnection
     let schemaStatus = null;

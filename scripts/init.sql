@@ -1,34 +1,59 @@
--- ============================================================================
--- Workspace Organizer - Unified Database Schema
--- Version: 0.3.0
+-- ============================================================
+-- Workspace Organizer - Unified Schema Script
+-- ============================================================
 -- Schema: workspace_organizer
--- ============================================================================
+-- Version: 5
+-- Generated: 2026-09-16T16:57:11.849Z
 --
--- This script creates the complete shared database schema for fresh installations.
--- Run this script once on a new PostgreSQL database.
+-- INSTRUCTIONS FOR DBAs:
+-- 1. Connect to your PostgreSQL database as a user with CREATE SCHEMA privileges
+-- 2. Run this entire script
+-- 3. Grant appropriate permissions to application users
+-- 4. Provide connection details to application users
 --
--- Usage: psql -h <host> -U <user> -d <database> -f init.sql
--- ============================================================================
+-- This script is idempotent - safe to run multiple times
+-- ============================================================
 
-BEGIN;
 
--- ============================================================================
--- 0. CREATE SCHEMA
--- ============================================================================
+-- ============================================================
+-- Workspace Organizer Schema Setup
+-- ============================================================
+
+-- Create schema if not exists
 CREATE SCHEMA IF NOT EXISTS workspace_organizer;
 
 -- Set search path for this session
 SET search_path TO workspace_organizer, public;
 
--- ============================================================================
--- 1. EXTENSIONS
--- ============================================================================
+-- Create schema_info table for version tracking
+CREATE TABLE IF NOT EXISTS workspace_organizer.schema_info (
+  id SERIAL PRIMARY KEY,
+  version INTEGER NOT NULL,
+  app_version VARCHAR(50),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_by VARCHAR(255)
+);
+
+-- Create migrations tracking table (for audit purposes)
+CREATE TABLE IF NOT EXISTS workspace_organizer.migrations (
+  id VARCHAR(255) PRIMARY KEY,
+  executed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  executed_by VARCHAR(255),
+  hostname VARCHAR(255)
+);
+
+
+-- Migration: 0001-create-teams
+-- Description: Create teams and team_members tables
+
+SET search_path TO workspace_organizer, public;
+
+-- Enable UUID extension if not exists
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- ============================================================================
--- 2. HELPER FUNCTIONS
--- ============================================================================
-CREATE OR REPLACE FUNCTION workspace_organizer.update_updated_at_column()
+-- Create updated_at trigger function
+CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
   NEW.updated_at = NOW();
@@ -36,10 +61,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- ============================================================================
--- 3. TEAMS
--- ============================================================================
-CREATE TABLE IF NOT EXISTS workspace_organizer.teams (
+-- Create teams table
+CREATE TABLE IF NOT EXISTS teams (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name VARCHAR(255) NOT NULL,
   description TEXT,
@@ -49,20 +72,17 @@ CREATE TABLE IF NOT EXISTS workspace_organizer.teams (
   CONSTRAINT teams_name_unique UNIQUE (name)
 );
 
-CREATE INDEX IF NOT EXISTS idx_teams_name ON workspace_organizer.teams (name);
-
-DROP TRIGGER IF EXISTS trg_teams_updated_at ON workspace_organizer.teams;
+-- Create trigger for teams updated_at
+DROP TRIGGER IF EXISTS trg_teams_updated_at ON teams;
 CREATE TRIGGER trg_teams_updated_at
-BEFORE UPDATE ON workspace_organizer.teams
+BEFORE UPDATE ON teams
 FOR EACH ROW
-EXECUTE FUNCTION workspace_organizer.update_updated_at_column();
+EXECUTE FUNCTION update_updated_at_column();
 
--- ============================================================================
--- 4. TEAM MEMBERS
--- ============================================================================
-CREATE TABLE IF NOT EXISTS workspace_organizer.team_members (
+-- Create team_members table
+CREATE TABLE IF NOT EXISTS team_members (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  team_id UUID NOT NULL REFERENCES workspace_organizer.teams(id) ON DELETE CASCADE,
+  team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
   email VARCHAR(255) NOT NULL,
   display_name VARCHAR(255),
   role VARCHAR(50) NOT NULL DEFAULT 'member',
@@ -71,21 +91,31 @@ CREATE TABLE IF NOT EXISTS workspace_organizer.team_members (
   CONSTRAINT team_members_team_email_unique UNIQUE (team_id, email)
 );
 
-CREATE INDEX IF NOT EXISTS idx_team_members_team ON workspace_organizer.team_members (team_id);
-CREATE INDEX IF NOT EXISTS idx_team_members_email ON workspace_organizer.team_members (email);
+-- Create indexes
+CREATE INDEX IF NOT EXISTS idx_team_members_team ON team_members (team_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_email ON team_members (email);
 
-DROP TRIGGER IF EXISTS trg_team_members_updated_at ON workspace_organizer.team_members;
+-- Create trigger for team_members updated_at
+DROP TRIGGER IF EXISTS trg_team_members_updated_at ON team_members;
 CREATE TRIGGER trg_team_members_updated_at
-BEFORE UPDATE ON workspace_organizer.team_members
+BEFORE UPDATE ON team_members
 FOR EACH ROW
-EXECUTE FUNCTION workspace_organizer.update_updated_at_column();
+EXECUTE FUNCTION update_updated_at_column();
 
--- ============================================================================
--- 5. AUDIT LOG
--- ============================================================================
-CREATE TABLE IF NOT EXISTS workspace_organizer.audit_log (
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0001-create-teams', current_user);
+
+
+
+-- Migration: 0002-create-audit-log
+-- Description: Create audit_log table for tracking all changes
+
+SET search_path TO workspace_organizer, public;
+
+-- Create audit_log table
+CREATE TABLE IF NOT EXISTS audit_log (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  team_id UUID REFERENCES workspace_organizer.teams(id) ON DELETE SET NULL,
+  team_id UUID REFERENCES teams(id) ON DELETE SET NULL,
   member_email VARCHAR(255),
   member_display_name VARCHAR(255),
   action VARCHAR(50) NOT NULL,
@@ -99,27 +129,41 @@ CREATE TABLE IF NOT EXISTS workspace_organizer.audit_log (
   timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_audit_log_team_id ON workspace_organizer.audit_log (team_id);
-CREATE INDEX IF NOT EXISTS idx_audit_log_member_email ON workspace_organizer.audit_log (member_email);
-CREATE INDEX IF NOT EXISTS idx_audit_log_action ON workspace_organizer.audit_log (action);
-CREATE INDEX IF NOT EXISTS idx_audit_log_resource_type ON workspace_organizer.audit_log (resource_type);
-CREATE INDEX IF NOT EXISTS idx_audit_log_resource_id ON workspace_organizer.audit_log (resource_id);
-CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp ON workspace_organizer.audit_log (timestamp DESC);
-CREATE INDEX IF NOT EXISTS idx_audit_log_resource ON workspace_organizer.audit_log (resource_type, resource_id, timestamp DESC);
-CREATE INDEX IF NOT EXISTS idx_audit_log_member_timestamp ON workspace_organizer.audit_log (member_email, timestamp DESC);
+-- Create indexes for efficient querying
+CREATE INDEX IF NOT EXISTS idx_audit_log_team_id ON audit_log (team_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_member_email ON audit_log (member_email);
+CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log (action);
+CREATE INDEX IF NOT EXISTS idx_audit_log_resource_type ON audit_log (resource_type);
+CREATE INDEX IF NOT EXISTS idx_audit_log_resource_id ON audit_log (resource_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp ON audit_log (timestamp DESC);
 
--- ============================================================================
--- 6. SCRIPTS
--- ============================================================================
-CREATE TABLE IF NOT EXISTS workspace_organizer.scripts (
+-- Composite indexes for common queries
+CREATE INDEX IF NOT EXISTS idx_audit_log_resource
+ON audit_log (resource_type, resource_id, timestamp DESC);
+
+CREATE INDEX IF NOT EXISTS idx_audit_log_member_timestamp
+ON audit_log (member_email, timestamp DESC);
+
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0002-create-audit-log', current_user);
+
+
+
+-- Migration: 0003-create-scripts
+-- Description: Create scripts and related tables
+
+SET search_path TO workspace_organizer, public;
+
+-- Create scripts table
+CREATE TABLE IF NOT EXISTS scripts (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  team_id UUID REFERENCES workspace_organizer.teams(id) ON DELETE CASCADE,
+  team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
   name VARCHAR(255) NOT NULL,
   description TEXT,
+  file_path VARCHAR(1000),
   content TEXT,
   type VARCHAR(50) DEFAULT 'batch',
   is_active BOOLEAN DEFAULT true,
-  has_credentials BOOLEAN DEFAULT false,
   tags TEXT[],
   created_by VARCHAR(255),
   updated_by VARCHAR(255),
@@ -127,90 +171,64 @@ CREATE TABLE IF NOT EXISTS workspace_organizer.scripts (
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_scripts_team ON workspace_organizer.scripts (team_id);
-CREATE INDEX IF NOT EXISTS idx_scripts_name ON workspace_organizer.scripts (name);
-CREATE INDEX IF NOT EXISTS idx_scripts_type ON workspace_organizer.scripts (type);
-CREATE INDEX IF NOT EXISTS idx_scripts_is_active ON workspace_organizer.scripts (is_active);
-CREATE INDEX IF NOT EXISTS idx_scripts_tags ON workspace_organizer.scripts USING GIN (tags);
-
-DROP TRIGGER IF EXISTS trg_scripts_updated_at ON workspace_organizer.scripts;
+-- Create trigger for updated_at
+DROP TRIGGER IF EXISTS trg_scripts_updated_at ON scripts;
 CREATE TRIGGER trg_scripts_updated_at
-BEFORE UPDATE ON workspace_organizer.scripts
+BEFORE UPDATE ON scripts
 FOR EACH ROW
-EXECUTE FUNCTION workspace_organizer.update_updated_at_column();
+EXECUTE FUNCTION update_updated_at_column();
 
--- ============================================================================
--- 7. DRIVE MAPPINGS (per-script)
--- ============================================================================
-CREATE TABLE IF NOT EXISTS workspace_organizer.drive_mappings (
+-- Create indexes
+CREATE INDEX IF NOT EXISTS idx_scripts_team ON scripts (team_id);
+CREATE INDEX IF NOT EXISTS idx_scripts_name ON scripts (name);
+CREATE INDEX IF NOT EXISTS idx_scripts_type ON scripts (type);
+CREATE INDEX IF NOT EXISTS idx_scripts_is_active ON scripts (is_active);
+CREATE INDEX IF NOT EXISTS idx_scripts_tags ON scripts USING GIN (tags);
+
+-- Create drive_mappings table
+CREATE TABLE IF NOT EXISTS drive_mappings (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  script_id UUID NOT NULL REFERENCES workspace_organizer.scripts(id) ON DELETE CASCADE,
-  drive_letter VARCHAR(5) NOT NULL,
-  network_path VARCHAR(1000) NOT NULL,
-  server_name VARCHAR(255),
-  has_credentials BOOLEAN DEFAULT false,
-  username VARCHAR(255),
+  team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
+  drive_letter CHAR(1) NOT NULL,
+  unc_path VARCHAR(1000) NOT NULL,
+  description TEXT,
+  is_active BOOLEAN DEFAULT true,
+  created_by_email VARCHAR(255),
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-  CONSTRAINT drive_mappings_script_letter_unique UNIQUE (script_id, drive_letter)
+  CONSTRAINT drive_mappings_team_letter_unique UNIQUE (team_id, drive_letter)
 );
 
-CREATE INDEX IF NOT EXISTS idx_drive_mappings_script_id ON workspace_organizer.drive_mappings (script_id);
-CREATE INDEX IF NOT EXISTS idx_drive_mappings_drive_letter ON workspace_organizer.drive_mappings (drive_letter);
-
-DROP TRIGGER IF EXISTS trg_drive_mappings_updated_at ON workspace_organizer.drive_mappings;
+-- Create trigger for drive_mappings updated_at
+DROP TRIGGER IF EXISTS trg_drive_mappings_updated_at ON drive_mappings;
 CREATE TRIGGER trg_drive_mappings_updated_at
-BEFORE UPDATE ON workspace_organizer.drive_mappings
+BEFORE UPDATE ON drive_mappings
 FOR EACH ROW
-EXECUTE FUNCTION workspace_organizer.update_updated_at_column();
+EXECUTE FUNCTION update_updated_at_column();
 
--- ============================================================================
--- 8. TAGS
--- ============================================================================
-CREATE TABLE IF NOT EXISTS workspace_organizer.tags (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name VARCHAR(255) NOT NULL UNIQUE,
-  color VARCHAR(50),
-  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+-- Create indexes for drive_mappings
+CREATE INDEX IF NOT EXISTS idx_drive_mappings_team ON drive_mappings (team_id);
+CREATE INDEX IF NOT EXISTS idx_drive_mappings_letter ON drive_mappings (drive_letter);
+
+-- Create script_drive_mappings junction table
+CREATE TABLE IF NOT EXISTS script_drive_mappings (
+  script_id UUID NOT NULL REFERENCES scripts(id) ON DELETE CASCADE,
+  drive_mapping_id UUID NOT NULL REFERENCES drive_mappings(id) ON DELETE CASCADE,
+  PRIMARY KEY (script_id, drive_mapping_id)
 );
 
-DROP TRIGGER IF EXISTS trg_tags_updated_at ON workspace_organizer.tags;
-CREATE TRIGGER trg_tags_updated_at
-BEFORE UPDATE ON workspace_organizer.tags
-FOR EACH ROW
-EXECUTE FUNCTION workspace_organizer.update_updated_at_column();
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0003-create-scripts', current_user);
 
--- ============================================================================
--- 9. SCRIPT TAGS (junction)
--- ============================================================================
-CREATE TABLE IF NOT EXISTS workspace_organizer.script_tags (
-  script_id UUID NOT NULL REFERENCES workspace_organizer.scripts(id) ON DELETE CASCADE,
-  tag_id UUID NOT NULL REFERENCES workspace_organizer.tags(id) ON DELETE CASCADE,
-  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-  PRIMARY KEY (script_id, tag_id)
-);
 
-CREATE INDEX IF NOT EXISTS idx_script_tags_script ON workspace_organizer.script_tags (script_id);
-CREATE INDEX IF NOT EXISTS idx_script_tags_tag ON workspace_organizer.script_tags (tag_id);
 
--- ============================================================================
--- 10. SCRIPT DEPENDENCIES
--- ============================================================================
-CREATE TABLE IF NOT EXISTS workspace_organizer.script_dependencies (
-  dependent_script_id UUID NOT NULL REFERENCES workspace_organizer.scripts(id) ON DELETE CASCADE,
-  dependency_script_id UUID NOT NULL REFERENCES workspace_organizer.scripts(id) ON DELETE CASCADE,
-  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-  PRIMARY KEY (dependent_script_id, dependency_script_id)
-);
+-- Migration: 0004-create-controlm-jobs
+-- Description: Create Control-M job tracking tables
 
-CREATE INDEX IF NOT EXISTS idx_script_dependencies_dependent ON workspace_organizer.script_dependencies (dependent_script_id);
-CREATE INDEX IF NOT EXISTS idx_script_dependencies_dependency ON workspace_organizer.script_dependencies (dependency_script_id);
+SET search_path TO workspace_organizer, public;
 
--- ============================================================================
--- 11. CONTROL-M JOBS
--- ============================================================================
-CREATE TABLE IF NOT EXISTS workspace_organizer.controlm_jobs (
+-- Create controlm_jobs table
+CREATE TABLE IF NOT EXISTS controlm_jobs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   job_id INTEGER NOT NULL,
   application VARCHAR(255) NOT NULL,
@@ -236,28 +254,28 @@ CREATE TABLE IF NOT EXISTS workspace_organizer.controlm_jobs (
   change_user_id VARCHAR(255),
   change_date VARCHAR(50),
   is_active BOOLEAN DEFAULT true,
-  linked_script_id UUID REFERENCES workspace_organizer.scripts(id) ON DELETE SET NULL,
+  linked_script_id UUID REFERENCES scripts(id) ON DELETE SET NULL,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_controlm_jobs_job_id ON workspace_organizer.controlm_jobs (job_id);
-CREATE INDEX IF NOT EXISTS idx_controlm_jobs_application ON workspace_organizer.controlm_jobs (application);
-CREATE INDEX IF NOT EXISTS idx_controlm_jobs_group ON workspace_organizer.controlm_jobs (group_name);
-CREATE INDEX IF NOT EXISTS idx_controlm_jobs_name ON workspace_organizer.controlm_jobs (job_name);
-CREATE INDEX IF NOT EXISTS idx_controlm_jobs_active ON workspace_organizer.controlm_jobs (is_active);
-CREATE INDEX IF NOT EXISTS idx_controlm_jobs_script ON workspace_organizer.controlm_jobs (linked_script_id);
-
-DROP TRIGGER IF EXISTS trg_controlm_jobs_updated_at ON workspace_organizer.controlm_jobs;
+-- Create trigger for updated_at
+DROP TRIGGER IF EXISTS trg_controlm_jobs_updated_at ON controlm_jobs;
 CREATE TRIGGER trg_controlm_jobs_updated_at
-BEFORE UPDATE ON workspace_organizer.controlm_jobs
+BEFORE UPDATE ON controlm_jobs
 FOR EACH ROW
-EXECUTE FUNCTION workspace_organizer.update_updated_at_column();
+EXECUTE FUNCTION update_updated_at_column();
 
--- ============================================================================
--- 12. JOB DEPENDENCIES
--- ============================================================================
-CREATE TABLE IF NOT EXISTS workspace_organizer.job_dependencies (
+-- Create indexes
+CREATE INDEX IF NOT EXISTS idx_controlm_jobs_job_id ON controlm_jobs (job_id);
+CREATE INDEX IF NOT EXISTS idx_controlm_jobs_application ON controlm_jobs (application);
+CREATE INDEX IF NOT EXISTS idx_controlm_jobs_group ON controlm_jobs (group_name);
+CREATE INDEX IF NOT EXISTS idx_controlm_jobs_name ON controlm_jobs (job_name);
+CREATE INDEX IF NOT EXISTS idx_controlm_jobs_active ON controlm_jobs (is_active);
+CREATE INDEX IF NOT EXISTS idx_controlm_jobs_script ON controlm_jobs (linked_script_id);
+
+-- Create job_dependencies table
+CREATE TABLE IF NOT EXISTS job_dependencies (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   predecessor_job_id VARCHAR(255) NOT NULL,
   successor_job_id VARCHAR(255) NOT NULL,
@@ -265,13 +283,8 @@ CREATE TABLE IF NOT EXISTS workspace_organizer.job_dependencies (
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_job_dependencies_predecessor ON workspace_organizer.job_dependencies (predecessor_job_id);
-CREATE INDEX IF NOT EXISTS idx_job_dependencies_successor ON workspace_organizer.job_dependencies (successor_job_id);
-
--- ============================================================================
--- 13. JOB CONDITIONS
--- ============================================================================
-CREATE TABLE IF NOT EXISTS workspace_organizer.job_conditions (
+-- Create job_conditions table
+CREATE TABLE IF NOT EXISTS job_conditions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   job_id VARCHAR(255) NOT NULL,
   condition_name VARCHAR(255) NOT NULL,
@@ -280,40 +293,201 @@ CREATE TABLE IF NOT EXISTS workspace_organizer.job_conditions (
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_job_conditions_job ON workspace_organizer.job_conditions (job_id);
+-- Create indexes for dependencies and conditions
+CREATE INDEX IF NOT EXISTS idx_job_dependencies_predecessor ON job_dependencies (predecessor_job_id);
+CREATE INDEX IF NOT EXISTS idx_job_dependencies_successor ON job_dependencies (successor_job_id);
+CREATE INDEX IF NOT EXISTS idx_job_conditions_job ON job_conditions (job_id);
 
--- ============================================================================
--- 14. APP INFO (Team Attestation)
--- ============================================================================
-CREATE TABLE IF NOT EXISTS workspace_organizer.app_info (
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0004-create-controlm-jobs', current_user);
+
+
+
+-- Migration: 0005-create-app-info
+-- Description: Create app identity and secrets tables
+
+SET search_path TO workspace_organizer, public;
+
+-- Public app identity
+CREATE TABLE IF NOT EXISTS app_info (
   server_id UUID PRIMARY KEY,
-  team_id UUID REFERENCES workspace_organizer.teams(id) ON DELETE CASCADE,
+  team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
   team_name VARCHAR(255) NOT NULL,
   public_key TEXT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_app_info_team ON workspace_organizer.app_info (team_id);
+-- Index for team lookups
+CREATE INDEX IF NOT EXISTS idx_app_info_team ON app_info(team_id);
 
--- ============================================================================
--- 15. APP SECRETS
--- ============================================================================
-CREATE TABLE IF NOT EXISTS workspace_organizer.app_secrets (
+-- Secure secrets storage
+CREATE TABLE IF NOT EXISTS app_secrets (
   key VARCHAR(255) PRIMARY KEY,
   value TEXT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-COMMENT ON TABLE workspace_organizer.app_secrets IS 'Secure storage for server secrets. Access should be restricted.';
+-- Add comment for documentation
+COMMENT ON TABLE app_secrets IS 'Secure storage for server secrets. Access should be restricted.';
 
--- ============================================================================
--- 16. TEAM PROJECTS
--- ============================================================================
-CREATE TABLE IF NOT EXISTS workspace_organizer.team_projects (
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0005-create-app-info', current_user);
+
+
+
+-- Migration: 0006-create-tags
+-- Description: Create tags management tables
+
+SET search_path TO workspace_organizer, public;
+
+-- Create tags table
+CREATE TABLE IF NOT EXISTS tags (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  team_id UUID NOT NULL REFERENCES workspace_organizer.teams(id) ON DELETE CASCADE,
+  name VARCHAR(255) NOT NULL UNIQUE,
+  color VARCHAR(50),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+-- Create trigger for tags updated_at
+DROP TRIGGER IF EXISTS trg_tags_updated_at ON tags;
+CREATE TRIGGER trg_tags_updated_at
+BEFORE UPDATE ON tags
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Create script_tags junction table
+CREATE TABLE IF NOT EXISTS script_tags (
+  script_id UUID NOT NULL REFERENCES scripts(id) ON DELETE CASCADE,
+  tag_id UUID NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (script_id, tag_id)
+);
+
+-- Create indexes
+CREATE INDEX IF NOT EXISTS idx_script_tags_script ON script_tags (script_id);
+CREATE INDEX IF NOT EXISTS idx_script_tags_tag ON script_tags (tag_id);
+
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0006-create-tags', current_user);
+
+
+
+-- Migration: 0007-update-drive-mappings
+-- Description: Update drive_mappings schema to script-child model
+
+SET search_path TO workspace_organizer, public;
+
+-- Drop the junction table first
+DROP TABLE IF EXISTS script_drive_mappings;
+
+-- Drop the existing drive_mappings table
+DROP TABLE IF EXISTS drive_mappings;
+
+-- Recreate drive_mappings with the correct schema
+CREATE TABLE drive_mappings (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  script_id UUID NOT NULL REFERENCES scripts(id) ON DELETE CASCADE,
+  drive_letter VARCHAR(5) NOT NULL,
+  network_path VARCHAR(1000) NOT NULL,
+  server_name VARCHAR(255),
+  share_name VARCHAR(255),
+  has_credentials BOOLEAN DEFAULT false,
+  username VARCHAR(255),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+-- Create trigger for updated_at
+DROP TRIGGER IF EXISTS trg_drive_mappings_updated_at ON drive_mappings;
+CREATE TRIGGER trg_drive_mappings_updated_at
+BEFORE UPDATE ON drive_mappings
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Create indexes
+CREATE INDEX idx_drive_mappings_script_id ON drive_mappings(script_id);
+CREATE INDEX idx_drive_mappings_drive_letter ON drive_mappings(drive_letter);
+
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0007-update-drive-mappings', current_user);
+
+
+
+-- Migration: 0008-create-script-dependencies
+-- Description: Create script dependencies tracking
+
+SET search_path TO workspace_organizer, public;
+
+CREATE TABLE IF NOT EXISTS script_dependencies (
+  dependent_script_id UUID NOT NULL REFERENCES scripts(id) ON DELETE CASCADE,
+  dependency_script_id UUID NOT NULL REFERENCES scripts(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (dependent_script_id, dependency_script_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_script_dependencies_dependent ON script_dependencies(dependent_script_id);
+CREATE INDEX IF NOT EXISTS idx_script_dependencies_dependency ON script_dependencies(dependency_script_id);
+
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0008-create-script-dependencies', current_user);
+
+
+
+-- Migration: 0009-add-missing-script-columns
+-- Description: Add missing columns to scripts table
+
+SET search_path TO workspace_organizer, public;
+
+-- Add has_credentials column if it doesn't exist
+ALTER TABLE scripts
+ADD COLUMN IF NOT EXISTS has_credentials BOOLEAN DEFAULT false;
+
+-- Add execution_count column if it doesn't exist
+ALTER TABLE scripts
+ADD COLUMN IF NOT EXISTS execution_count INTEGER DEFAULT 0;
+
+-- Add last_executed_at column if it doesn't exist
+ALTER TABLE scripts
+ADD COLUMN IF NOT EXISTS last_executed_at TIMESTAMP WITH TIME ZONE;
+
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0009-add-missing-script-columns', current_user);
+
+
+
+-- Migration: 0010-fix-null-timestamps
+-- Description: Fix null timestamps in existing records
+
+SET search_path TO workspace_organizer, public;
+
+-- Fix scripts timestamps
+UPDATE scripts SET created_at = NOW() WHERE created_at IS NULL;
+UPDATE scripts SET updated_at = NOW() WHERE updated_at IS NULL;
+
+-- Fix drive_mappings timestamps
+UPDATE drive_mappings SET created_at = NOW() WHERE created_at IS NULL;
+UPDATE drive_mappings SET updated_at = NOW() WHERE updated_at IS NULL;
+
+-- Fix tags timestamps
+UPDATE tags SET created_at = NOW() WHERE created_at IS NULL;
+UPDATE tags SET updated_at = NOW() WHERE updated_at IS NULL;
+
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0010-fix-null-timestamps', current_user);
+
+
+
+-- Migration: 0011-create-team-projects
+-- Description: Create team_projects table for collaborative projects
+
+SET search_path TO workspace_organizer, public;
+
+CREATE TABLE IF NOT EXISTS team_projects (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
   title VARCHAR(255) NOT NULL,
   description TEXT,
   status VARCHAR(50) NOT NULL DEFAULT 'active',
@@ -328,23 +502,30 @@ CREATE TABLE IF NOT EXISTS workspace_organizer.team_projects (
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_team_projects_team ON workspace_organizer.team_projects (team_id);
-CREATE INDEX IF NOT EXISTS idx_team_projects_status ON workspace_organizer.team_projects (team_id, status);
-CREATE INDEX IF NOT EXISTS idx_team_projects_created_by ON workspace_organizer.team_projects (created_by_email);
+CREATE INDEX IF NOT EXISTS idx_team_projects_team ON team_projects (team_id);
+CREATE INDEX IF NOT EXISTS idx_team_projects_status ON team_projects (team_id, status);
+CREATE INDEX IF NOT EXISTS idx_team_projects_created_by ON team_projects (created_by_email);
 
-DROP TRIGGER IF EXISTS trg_team_projects_updated_at ON workspace_organizer.team_projects;
+DROP TRIGGER IF EXISTS trg_team_projects_updated_at ON team_projects;
 CREATE TRIGGER trg_team_projects_updated_at
-BEFORE UPDATE ON workspace_organizer.team_projects
+BEFORE UPDATE ON team_projects
 FOR EACH ROW
-EXECUTE FUNCTION workspace_organizer.update_updated_at_column();
+EXECUTE FUNCTION update_updated_at_column();
 
--- ============================================================================
--- 17. TEAM NOTES
--- ============================================================================
-CREATE TABLE IF NOT EXISTS workspace_organizer.team_notes (
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0011-create-team-projects', current_user);
+
+
+
+-- Migration: 0012-create-team-notes
+-- Description: Create team_notes and team_note_revisions tables
+
+SET search_path TO workspace_organizer, public;
+
+CREATE TABLE IF NOT EXISTS team_notes (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  team_id UUID NOT NULL REFERENCES workspace_organizer.teams(id) ON DELETE CASCADE,
-  project_id UUID NOT NULL REFERENCES workspace_organizer.team_projects(id) ON DELETE CASCADE,
+  team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  project_id UUID NOT NULL REFERENCES team_projects(id) ON DELETE CASCADE,
   title VARCHAR(255) NOT NULL,
   content TEXT NOT NULL DEFAULT '',
   is_pinned BOOLEAN NOT NULL DEFAULT FALSE,
@@ -354,22 +535,19 @@ CREATE TABLE IF NOT EXISTS workspace_organizer.team_notes (
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_team_notes_team ON workspace_organizer.team_notes (team_id);
-CREATE INDEX IF NOT EXISTS idx_team_notes_project ON workspace_organizer.team_notes (project_id);
-CREATE INDEX IF NOT EXISTS idx_team_notes_pinned ON workspace_organizer.team_notes (project_id, is_pinned);
+CREATE INDEX IF NOT EXISTS idx_team_notes_team ON team_notes (team_id);
+CREATE INDEX IF NOT EXISTS idx_team_notes_project ON team_notes (project_id);
+CREATE INDEX IF NOT EXISTS idx_team_notes_pinned ON team_notes (project_id, is_pinned);
 
-DROP TRIGGER IF EXISTS trg_team_notes_updated_at ON workspace_organizer.team_notes;
+DROP TRIGGER IF EXISTS trg_team_notes_updated_at ON team_notes;
 CREATE TRIGGER trg_team_notes_updated_at
-BEFORE UPDATE ON workspace_organizer.team_notes
+BEFORE UPDATE ON team_notes
 FOR EACH ROW
-EXECUTE FUNCTION workspace_organizer.update_updated_at_column();
+EXECUTE FUNCTION update_updated_at_column();
 
--- ============================================================================
--- 18. TEAM NOTE REVISIONS
--- ============================================================================
-CREATE TABLE IF NOT EXISTS workspace_organizer.team_note_revisions (
+CREATE TABLE IF NOT EXISTS team_note_revisions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  note_id UUID NOT NULL REFERENCES workspace_organizer.team_notes(id) ON DELETE CASCADE,
+  note_id UUID NOT NULL REFERENCES team_notes(id) ON DELETE CASCADE,
   title VARCHAR(255),
   content TEXT NOT NULL,
   saved_by_email VARCHAR(255) NOT NULL,
@@ -379,62 +557,76 @@ CREATE TABLE IF NOT EXISTS workspace_organizer.team_note_revisions (
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_team_note_revisions_note ON workspace_organizer.team_note_revisions (note_id);
-CREATE INDEX IF NOT EXISTS idx_team_note_revisions_number ON workspace_organizer.team_note_revisions (note_id, revision_number);
+CREATE INDEX IF NOT EXISTS idx_team_note_revisions_note ON team_note_revisions (note_id);
+CREATE INDEX IF NOT EXISTS idx_team_note_revisions_number ON team_note_revisions (note_id, revision_number);
 
--- ============================================================================
--- 19. TEAM TASKS
--- ============================================================================
-CREATE TABLE IF NOT EXISTS workspace_organizer.team_tasks (
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0012-create-team-notes', current_user);
+
+
+
+-- Migration: 0013-create-team-tasks
+-- Description: Create team_tasks and team_task_assignments tables
+
+SET search_path TO workspace_organizer, public;
+
+CREATE TABLE IF NOT EXISTS team_tasks (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  team_id UUID NOT NULL REFERENCES workspace_organizer.teams(id) ON DELETE CASCADE,
-  project_id UUID NOT NULL REFERENCES workspace_organizer.team_projects(id) ON DELETE CASCADE,
+  team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  project_id UUID NOT NULL REFERENCES team_projects(id) ON DELETE CASCADE,
   title VARCHAR(255) NOT NULL,
   description TEXT,
   status VARCHAR(50) NOT NULL DEFAULT 'pending',
   priority VARCHAR(50) NOT NULL DEFAULT 'medium',
   due_date DATE,
-  flags JSONB NOT NULL DEFAULT '[]'::jsonb,
   created_by_email VARCHAR(255) NOT NULL,
   updated_by_email VARCHAR(255),
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_team_tasks_team ON workspace_organizer.team_tasks (team_id);
-CREATE INDEX IF NOT EXISTS idx_team_tasks_project ON workspace_organizer.team_tasks (project_id);
-CREATE INDEX IF NOT EXISTS idx_team_tasks_status ON workspace_organizer.team_tasks (project_id, status);
-CREATE INDEX IF NOT EXISTS idx_team_tasks_priority ON workspace_organizer.team_tasks (project_id, priority);
+CREATE INDEX IF NOT EXISTS idx_team_tasks_team ON team_tasks (team_id);
+CREATE INDEX IF NOT EXISTS idx_team_tasks_project ON team_tasks (project_id);
+CREATE INDEX IF NOT EXISTS idx_team_tasks_status ON team_tasks (project_id, status);
+CREATE INDEX IF NOT EXISTS idx_team_tasks_priority ON team_tasks (project_id, priority);
 
-DROP TRIGGER IF EXISTS trg_team_tasks_updated_at ON workspace_organizer.team_tasks;
+DROP TRIGGER IF EXISTS trg_team_tasks_updated_at ON team_tasks;
 CREATE TRIGGER trg_team_tasks_updated_at
-BEFORE UPDATE ON workspace_organizer.team_tasks
+BEFORE UPDATE ON team_tasks
 FOR EACH ROW
-EXECUTE FUNCTION workspace_organizer.update_updated_at_column();
+EXECUTE FUNCTION update_updated_at_column();
 
--- ============================================================================
--- 20. TEAM TASK ASSIGNMENTS
--- ============================================================================
-CREATE TABLE IF NOT EXISTS workspace_organizer.team_task_assignments (
+CREATE TABLE IF NOT EXISTS team_task_assignments (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  task_id UUID NOT NULL REFERENCES workspace_organizer.team_tasks(id) ON DELETE CASCADE,
+  task_id UUID NOT NULL REFERENCES team_tasks(id) ON DELETE CASCADE,
   email VARCHAR(255) NOT NULL,
   display_name VARCHAR(255),
   assigned_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   CONSTRAINT team_task_assignments_unique UNIQUE (task_id, email)
 );
 
-CREATE INDEX IF NOT EXISTS idx_team_task_assignments_task ON workspace_organizer.team_task_assignments (task_id);
-CREATE INDEX IF NOT EXISTS idx_team_task_assignments_email ON workspace_organizer.team_task_assignments (email);
+CREATE INDEX IF NOT EXISTS idx_team_task_assignments_task ON team_task_assignments (task_id);
+CREATE INDEX IF NOT EXISTS idx_team_task_assignments_email ON team_task_assignments (email);
 
--- ============================================================================
--- 21. TEAM TASK UPDATES
--- ============================================================================
-CREATE TABLE IF NOT EXISTS workspace_organizer.team_task_updates (
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0013-create-team-tasks', current_user);
+
+
+
+-- Migration: 0014-create-team-task-updates
+-- Description: Create team_task_updates table and add flags to team_tasks
+
+SET search_path TO workspace_organizer, public;
+
+-- Add flags column to team_tasks
+ALTER TABLE team_tasks ADD COLUMN IF NOT EXISTS flags JSONB NOT NULL DEFAULT '[]'::jsonb;
+
+-- Team task updates table
+CREATE TABLE IF NOT EXISTS team_task_updates (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  team_id UUID NOT NULL REFERENCES workspace_organizer.teams(id) ON DELETE CASCADE,
-  task_id UUID NOT NULL REFERENCES workspace_organizer.team_tasks(id) ON DELETE CASCADE,
-  parent_id UUID REFERENCES workspace_organizer.team_task_updates(id) ON DELETE CASCADE,
+  team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  task_id UUID NOT NULL REFERENCES team_tasks(id) ON DELETE CASCADE,
+  parent_id UUID REFERENCES team_task_updates(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
   created_by_email VARCHAR(255) NOT NULL,
   created_by_display_name VARCHAR(255),
@@ -442,21 +634,367 @@ CREATE TABLE IF NOT EXISTS workspace_organizer.team_task_updates (
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_team_task_updates_task ON workspace_organizer.team_task_updates (task_id);
-CREATE INDEX IF NOT EXISTS idx_team_task_updates_parent ON workspace_organizer.team_task_updates (parent_id);
-CREATE INDEX IF NOT EXISTS idx_team_task_updates_created_by ON workspace_organizer.team_task_updates (created_by_email);
+CREATE INDEX IF NOT EXISTS idx_team_task_updates_task ON team_task_updates (task_id);
+CREATE INDEX IF NOT EXISTS idx_team_task_updates_parent ON team_task_updates (parent_id);
+CREATE INDEX IF NOT EXISTS idx_team_task_updates_created_by ON team_task_updates (created_by_email);
 
-DROP TRIGGER IF EXISTS trg_team_task_updates_updated_at ON workspace_organizer.team_task_updates;
+DROP TRIGGER IF EXISTS trg_team_task_updates_updated_at ON team_task_updates;
 CREATE TRIGGER trg_team_task_updates_updated_at
-BEFORE UPDATE ON workspace_organizer.team_task_updates
+BEFORE UPDATE ON team_task_updates
 FOR EACH ROW
-EXECUTE FUNCTION workspace_organizer.update_updated_at_column();
+EXECUTE FUNCTION update_updated_at_column();
 
-COMMIT;
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0014-create-team-task-updates', current_user);
 
--- ============================================================================
--- DATABASE INITIALIZATION COMPLETE
--- ============================================================================
--- Your database is now ready for use with Workspace Organizer.
--- All tables are in the 'workspace_organizer' schema.
--- ============================================================================
+
+
+-- Migration: 0015-create-team-yjs-updates
+-- Description: Create team_yjs_updates table for Yjs collaborative document persistence
+
+SET search_path TO workspace_organizer, public;
+
+-- Yjs document state table
+CREATE TABLE IF NOT EXISTS team_yjs_updates (
+  id SERIAL PRIMARY KEY,
+  document_name VARCHAR(500) NOT NULL UNIQUE,
+  state BYTEA NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_team_yjs_updates_doc ON team_yjs_updates (document_name);
+
+DROP TRIGGER IF EXISTS trg_team_yjs_updates_updated_at ON team_yjs_updates;
+CREATE TRIGGER trg_team_yjs_updates_updated_at
+BEFORE UPDATE ON team_yjs_updates
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0015-create-team-yjs-updates', current_user);
+
+
+
+-- Migration: 0016-enhance-note-revisions
+-- Description: Enhance team_note_revisions for collaboration-aware history
+
+SET search_path TO workspace_organizer, public;
+
+ALTER TABLE team_note_revisions ADD COLUMN IF NOT EXISTS title VARCHAR(255);
+ALTER TABLE team_note_revisions ADD COLUMN IF NOT EXISTS editors JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE team_note_revisions ADD COLUMN IF NOT EXISTS snapshot_trigger VARCHAR(50) NOT NULL DEFAULT 'auto';
+
+-- Back-fill title from the parent note for existing revisions
+UPDATE team_note_revisions r
+SET title = n.title
+FROM team_notes n
+WHERE r.note_id = n.id AND r.title IS NULL;
+
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by) VALUES ('0016-enhance-note-revisions', current_user);
+
+
+
+-- Migration: 0017-create-team-calendar-wfh
+-- Description: Create team calendar and WFH scheduling tables
+
+SET search_path TO workspace_organizer, public;
+
+CREATE TABLE IF NOT EXISTS team_public_holidays (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  holiday_date DATE NOT NULL,
+  source_range_id UUID,
+  reduces_annual_leave BOOLEAN NOT NULL DEFAULT FALSE,
+  created_by_email VARCHAR(255) NOT NULL,
+  updated_by_email VARCHAR(255),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  CONSTRAINT team_public_holidays_unique_name_date UNIQUE (team_id, name, holiday_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_team_public_holidays_team_date ON team_public_holidays (team_id, holiday_date);
+CREATE INDEX IF NOT EXISTS idx_team_public_holidays_source_range ON team_public_holidays (source_range_id);
+
+DROP TRIGGER IF EXISTS trg_team_public_holidays_updated_at ON team_public_holidays;
+CREATE TRIGGER trg_team_public_holidays_updated_at
+BEFORE UPDATE ON team_public_holidays
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TABLE IF NOT EXISTS team_wfh_group_members (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  member_email VARCHAR(255) NOT NULL,
+  group_code CHAR(1) NOT NULL CHECK (group_code IN ('A', 'B', 'C', 'D')),
+  updated_by_email VARCHAR(255),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  CONSTRAINT team_wfh_group_members_unique UNIQUE (team_id, member_email),
+  CONSTRAINT team_wfh_group_members_member_fk FOREIGN KEY (team_id, member_email)
+    REFERENCES team_members(team_id, email) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_team_wfh_group_members_team ON team_wfh_group_members (team_id);
+CREATE INDEX IF NOT EXISTS idx_team_wfh_group_members_group ON team_wfh_group_members (team_id, group_code);
+
+DROP TRIGGER IF EXISTS trg_team_wfh_group_members_updated_at ON team_wfh_group_members;
+CREATE TRIGGER trg_team_wfh_group_members_updated_at
+BEFORE UPDATE ON team_wfh_group_members
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TABLE IF NOT EXISTS team_wfh_schedules (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  group_code CHAR(1) NOT NULL CHECK (group_code IN ('A', 'B', 'C', 'D')),
+  original_date DATE NOT NULL,
+  schedule_date DATE NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'scheduled',
+  conflict_holiday_id UUID REFERENCES team_public_holidays(id) ON DELETE SET NULL,
+  generation_year INTEGER NOT NULL,
+  generated_by_email VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  CONSTRAINT team_wfh_schedules_unique_original UNIQUE (team_id, generation_year, group_code, original_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_team_wfh_schedules_team_date ON team_wfh_schedules (team_id, schedule_date);
+CREATE INDEX IF NOT EXISTS idx_team_wfh_schedules_team_year ON team_wfh_schedules (team_id, generation_year);
+CREATE INDEX IF NOT EXISTS idx_team_wfh_schedules_team_status ON team_wfh_schedules (team_id, status);
+
+DROP TRIGGER IF EXISTS trg_team_wfh_schedules_updated_at ON team_wfh_schedules;
+CREATE TRIGGER trg_team_wfh_schedules_updated_at
+BEFORE UPDATE ON team_wfh_schedules
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TABLE IF NOT EXISTS team_wfh_change_requests (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  schedule_id UUID REFERENCES team_wfh_schedules(id) ON DELETE SET NULL,
+  requester_email VARCHAR(255) NOT NULL,
+  group_code CHAR(1) NOT NULL CHECK (group_code IN ('A', 'B', 'C', 'D')),
+  original_date DATE NOT NULL,
+  requested_date DATE NOT NULL,
+  reason TEXT,
+  status VARCHAR(50) NOT NULL DEFAULT 'pending',
+  approver_email VARCHAR(255),
+  decision_note TEXT,
+  decided_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  CONSTRAINT team_wfh_change_requests_status_check CHECK (status IN ('pending', 'approved', 'rejected', 'cancelled')),
+  CONSTRAINT team_wfh_change_requests_member_fk FOREIGN KEY (team_id, requester_email)
+    REFERENCES team_members(team_id, email) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_team_wfh_change_requests_team_status ON team_wfh_change_requests (team_id, status);
+CREATE INDEX IF NOT EXISTS idx_team_wfh_change_requests_requester ON team_wfh_change_requests (team_id, requester_email);
+CREATE INDEX IF NOT EXISTS idx_team_wfh_change_requests_schedule ON team_wfh_change_requests (schedule_id);
+CREATE INDEX IF NOT EXISTS idx_team_wfh_change_requests_requested_date ON team_wfh_change_requests (team_id, requested_date);
+
+DROP TRIGGER IF EXISTS trg_team_wfh_change_requests_updated_at ON team_wfh_change_requests;
+CREATE TRIGGER trg_team_wfh_change_requests_updated_at
+BEFORE UPDATE ON team_wfh_change_requests
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TABLE IF NOT EXISTS schema_info (
+  id SERIAL PRIMARY KEY,
+  version INTEGER NOT NULL,
+  app_version VARCHAR(50),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_by VARCHAR(255)
+);
+
+INSERT INTO schema_info (id, version, app_version, updated_by)
+VALUES (1, 2, 'manual', current_user)
+ON CONFLICT (id) DO UPDATE SET
+  version = GREATEST(schema_info.version, EXCLUDED.version),
+  updated_at = NOW(),
+  updated_by = current_user;
+
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by)
+VALUES ('0017-create-team-calendar-wfh', current_user)
+ON CONFLICT (id) DO NOTHING;
+
+
+
+-- Migration: 0018-add-team-task-status-check
+-- Description: Add allowed status constraint for team tasks including backlog
+
+SET search_path TO workspace_organizer, public;
+
+ALTER TABLE team_tasks DROP CONSTRAINT IF EXISTS team_tasks_status_check;
+ALTER TABLE team_tasks
+ADD CONSTRAINT team_tasks_status_check
+CHECK (status IN ('pending', 'in_progress', 'completed', 'cancelled', 'backlog')) NOT VALID;
+
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by)
+VALUES ('0018-add-team-task-status-check', current_user)
+ON CONFLICT (id) DO NOTHING;
+
+
+
+-- Migration: 0019-create-checklist-templates
+-- Description: Create team-scoped checklist template registry
+
+SET search_path TO workspace_organizer, public;
+
+CREATE TABLE IF NOT EXISTS checklist_templates (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT FALSE,
+  created_by_email VARCHAR(255),
+  updated_by_email VARCHAR(255),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS checklist_template_versions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  template_id UUID NOT NULL REFERENCES checklist_templates(id) ON DELETE CASCADE,
+  version_label VARCHAR(255) NOT NULL,
+  original_filename VARCHAR(255) NOT NULL,
+  mime_type VARCHAR(255) NOT NULL,
+  size_bytes BIGINT NOT NULL,
+  checksum_sha256 VARCHAR(64) NOT NULL,
+  xlsx_blob BYTEA NOT NULL,
+  mapping_json JSONB,
+  mapping_status VARCHAR(32) NOT NULL DEFAULT 'pending' CHECK (mapping_status IN ('pending', 'parsed', 'failed')),
+  is_active BOOLEAN NOT NULL DEFAULT FALSE,
+  uploaded_by_email VARCHAR(255),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_checklist_templates_team ON checklist_templates (team_id);
+CREATE INDEX IF NOT EXISTS idx_checklist_template_versions_template ON checklist_template_versions (template_id);
+CREATE INDEX IF NOT EXISTS idx_checklist_template_versions_checksum ON checklist_template_versions (checksum_sha256);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_checklist_templates_one_active_per_team
+  ON checklist_templates (team_id)
+  WHERE is_active = TRUE;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_checklist_template_versions_one_active
+  ON checklist_template_versions (template_id)
+  WHERE is_active = TRUE;
+
+DROP TRIGGER IF EXISTS trg_checklist_templates_updated_at ON checklist_templates;
+CREATE TRIGGER trg_checklist_templates_updated_at
+BEFORE UPDATE ON checklist_templates
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by)
+VALUES ('0019-create-checklist-templates', current_user)
+ON CONFLICT (id) DO NOTHING;
+
+
+
+-- Migration: 0020-create-project-checklists
+-- Description: Create generated team project checklist tables
+
+SET search_path TO workspace_organizer, public;
+
+CREATE TABLE IF NOT EXISTS project_checklists (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  project_id UUID NOT NULL REFERENCES team_projects(id) ON DELETE CASCADE,
+  template_id UUID NOT NULL REFERENCES checklist_templates(id) ON DELETE RESTRICT,
+  template_version_id UUID NOT NULL REFERENCES checklist_template_versions(id) ON DELETE RESTRICT,
+  title VARCHAR(255) NOT NULL,
+  created_by_email VARCHAR(255),
+  updated_by_email VARCHAR(255),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS project_checklist_sections (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  checklist_id UUID NOT NULL REFERENCES project_checklists(id) ON DELETE CASCADE,
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  sort_order INTEGER NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS project_checklist_items (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  checklist_id UUID NOT NULL REFERENCES project_checklists(id) ON DELETE CASCADE,
+  section_id UUID NOT NULL REFERENCES project_checklist_sections(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT,
+  status VARCHAR(32) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed', 'blocked', 'not_applicable')),
+  owner VARCHAR(255),
+  notes TEXT,
+  evidence_url TEXT,
+  completed_by_email VARCHAR(255),
+  completed_at TIMESTAMP WITH TIME ZONE,
+  sort_order INTEGER NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_project_checklists_team_project ON project_checklists (team_id, project_id);
+CREATE INDEX IF NOT EXISTS idx_project_checklist_sections_checklist ON project_checklist_sections (checklist_id, sort_order);
+CREATE INDEX IF NOT EXISTS idx_project_checklist_items_checklist ON project_checklist_items (checklist_id, sort_order);
+CREATE INDEX IF NOT EXISTS idx_project_checklist_items_section ON project_checklist_items (section_id, sort_order);
+
+DROP TRIGGER IF EXISTS trg_project_checklists_updated_at ON project_checklists;
+CREATE TRIGGER trg_project_checklists_updated_at
+BEFORE UPDATE ON project_checklists
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS trg_project_checklist_items_updated_at ON project_checklist_items;
+CREATE TRIGGER trg_project_checklist_items_updated_at
+BEFORE UPDATE ON project_checklist_items
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by)
+VALUES ('0020-create-project-checklists', current_user)
+ON CONFLICT (id) DO NOTHING;
+
+
+
+-- Migration: 0021-add-checklist-sheet-row-fields
+-- Description: Add worksheet row fields to team project checklist items
+
+SET search_path TO workspace_organizer, public;
+
+ALTER TABLE project_checklist_items
+  ADD COLUMN IF NOT EXISTS group_title TEXT,
+  ADD COLUMN IF NOT EXISTS planned_date DATE,
+  ADD COLUMN IF NOT EXISTS planned_time VARCHAR(16),
+  ADD COLUMN IF NOT EXISTS location VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS pic VARCHAR(255);
+
+-- Record migration
+INSERT INTO workspace_organizer.migrations (id, executed_by)
+VALUES ('0021-add-checklist-sheet-row-fields', current_user)
+ON CONFLICT (id) DO NOTHING;
+
+
+
+-- ============================================================
+-- Schema Version: 5
+-- ============================================================
+
+-- Update or insert schema version
+INSERT INTO workspace_organizer.schema_info (version, app_version, updated_by)
+VALUES (5, 'manual', current_user)
+ON CONFLICT (id) DO UPDATE SET
+  version = 5,
+  updated_at = NOW(),
+  updated_by = current_user;
