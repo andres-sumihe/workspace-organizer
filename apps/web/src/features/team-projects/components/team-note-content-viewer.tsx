@@ -67,7 +67,7 @@ export function TeamNoteContentViewer({ note, onEdit, onDelete, teamId, projectI
     {
       extensions: [
         StarterKit.configure({ codeBlock: false }),
-        TiptapMarkdown.configure({ html: false, linkify: true }),
+        TiptapMarkdown.configure({ html: true, linkify: true }),
         MarkdownBlockImage.configure({ inline: false }),
         TaskList,
         TaskItem.configure({ nested: true }),

@@ -276,7 +276,7 @@ export function TeamNoteEditor({ note, teamId, projectId, onSave, onClose, colla
         ...(isCollaborative ? { undoRedo: false } : {}),
       }),
       TiptapMarkdown.configure({
-        html: false,
+        html: true,
         linkify: true,
         breaks: true,
         transformPastedText: true,

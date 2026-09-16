@@ -86,7 +86,7 @@ export function NoteViewer({ note, onEdit, onDelete, onPopout, isPipEditing, isP
       StarterKit.configure({
         codeBlock: false,
       }),
-      TiptapMarkdown.configure({ html: false, linkify: true }),
+      TiptapMarkdown.configure({ html: true, linkify: true }),
       MarkdownBlockImage.configure({ inline: false }),
       TaskList,
       TaskItem.configure({ nested: true }),
