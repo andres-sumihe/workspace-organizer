@@ -6,6 +6,7 @@ import { authMiddleware } from '../../middleware/auth.middleware.js';
 import { validate } from '../../middleware/validate.middleware.js';
 import { loginSchema, refreshTokenSchema, changePasswordSchema, resetPasswordWithKeySchema, deleteAccountSchema } from '../../schemas/auth.schema.js';
 import { attestationService } from '../../services/attestation.service.js';
+import { credentialsService } from '../../services/credentials.service.js';
 import { modeService } from '../../services/mode.service.js';
 import { sessionService } from '../../services/session.service.js';
 
@@ -50,6 +51,7 @@ authRouter.post('/login', validate(loginSchema), async (req: Request, res: Respo
  */
 authRouter.post('/logout', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
+    credentialsService.lockVault();
     const body = req.body as { refreshToken?: string };
 
     if (body.refreshToken) {

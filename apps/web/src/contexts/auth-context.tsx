@@ -5,6 +5,7 @@ import type { LoginRequest, Permission, UserWithRoles, AppMode, SessionConfig } 
 import type { ReactNode } from 'react';
 
 import { onAuthError } from '@/api/client';
+import { queryClient } from '@/lib/query-client';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -305,6 +306,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Logout request failed:', error);
     } finally {
       clearTokens();
+      queryClient.clear();
       setState({
         user: null,
         permissions: [],
