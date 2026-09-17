@@ -1,6 +1,7 @@
 import { AlertCircle, FolderOpen, Trash } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { toast } from 'sonner';
 
 import { DeleteConfirmDialog } from './delete-confirm-dialog';
@@ -691,12 +692,6 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath, highlightPath }
     [getEffectiveRootPath]
   );
 
-  const previewColumnRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!preview && !binaryPreview && !mediaPreview) return;
-    previewColumnRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, [preview, binaryPreview, mediaPreview]);
-
   // ─────────────────────────────────────────────────────────────────────────
   // Render guards
   // ─────────────────────────────────────────────────────────────────────────
@@ -718,12 +713,12 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath, highlightPath }
   // ─────────────────────────────────────────────────────────────────────────
   
   return (
-    <div className="space-y-4">
+    <div className="flex h-full min-h-0 flex-col gap-4">
       {/* Status messages */}
       {directoryError ? <div className="text-sm text-destructive">Error: {directoryError}</div> : null}
 
       {/* Toolbar */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         {customRootPath ? (
            <div className="text-sm font-medium text-muted-foreground flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-md border">
               <FolderOpen className="h-4 w-4" />
@@ -775,8 +770,9 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath, highlightPath }
           <p>Select a project from the dropdown to browse its files.</p>
         </div>
       ) : (
-        <div className="grid gap-4 @3xl/content:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-          <div className="min-w-0">
+        <PanelGroup direction="horizontal" autoSaveId="files-tab-split" className="min-h-0 flex-1">
+          <Panel defaultSize={40} minSize={25}>
+          <div className="flex h-full min-w-0 flex-col">
             <DirectoryBrowser
               ref={directoryBrowserRef}
               breadcrumbs={breadcrumbs}
@@ -806,8 +802,10 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath, highlightPath }
               loading={directoryLoading}
             />
           </div>
-
-          <div ref={previewColumnRef} className="min-w-0">
+          </Panel>
+          <PanelResizeHandle className="mx-1 w-1 rounded-full transition-colors hover:bg-primary/60 data-[resize-handle-state=drag]:bg-primary" />
+          <Panel defaultSize={60} minSize={30}>
+          <div className="flex h-full min-w-0 flex-col">
             <PreviewPanel
               preview={preview}
               previewError={previewError}
@@ -826,7 +824,8 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath, highlightPath }
               mediaType={mediaType}
             />
           </div>
-        </div>
+          </Panel>
+        </PanelGroup>
       )}
 
       {/* Dialogs */}

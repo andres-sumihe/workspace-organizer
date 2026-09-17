@@ -194,7 +194,7 @@ const DirectoryBrowserComponent = forwardRef<DirectoryBrowserHandle, DirectoryBr
 
   return (
     <div
-      className="relative rounded-lg border border-border"
+      className="@container relative flex min-h-0 flex-1 flex-col rounded-lg border border-border"
       onDragOver={handleDragOver}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
@@ -207,7 +207,7 @@ const DirectoryBrowserComponent = forwardRef<DirectoryBrowserHandle, DirectoryBr
           <span className="text-sm font-medium text-primary">Drop files here to import</span>
         </div>
       ) : null}
-      <div className="border-b border-border px-4 py-3">
+      <div className="shrink-0 border-b border-border px-3 py-2">
         <div className="flex items-center gap-1 text-sm text-muted-foreground">
           {breadcrumbs.map((crumb, index) => (
             <button
@@ -223,7 +223,7 @@ const DirectoryBrowserComponent = forwardRef<DirectoryBrowserHandle, DirectoryBr
           ))}
         </div>
       </div>
-      <ScrollArea className="h-[480px]">
+      <ScrollArea className="min-h-0 flex-1">
         <div className="overflow-x-auto">
           <table className="w-full table-fixed divide-y divide-border text-sm">
             <thead className="bg-muted/40">
@@ -231,9 +231,9 @@ const DirectoryBrowserComponent = forwardRef<DirectoryBrowserHandle, DirectoryBr
                 <th className="pl-2 py-2 text-left font-medium text-muted-foreground w-6">
                   <Checkbox checked={headerState} onCheckedChange={onToggleAllSelections} />
                 </th>
-                <th className="pl-2 pr-4 py-2 text-left font-medium text-muted-foreground w-[65%]">Name</th>
-                <th className="px-4 py-2 text-right font-medium text-muted-foreground w-[15%]">Size</th>
-                <th className="px-4 py-2 text-left font-medium text-muted-foreground w-[30%]">Modified</th>
+                <th className="pl-2 pr-4 py-2 text-left font-medium text-muted-foreground">Name</th>
+                <th className="hidden w-24 px-4 py-2 text-right font-medium text-muted-foreground @sm:table-cell">Size</th>
+                <th className="hidden w-44 px-4 py-2 text-left font-medium text-muted-foreground @lg:table-cell">Modified</th>
               </tr>
             </thead>
             <tbody ref={tableRef} className="divide-y divide-border">
@@ -245,7 +245,7 @@ const DirectoryBrowserComponent = forwardRef<DirectoryBrowserHandle, DirectoryBr
                     data-path={entry.type === 'file' ? entry.path : undefined}
                     className="hover:bg-muted/30 transition-colors duration-150 data-[active=true]:bg-primary/10"
                   >
-                    <td className="pl-2 py-2">
+                    <td className="pl-2 py-1.5">
                       {entry.type === 'file' ? (
                         <Checkbox
                           checked={selectedFiles.has(entry.path)}
@@ -254,7 +254,7 @@ const DirectoryBrowserComponent = forwardRef<DirectoryBrowserHandle, DirectoryBr
                         />
                       ) : null}
                     </td>
-                    <td className="pl-2 py-2">
+                    <td className="pl-2 py-1.5">
                       <FileContextMenu
                         entryPath={entry.path}
                         entryType={entry.type as 'file' | 'directory'}
@@ -309,11 +309,11 @@ const DirectoryBrowserComponent = forwardRef<DirectoryBrowserHandle, DirectoryBr
                         </div>
                       </FileContextMenu>
                     </td>
-                    <td className="px-4 py-2 text-muted-foreground text-right truncate">
+                    <td className="hidden truncate px-4 py-1.5 text-right text-xs text-muted-foreground @sm:table-cell">
                       {entry.size !== null ? `${(entry.size / 1024).toFixed(1)} KB` : '—'}
                     </td>
-                    <td className="px-4 py-2 text-muted-foreground truncate" title={new Date(entry.modifiedAt).toLocaleString()}>
-                      {new Date(entry.modifiedAt).toLocaleString()}
+                    <td className="hidden truncate px-4 py-1.5 text-xs text-muted-foreground @lg:table-cell" title={new Date(entry.modifiedAt).toLocaleString()}>
+                      {new Date(entry.modifiedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
                     </td>
                   </tr>
                 );

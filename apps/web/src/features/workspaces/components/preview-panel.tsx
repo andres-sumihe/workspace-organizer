@@ -250,7 +250,7 @@ export const PreviewPanel = ({
   }, [validationEnabled, preview, binaryPreview, editMode, editBuffer, criteria, isMTEnabled, mtCriteria]);
 
   return (
-    <div className="rounded-lg border border-border overflow-hidden flex flex-col">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border">
       <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border bg-muted/30">
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-muted-foreground">File Preview</span>
@@ -337,14 +337,14 @@ export const PreviewPanel = ({
                 <img
                   src={`data:${mediaPreview.mimeType};base64,${mediaPreview.base64}`}
                   alt={mediaPreview.path}
-                  className="max-w-full max-h-[500px] object-contain rounded shadow-md"
+                  className="max-w-full max-h-full object-contain rounded shadow-md"
                 />
               )}
               {mediaType === 'video' && (
                 <video
                   src={`data:${mediaPreview.mimeType};base64,${mediaPreview.base64}`}
                   controls
-                  className="max-w-full max-h-[500px] rounded shadow-md"
+                  className="max-w-full max-h-full rounded shadow-md"
                 >
                   Your browser does not support the video tag.
                 </video>
@@ -364,7 +364,7 @@ export const PreviewPanel = ({
               {mediaType === 'pdf' && (
                 <iframe
                   src={`data:${mediaPreview.mimeType};base64,${mediaPreview.base64}`}
-                  className="w-full h-[500px] rounded shadow-md"
+                  className="w-full h-full rounded shadow-md"
                   title={mediaPreview.path}
                 />
               )}
@@ -380,7 +380,7 @@ export const PreviewPanel = ({
                 </div>
               )}
             </div>
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-hidden">
               {binaryPreview ? (
                 <div className="h-full flex items-center justify-center">
                   <p className="text-xs text-muted-foreground">
@@ -388,7 +388,7 @@ export const PreviewPanel = ({
                   </p>
                 </div>
               ) : editMode ? (
-                <div className="relative h-[500px]">
+                <div className="relative h-full">
                   {searchOpen && (
                     <ContentSearchBar
                       ref={searchInputRef}
@@ -405,7 +405,7 @@ export const PreviewPanel = ({
                   )}
                   <CodeMirror
                     value={editBuffer}
-                    height="500px"
+                    height="100%"
                     extensions={extensions}
                     onChange={onEditBufferChange}
                     theme={editorTheme}
@@ -430,13 +430,13 @@ export const PreviewPanel = ({
                   />
                 </div>
               ) : previewMode === 'hex' ? (
-                <div className="h-[500px] overflow-auto">
+                <div className="h-full overflow-auto">
                   <pre className="whitespace-pre text-xs text-foreground font-mono p-3">
                     {toHex(preview.content)}
                   </pre>
                 </div>
               ) : (
-                <div className="relative h-[500px]">
+                <div className="relative h-full">
                   {searchOpen && (
                     <ContentSearchBar
                       ref={searchInputRef}
@@ -453,7 +453,7 @@ export const PreviewPanel = ({
                   )}
                   <CodeMirror
                     value={preview.content}
-                    height="500px"
+                    height="100%"
                     extensions={extensions}
                     editable={false}
                     theme={editorTheme}

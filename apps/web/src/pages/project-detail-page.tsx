@@ -987,7 +987,7 @@ export function ProjectDetailPage() {
           </TabsContent>
 
           {/* Files Tab */}
-          <TabsContent value="files" className="flex-1 m-0 min-h-0 h-full overflow-auto p-6">
+          <TabsContent value="files" className="flex-1 m-0 min-h-0 h-full overflow-hidden p-6 flex flex-col">
             {(project.linkedWorkspace || project.folderPath) ? (
               <WorkspaceFilesTab 
                 workspaceId={project.linkedWorkspace?.id ?? 'standalone'} 
