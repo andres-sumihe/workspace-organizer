@@ -406,6 +406,7 @@ export const PreviewPanel = ({
                   <CodeMirror
                     value={editBuffer}
                     height="100%"
+                    className="h-full"
                     extensions={extensions}
                     onChange={onEditBufferChange}
                     theme={editorTheme}
@@ -454,6 +455,7 @@ export const PreviewPanel = ({
                   <CodeMirror
                     value={preview.content}
                     height="100%"
+                    className="h-full"
                     extensions={extensions}
                     editable={false}
                     theme={editorTheme}
