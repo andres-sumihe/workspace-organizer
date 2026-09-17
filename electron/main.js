@@ -76,6 +76,9 @@ function buildAppMenu(win) {
     };
   });
 
+  // macOS only routes Cmd+C/V/X/A to the page through menu roles
+  template.splice(1, 0, { role: 'editMenu' });
+
   // Add standard macOS app menu on Mac to keep native behaviors
   if (platformIsMac) {
     template.unshift({
