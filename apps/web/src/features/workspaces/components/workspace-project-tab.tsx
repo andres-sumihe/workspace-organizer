@@ -691,6 +691,12 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath, highlightPath }
     [getEffectiveRootPath]
   );
 
+  const previewColumnRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!preview && !binaryPreview && !mediaPreview) return;
+    previewColumnRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [preview, binaryPreview, mediaPreview]);
+
   // ─────────────────────────────────────────────────────────────────────────
   // Render guards
   // ─────────────────────────────────────────────────────────────────────────
@@ -711,12 +717,6 @@ export const WorkspaceFilesTab = ({ workspaceId, customRootPath, highlightPath }
   // Main render
   // ─────────────────────────────────────────────────────────────────────────
   
-  const previewColumnRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!preview && !binaryPreview && !mediaPreview) return;
-    previewColumnRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, [preview, binaryPreview, mediaPreview]);
-
   return (
     <div className="space-y-4">
       {/* Status messages */}
