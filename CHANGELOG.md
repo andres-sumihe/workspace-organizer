@@ -5,16 +5,59 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0]
+
+##Added
+- Project Checklist feature (9da2961, upstream)
+- Unpack transfer payloads, including binary files (a7fc2d3, upstream)
+- Files tab: resizable side-by-side browser/preview split, VS Code style, full pane height; sizes persist (e9c198f)
+- Journal: Copy standup button generates a standup summary to the clipboard (e0ee165)
+- Journal: unfinished tasks auto-roll over to today on app start (5c39522)
+- Command palette quick actions: copy standup, open journal, toggle theme, lock vault, settings (cd65a6a)
+- In-app confirm dialog replaces every window.confirm (1c473da)
+- Dashboard: stat strip, full-width heatmap, shared page header, empty states (43f3ecd)
+- Vault: show/hide toggle for secrets in the credential form (d744ff7)
+- Edit menu in the Electron app so Cmd+C/V/X/A work on macOS (5c9a407)
+- Dev tooling: graphify and context-mode hooks (41949c4, upstream)
+
+## Changed
+- New "precision" dark-first theme, Geist type, restyled primitives and shell (15a11e3); hardcoded Tailwind colors mapped to theme tokens (d6872e9)
+- Idle guard sends a silent F15 key press instead of jiggling the mouse (3595086), interval reduced to 15 s (af2c304, upstream)
+- Login page logo mark, themed lock screen, calmer toast wording on auth and team pages (98a35ed, 6a3cb14)
+- Journal card project label is truncated with a tooltip (adf4658, upstream)
+- App icon set regenerated from the monogram SVG (ece087f)
+- Files tab table columns hide Size/Modified as the pane narrows (part of e9c198f)
+
+## Fixed
+- Files tab crashed with "Rendered more hooks than during the previous render" (5d3f767)
+- File preview editor could not scroll (8c965e7); preview went side-by-side from 768px and scrolled into view (5b48f92)
+- Copy/paste dead in the app on macOS (5c9a407 ‚Äî list under Added or Fixed, your call)
+- Due date still showed when an Actual End Date was set (1abddc9, upstream)
+- Markdown viewers render an HTML fallback so complex tables display on Windows (6146586)
+- Base salary double-saved on the overtime page; tools settings cache now invalidated (e250dc6)
+- Cmd+B sidebar toggle fired inside editable fields and interrupted note editing (ceaf046)
+- Vault stayed unlocked and query cache persisted after logout (5512e0d)
+- Team shared DB showed disconnected: init.sql regenerated, realtime services start on connect (992d66b)
+- Workspace description dropped from summary and edit form (32aa5dc)
+- Session heartbeat records activity by user id, so auto-lock no longer fires during active use (f881f6b)
+- Edit dialog on the project detail page opens in place instead of navigating away (4f6cf3b)
+- Team badge overlapped the Teams chevron in the sidebar (a719b20)
+- Missing gap between stacked labels and their fields across forms (dc72a7a)
+
+## Removed
+- Unused database file (09ee46a, upstream)
+
+
 ## [0.4.5]
 
-# Added
+## Added
 - Added Multiple Week support on Journal report and now task can be mark as "Reported"
 - Added Calendar with WFH and Holiday schedule, Teams Settings and change request for WFH schedule
 - Added Keep Awake feature to keep your screen awake
 - Added Global Search utility, now you can search almost anything on the app
 - Added Backlog on Project task and Journal
 
-# Fixed
+## Fixed
 - Fix auto-update being disabled but there is no way to update the app
 
 ## [0.4.4]
