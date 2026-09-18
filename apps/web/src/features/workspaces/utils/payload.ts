@@ -238,6 +238,7 @@ export interface ExtractedFile {
   file: File;
   hashMatches: boolean;
   fileName: string;
+  base64Data: string; // Original base64 from payload, avoids re-encoding
 }
 
 /**
@@ -270,7 +271,7 @@ export async function extractTransferFiles(payload: FileTransferPayload): Promis
       type: 'application/octet-stream'
     });
 
-    results.push({ file, hashMatches, fileName: fileEntry.fileName });
+    results.push({ file, hashMatches, fileName: fileEntry.fileName, base64Data: fileEntry.data });
   }
 
   return results;

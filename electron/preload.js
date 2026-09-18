@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('api', {
   splitTextFile: (payload) => ipcRenderer.invoke('workspace:split-text', payload),
   createDirectory: (payload) => ipcRenderer.invoke('workspace:create-dir', payload),
   writeTextFile: (payload) => ipcRenderer.invoke('workspace:write-text', payload),
+  writeBinaryFile: (payload) => ipcRenderer.invoke('workspace:write-binary', payload),
   renameEntry: (payload) => ipcRenderer.invoke('workspace:rename', payload),
   deleteEntries: (payload) => ipcRenderer.invoke('workspace:delete', payload),
   copyEntries: (payload) => ipcRenderer.invoke('workspace:copy', payload),

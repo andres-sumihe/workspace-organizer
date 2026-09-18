@@ -46,3 +46,7 @@ scripts/Activate-LocalNode.ps1
 scripts/setup-local-node.js
 .node-local
 .yarnrc.yml
+
+graphify-out
+.github/context-mode
+.codentic

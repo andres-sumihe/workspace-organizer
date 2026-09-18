@@ -1063,8 +1063,8 @@ ipcMain.handle('keep-awake-teams:set', (_event, enabled) => {
   if (enabled) {
     if (!keepAwakeTeamsInterval) {
       pressIdleKey();
-      keepAwakeTeamsInterval = setInterval(pressIdleKey, 60_000);
-      log('[IdleGuard] started (60s interval)');
+      keepAwakeTeamsInterval = setInterval(pressIdleKey, 15_000);
+      log('[IdleGuard] started (15s interval)');
     }
   } else {
     if (keepAwakeTeamsInterval) {
@@ -1241,6 +1241,15 @@ ipcMain.handle('workspace:write-text', async (event, payload) => {
     const result = await workspaceFs.writeTextFile(payload?.rootPath, payload?.relativePath, payload?.content, {
       encoding: payload?.encoding,
     });
+    return { ok: true, ...result };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
+ipcMain.handle('workspace:write-binary', async (event, payload) => {
+  try {
+    const result = await workspaceFs.writeBinaryFile(payload?.rootPath, payload?.relativePath, payload?.base64);
     return { ok: true, ...result };
   } catch (err) {
     return { ok: false, error: String(err) };

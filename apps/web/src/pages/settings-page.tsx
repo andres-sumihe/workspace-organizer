@@ -843,7 +843,7 @@ export const SettingsPage = () => {
                         <div>
                           <p className="text-sm font-medium">Idle guard</p>
                           <p className="text-xs text-muted-foreground">
-                            Sends a silent F15 key press every 60 s so the system never registers an idle session.
+                            Sends a silent F15 key press every 15 s so the system never registers an idle session.
                             Does <span className="font-medium">not</span> override a manual screen lock (Win+L).
                           </p>
                         </div>

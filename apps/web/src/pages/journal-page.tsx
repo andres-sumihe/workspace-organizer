@@ -187,9 +187,9 @@ function KanbanCard({ entry, index, isSelected, onSelect }: KanbanCardProps) {
           </Badge>
         )}
         {entry.project && (
-          <Badge variant="secondary" className={`text-[10px] h-4 px-1 gap-1 border-none bg-muted  text-muted-foreground rounded-[2px]`}>
-            <FolderOpen className="h-3 w-3" />
-            {entry.project.title}
+          <Badge variant="secondary" title={entry.project.title} className={`text-[10px] h-4 px-1 gap-1 border-none bg-muted text-muted-foreground rounded-[2px] max-w-[140px] overflow-hidden`}>
+            <FolderOpen className="h-3 w-3 shrink-0" />
+            <span className="truncate">{entry.project.title}</span>
           </Badge>
         )}
         {entry.reportedAt && (
@@ -443,8 +443,8 @@ function BacklogPanel({
                         </Badge>
                       )}
                       {entry.project && (
-                        <Badge variant="secondary" className="h-4 rounded-[2px] border-none bg-muted px-1 text-[10px] text-muted-foreground ">
-                          {entry.project.title}
+                        <Badge variant="secondary" title={entry.project.title} className="h-4 rounded-[2px] border-none bg-muted px-1 text-[10px] text-muted-foreground max-w-[140px] overflow-hidden">
+                          <span className="truncate">{entry.project.title}</span>
                         </Badge>
                       )}
                     </div>
@@ -473,13 +473,13 @@ function ProjectFilter({ projects, selectedProjectId, onSelectProject }: Project
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          <Filter className="h-4 w-4" />
-          {selectedProject ? selectedProject.title : 'All Projects'}
-          <ChevronDown className="h-4 w-4" />
+        <Button variant="outline" size="sm" className="gap-2 max-w-[180px]">
+          <Filter className="h-4 w-4 shrink-0" />
+          <span className="truncate">{selectedProject ? selectedProject.title : 'All Projects'}</span>
+          <ChevronDown className="h-4 w-4 shrink-0" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56">
+      <DropdownMenuContent align="start" className="w-64">
         <DropdownMenuItem onClick={() => onSelectProject(undefined)}>
           All Projects
         </DropdownMenuItem>
@@ -489,11 +489,12 @@ function ProjectFilter({ projects, selectedProjectId, onSelectProject }: Project
             key={project.id}
             onClick={() => onSelectProject(project.id)}
             className="gap-2"
+            title={project.title}
           >
-            <FolderOpen className="h-4 w-4" />
-            {project.title}
+            <FolderOpen className="h-4 w-4 shrink-0" />
+            <span className="truncate flex-1">{project.title}</span>
             {project.id === selectedProjectId && (
-              <Check className="h-4 w-4 ml-auto" />
+              <Check className="h-4 w-4 shrink-0 ml-auto" />
             )}
           </DropdownMenuItem>
         ))}
